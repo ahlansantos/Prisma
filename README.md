@@ -1,20 +1,39 @@
 # Prisma
 
-Native Apple Silicon Metal voxel shader engine for Minecraft and Sodium.
+> [!WARNING]
+> 0.1.4-A is going to take a bit longer to release because I switched the Legacy Metal Voxel Engine for an REAL Ray Traced Engine using the `MTLAccelerationStructure` | Also, this readme is kinda broken and a bit unreadable.
 
-Prisma renders real-time lighting, analytical voxel shadows, and reflections directly through native Apple Metal pipelines (MSL), delivering 60+ FPS on base M-series Macs without the overhead of OpenGL compatibility layers.
+Native Apple Silicon Metal Ray Traced engine for Minecraft and Sodium.
 
-## Performance Benchmark
+Prisma now renders two different engines:
+- The optional Legacy Voxel Engne with real-time lighting, analytical voxel shadows, and reflections directly through native Apple Metal pipelines (MSL), delivering 60+ FPS on base M-series Macs without the overhead of OpenGL compatibility layers.
+- The newer RT Cores Accelerated (M3+) / Simulated (M1-M2) with real-time Ray Traced shadows without bugs (Like the LVE Glitchy mob shadows), and better reflections using PURE Metal Ray Tracing.
 
-- **Platform**: Apple Silicon Mac (Base Apple M1, 8GB / 16GB)
+## Performance Benchmark (Legacy Voxel Engine)
+
+- **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
 - **Resolution**: 1650 x 1050
 - **Settings**: 16 Render Distance chunks, 2 Voxelized Chunks (64x64 horizontal radius), Double AO enabled, dynamic shadows active
 - **Framerate**: **60 FPS stable**
+
+## Performance Benchmark (Ray Traced Engine)
+
+- **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
+- **Resolution**: 1650 x 1050
+- **Settings**: 12 Render Distance chunks, 6 Software Accelerated BVH Chunks, RTGI Enabled, dynamic shadows active
+- **Framerate**: **Playable - 45-55 FPS**
 
 ---
 
 ## Features
 
+- **Real Time Ray Traced Shadows**
+  - Real-time Terrain, Mobs and Player shadows using the new Ray Traced engine with BVHs. 
+- **Ray Traced Global Illumination**
+<details>
+  <summary><b>Legacy Voxel Engine Features</b></summary>
+
+  
 - **Ray-OBB Entity Shadows (Beta)**:
   - Real-time analytical 3D ray-traced shadows for the player model (head, torso, arms, legs) with realistic proportions and animations (walking limb swing, crouch forward pitch, head yaw/pitch).
   - Analytical Ray-OBB shadows for key world mobs (Cows, Pigs, Chickens, Skeletons, Zombies, Drowned with swimming poses, Witches, Villagers, Cats, Wolves, and Spiders) with synchronized limb movements and head tracking.
@@ -36,6 +55,7 @@ Prisma renders real-time lighting, analytical voxel shadows, and reflections dir
 - **Settings Rework**:
   - Cleanly integrated into Sodium Video Settings (`Video Settings -> Prisma`).
   - Categorized into intuitive tabs: *Lighting & Shadows*, *Water & Fluids*, *Diagnostics & Debug*.
+</details>
 
 ---
 
