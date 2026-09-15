@@ -61,8 +61,10 @@ Prisma now renders two different engines:
 
 ## Technical Limitations (Beta)
 
-As Prisma is currently in Beta (v0.1.3-B), please keep the following limitations in mind:
+<details>
+  <summary><b>Legacy Voxel Engine Limitations</b></summary>
 
+As Prisma is currently in Beta (v0.1.3-B), please keep the following limitations in mind:
 1. **Entity Whitelist for Ray-OBB**:
    - Analytical multi-box ray tracing is currently implemented for the Player and 11 primary terrestrial/aquatic mobs (Zombies, Skeletons, Drowned, Witches, Villagers, Cows, Pigs, Chickens, Cats, Wolves, Spiders).
    - Other mobs (such as horses, iron golems, or endermen) are rendered with approximate bounding shapes until their specific bone hierarchies are added.
@@ -73,6 +75,7 @@ As Prisma is currently in Beta (v0.1.3-B), please keep the following limitations
    - Voxelization operates within an active radius around the camera (configurable, default 2 chunks / 64 voxels). Terrain beyond the voxel radius reflects sky and ambient light rather than discrete voxel geometry.
 4. **Hardware Scope**:
    - Specifically optimized for macOS with Apple Silicon (M1, M2, M3, M4). Intel Macs and non-Apple platforms are not supported.
+</details>
 
 ---
 
