@@ -1,81 +1,52 @@
-# Prisma
+# Prisma RT
 
-> [!WARNING]
-> 0.1.4-A is going to take a bit longer to release because I switched the Legacy Metal Voxel Engine for an REAL Ray Traced Engine using the `MTLAccelerationStructure` | Also, this readme is kinda broken and a bit unreadable.
+> [!IMPORTANT]
+> **The Legacy VRTE (Voxel Ray Tracing Engine) is DEAD.** 
+> Starting with 0.2.0RT-Alpha (codename Yeezus), Prisma has been completely rewritten from the ground up to use **Pure Native Hardware Ray Tracing** via Apple Metal's `MTLAccelerationStructure`.
 
-Native Apple Silicon Metal Ray Traced engine for Minecraft and Sodium.
+Native Apple Silicon Metal Ray Traced engine for Minecraft and Sodium. Prisma injects real-time lighting, analytical shadows, and ray-marched reflections directly into the Metal pipelines using MSL, completely bypassing OpenGL compatibility layers.
 
-Prisma now renders two different engines:
-- The optional Legacy Voxel Engne with real-time lighting, analytical voxel shadows, and reflections directly through native Apple Metal pipelines (MSL), delivering 60+ FPS on base M-series Macs without the overhead of OpenGL compatibility layers.
-- The newer RT Cores Accelerated (M3+) / Simulated (M1-M2) with real-time Ray Traced shadows without bugs (Like the LVE Glitchy mob shadows), and better reflections using PURE Metal Ray Tracing.
-
-## Performance Benchmark (Legacy Voxel Engine)
-
-- **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
-- **Resolution**: 1650 x 1050
-- **Settings**: 16 Render Distance chunks, 2 Voxelized Chunks (64x64 horizontal radius), Double AO enabled, dynamic shadows active
-- **Framerate**: **60 FPS stable**
-
-## Performance Benchmark (Ray Traced Engine)
-
-- **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
-- **Resolution**: 1650 x 1050
-- **Settings**: 12 Render Distance chunks, 6 Software Accelerated BVH Chunks, RTGI Enabled, dynamic shadows active
-- **Framerate**: **Playable - 45-55 FPS**
+By utilizing hardware Ray Tracing Cores on M3+ (and highly optimized simulated RT compute pipelines on M1/M2), Prisma delivers real-time BVH tracing for gorgeous lighting and shadows tailored exactly for Apple Silicon.
 
 ---
 
 ## Features
 
-- **Real Time Ray Traced Shadows**
-  - Real-time Terrain, Mobs and Player shadows using the new Ray Traced engine with BVHs. 
-- **Ray Traced Global Illumination**
-<details>
-  <summary><b>Legacy Voxel Engine Features</b></summary>
-
-  
-- **Ray-OBB Entity Shadows (Beta)**:
-  - Real-time analytical 3D ray-traced shadows for the player model (head, torso, arms, legs) with realistic proportions and animations (walking limb swing, crouch forward pitch, head yaw/pitch).
-  - Analytical Ray-OBB shadows for key world mobs (Cows, Pigs, Chickens, Skeletons, Zombies, Drowned with swimming poses, Witches, Villagers, Cats, Wolves, and Spiders) with synchronized limb movements and head tracking.
-  - Seamless ground contact: eliminates artificial exclusion holes under feet and paws.
-- **Ray-Traced Foliage & Cutout Shadows**:
-  - Analytical and voxel ray tracing for cross-shaped plants and foliage (grass, tall flowers, fern, bamboo, sweet berry bushes, saplings).
-  - Alpha cutout sampling directly from the block texture atlas during ray marching, preserving exact foliage silhouettes and leaf patterns without rendering solid rectangular blocks.
-- **VXR (Voxel Reflections)**:
-  - Real-time 3D voxel ray-traced reflections on water and glossy surfaces sampling real block textures directly from the Minecraft texture atlas (pure voxel ray marching, no screen-space planar artifacts).
-  - Includes player and mob reflections with animated limbs and directional lighting.
-- **Double AO (Hybrid VXAO + SSAO)**:
-  - **VXAO (Voxel Ambient Occlusion)**: 3D volumetric occlusion computed against solid world geometry for deep, natural corner contact shadows.
-  - **SSAO (Screen-Space Ambient Occlusion)**: High-frequency sub-block occlusion specifically targeting non-solid blocks (stairs, slabs, trapdoors, fences, foliage) and dynamic entities, preventing flat shading.
-- **VPLS (Voxel Point Light Shadows)**:
-  - Dynamic point light shadows with soft contact penumbra for held and placed light sources (torches, lanterns, campfires, soul variants).
-  - Dynamic handheld light tracking with automatic self-shadow suppression.
-- **WaterWaves**:
-  - Trochoidal wave animation with physical slope lighting, specular highlights from both point lights and celestial bodies, and Fresnel reflection blending.
-- **Settings Rework**:
-  - Cleanly integrated into Sodium Video Settings (`Video Settings -> Prisma`).
-  - Categorized into intuitive tabs: *Lighting & Shadows*, *Water & Fluids*, *Diagnostics & Debug*.
-</details>
+- **Real-Time Hardware Ray-Traced Shadows**
+  - Accurate, real-time shadows cast across terrain and geometry using native Metal BVH structures.
+  - **Dynamic Penumbra:** Physically-based soft shadows that organically blur as the distance from the caster increases.
+  - Seamless, mathematical celestial crossfading between the Sun and Moon.
+- **Analytical Lighting Overhaul**
+  - Completely replaces vanilla Minecraft's blocky lightmaps with a smooth, hemispherical ambient sky light system. 
+  - Dynamic shading that respects surface normals and perfectly blends with the environment.
+- **Water Physics & Sky Reflections**
+  - Fully functional Trochoidal water waves reacting to real-time specular lighting.
+  - Pure sky and celestial body reflections on water surfaces.
+- **Sodium 1.20+ Integration**
+  - Tightly coupled with Sodium's chunk meshing and render passes to extract raw vertex data and build dynamic TLAS/BLAS without crushing the CPU.
 
 ---
 
-## Technical Limitations (Beta)
+## Performance Benchmark (M1)
 
-<details>
-  <summary><b>Legacy Voxel Engine Limitations</b></summary>
+Right now, Prisma builds its Ray Tracing BVH strictly from the visible chunks (piggybacking on Sodium's aggressive Frustum and Occlusion culling). While this saves memory, tracing rays natively per-pixel is computationally intensive.
 
-As Prisma is currently in Beta (v0.1.3-B), please keep the following limitations in mind:
-1. **Entity Whitelist for Ray-OBB**:
-   - Analytical multi-box ray tracing is currently implemented for the Player and 11 primary terrestrial/aquatic mobs (Zombies, Skeletons, Drowned, Witches, Villagers, Cows, Pigs, Chickens, Cats, Wolves, Spiders).
-   - Other mobs (such as horses, iron golems, or endermen) are rendered with approximate bounding shapes until their specific bone hierarchies are added.
-2. **Entity Reflection Textures**:
-   - Terrain blocks in reflections sample the full per-pixel texture atlas.
-   - Dynamic entities in water reflections currently use procedural, model-matched palette shading rather than per-entity skin texture maps.
-3. **Voxel Grid Scope**:
-   - Voxelization operates within an active radius around the camera (configurable, default 2 chunks / 64 voxels). Terrain beyond the voxel radius reflects sky and ambient light rather than discrete voxel geometry.
-4. **Hardware Scope**:
-   - Specifically optimized for macOS with Apple Silicon (M1, M2, M3, M4). Intel Macs and non-Apple platforms are not supported.
-</details>
+- **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
+- **Resolution**: 1650 x 1050
+- **Settings**: 2 Render Distance chunks, Ray Traced Directional Shadows, Water Waves.
+- **Framerate**: **Playable (35-55 FPS)**
+
+> [!TIP]
+> **Roadmap:** The upcoming integration of **MetalFX Spatial Upscaling** is expected to effectively double these framerates on base M-series Macs.
+
+---
+
+## Current Technical Limitations (Alpha)
+
+As Prisma is transitioning into its new Hardware RT architecture, please keep the following limitations in mind:
+1. **Frustum Culling Clipping:** The BVH currently relies on Sodium's visible chunk graph. Chunks immediately behind the player are culled by Sodium and are thus missing from the BVH, which can cause shadows cast from behind the camera to clip or disappear. (A global 360-degree BVH is planned for the future).
+2. **BVH Texturing (Alpha Testing):** Currently, transparent cutout blocks (like tall grass, flowers, saplings) cast solid rectangular shadows. Full intersection function mapping for BVH texture alpha-testing is actively in development.
+3. **Hardware Scope:** Specifically optimized for macOS with Apple Silicon (M1, M2, M3, M4). Intel Macs and non-Apple platforms are structurally incompatible and unsupported.
 
 ---
 
@@ -84,21 +55,21 @@ As Prisma is currently in Beta (v0.1.3-B), please keep the following limitations
 - **OS**: macOS 13 (Ventura) or newer
 - **Hardware**: Apple Silicon Mac (M1, M2, M3, M4)
 - **Minecraft**: 26.2
-- **Dependencies**: Fabric Loader 0.19+, Fabric API, Sodium
+- **Dependencies**: Fabric Loader 0.19.2+, Fabric API, Sodium 0.9.1+
 
 ---
 
 ## Installation
 
 1. Install Fabric Loader, Fabric API, and Sodium.
-2. Drop `prisma-0.1.3-B.jar` into your `.minecraft/mods` folder.
+2. Drop `prisma-0.2.0RT-Alpha.jar` into your `.minecraft/mods` folder.
 3. Launch Minecraft and adjust options under **Video Settings -> Prisma**.
 
 ---
 
 ## Availability
 
-Prisma is currently in Beta and closed source until version 1.0.0. Pre-compiled binaries are published on Modrinth and GitHub Releases. The project will transition to an open-source license upon reaching version 1.0.0.
+Prisma is currently in Alpha and closed source. Pre-compiled binaries are published on Modrinth and GitHub Releases. The project will transition to an open-source license upon reaching version 1.0.0.
 
 ---
 
