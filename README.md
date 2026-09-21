@@ -5,14 +5,15 @@
 
 Native Apple Silicon Metal voxel shader engine for Minecraft and Sodium.
 
-Prisma renders real-time lighting, analytical voxel shadows, and reflections directly through native Apple Metal pipelines (MSL), delivering 60+ FPS on base M-series Macs without the overhead of OpenGL compatibility layers.
+Prisma renders real-time lighting, analytical voxel shadows, and reflections directly through native Apple Metal pipelines (MSL), without the overhead of OpenGL compatibility layers.
 
 ## Performance Benchmark
 
 - **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
 - **Resolution**: 1650 x 1050
 - **Settings**: 10 Render Distance chunks, 10 Voxelized Chunks, Double AO enabled, dynamic shadows active
-- **Framerate**: **30 FPS stable**
+- **Open world**: ~**60 FPS**
+- **Heavy scenes** (lots of reflective surfaces and shadow casters): ~**30 FPS**
 
 ---
 
@@ -28,9 +29,13 @@ Prisma renders real-time lighting, analytical voxel shadows, and reflections dir
   - **VXAO (Voxel Ambient Occlusion)**: 3D volumetric occlusion computed for broad contact shadows.
   - **SSAO (Screen-Space Ambient Occlusion)**: High-frequency sub-block occlusion.
   - Both AO passes are completely unified on the same plane and apply dynamically across all geometry (solid blocks and foliage alike), smoothly blending together using organic mathematical overlapping.
-- **Initial Cinematic Pipeline (without a renderpass)**:
-  - **ACES Filmic Tonemapping**: High dynamic range, smooth highlight roll-offs, and true-to-life contrast curves.
-  - **Cinematic Post-Processing**: Includes subtle screen-edge vignetting and spatial noise dithering (Film Grain) to entirely break shadow color-banding and add a 35mm film feel.
+- **Post-Processing Pipeline (basic)**:
+  - A basic post-processing pipeline is already in place and running natively in MSL.
+  - **ACES Filmic Tonemapping**: Standard dynamic range, smooth highlight roll-offs, and true-to-life contrast curves.
+  - **Vignette**: Subtle screen-edge vignetting.
+  - **Dithering / Film Grain**: Very light spatial noise that breaks shadow color-banding and adds a hint of film feel.
+- **Light Transmission (translucent blocks)**:
+  - Correct light transmission through translucent blocks (such as stained glass). Water is planned to come next.
 - **VPLS (Voxel Point Light Shadows)**:
   - Dynamic point light shadows with soft contact penumbra for held and placed light sources (torches, lanterns, campfires, soul variants).
   - Dynamic handheld light tracking with automatic self-shadow suppression.
@@ -44,16 +49,18 @@ Prisma renders real-time lighting, analytical voxel shadows, and reflections dir
 
 ## Technical Limitations (Beta)
 
-As Prisma is currently in Stable-Beta (v0.2.0-hotfix), please keep the following limitations in mind:
+As Prisma is currently in Stable-Beta (v0.2.1-nightly), please keep the following limitations in mind:
 
 1. **Voxel Grid Scope**:
-  - Voxelization operates within an active radius around the camera (configurable, default 2 chunks / 64 voxels). Terrain beyond the voxel radius reflects sky and ambient light rather than discrete voxel geometry - and water only shows correct inside the Voxel Radius.
+- Voxelization operates within an active radius around the camera (configurable, default 2 chunks / 64 voxels). Terrain beyond the voxel radius reflects sky and ambient light rather than discrete voxel geometry - and water only shows correct inside the Voxel Radius.
 2. **Hardware Scope**:
-  - Specifically optimized for macOS with Apple Silicon (M1, M2, M3, M4). Non-Apple platforms are not supported, I don't know about Intel Macs!
+- Specifically optimized for macOS with Apple Silicon (M1, M2, M3, M4). Non-Apple platforms are not supported, I don't know about Intel Macs!
 3. **Mod Compatibility**:
-  - **Incompatible with OptiFine, Iris, or other rendering overhaul mods.** Prisma completely replaces the rendering pipeline via native Apple Metal APIs; attempting to run alongside other shader loaders or massive rendering patches will result in crashes or visual corruption.
-4. **Shadow Transmission**:
-  - Shadows currently do not support color transmission or soft fading through transparent surfaces (such as stained glass or deep water). They will cast solid or completely transparent shadows depending on the block type.
+- **Incompatible with OptiFine, Iris, or other rendering overhaul mods.** Prisma completely replaces the rendering pipeline via native Apple Metal APIs; attempting to run alongside other shader loaders or massive rendering patches will result in crashes or visual corruption.
+4. **Light Transmission**:
+- Correct light transmission only works through translucent blocks for now. Water does not transmit light correctly yet (planned).
+5. **Mob Lighting**:
+- Only sunlight illuminates mobs right now. Moonlight, point lights, handheld lights and other light sources do not light them yet. This will be fixed.
 
 ---
 
@@ -63,7 +70,8 @@ As Prisma is currently in Stable-Beta (v0.2.0-hotfix), please keep the following
 - **AMD FSR Support**: Integration of FidelityFX Super Resolution for improved visuals and framerates.
 - **FSR FrameGen**: Frame generation capabilities to dramatically push beyond 60 FPS.
 - **PBR Support (Physically Based Rendering)**: Normal maps, specular maps, and emission rendering utilizing LabPBR standard resource packs.
-- **Post-Processing Pipeline**: Advanced depth of field, bloom, motion blur, and color grading capabilities natively written in MSL.
+- **Water Light Transmission**: Correct light transmission through water.
+- **Advanced Post-Processing**: Depth of field, bloom, motion blur, and color grading on top of the current basic pipeline, natively written in MSL.
 
 ---
 
@@ -71,14 +79,16 @@ As Prisma is currently in Stable-Beta (v0.2.0-hotfix), please keep the following
 
 - **OS**: macOS 13 (Ventura) or newer
 - **Hardware**: Apple Silicon Mac (M1, M2, M3, M4)
-- **Minecraft**: 1.21.x
-- **Dependencies**: Fabric Loader 0.19+, Fabric API, Sodium
+- **Minecraft**: 26.2
+- **Java**: 25 or newer
+- **Dependencies**: Fabric Loader 0.19.2+, Sodium 0.9.1+ (required)
+- **Incompatible**: Iris and other shader/rendering mods (Prisma refuses to load alongside Iris)
 
 ---
 
 ## Installation
 
-1. Install Fabric Loader, Fabric API, and Sodium.
+1. Install Fabric Loader and Sodium.
 2. Drop `20092026-0.2.1-nightly` into your `.minecraft/mods` folder.
 3. Launch Minecraft and adjust options under **Video Settings -> Prisma**.
 
@@ -86,7 +96,7 @@ As Prisma is currently in Stable-Beta (v0.2.0-hotfix), please keep the following
 
 ## Availability
 
-Prisma will be officially **open-sourced starting from v1.0.0**!
+Nightly and stable builds are distributed on Discord first; this repository is licensed under MIT. The full open-source release is planned for **v1.0.0**.
 
 ---
 
