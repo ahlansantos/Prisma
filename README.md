@@ -36,7 +36,7 @@ Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 ## Requirements
 
 - **OS:** macOS 13 or newer
-- **Hardware:** Apple Silicon (M1, M2, M3, M4)
+- **Hardware:** Apple Silicon (M-Series)
 - **Minecraft:** 26.2 (Java 25+)
 - **Dependencies:** Fabric Loader 0.19.2+, Sodium 0.9.1+
 - **Incompatible:** Iris, OptiFine, or any other rendering mods (Prisma entirely replaces the rendering pipeline).
@@ -55,7 +55,8 @@ Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 ## Known Limitations
 
 - **Voxel Grid Radius:** Terrain beyond the active voxel chunk radius reflects sky and ambient light rather than discrete geometry.
-- **ASFW Artifacts:** Very fast camera sweeps may produce minor edge ghosting. Using TAAU alongside ASFW is highly recommended.
+- **ASFW Hardware Compatibility:** FrameWarp (ASFW) currently ONLY works on M1 and M2 chips. On M3 and newer architectures, it produces a black screen flicker due to Dynamic Caching memory barriers. We are working on a fix.
+- **ASFW Artifacts:** On supported chips, very fast camera sweeps may produce minor edge ghosting. Using TAAU alongside ASFW is highly recommended.
 - **Light Transmission:** Currently only supports solid translucent blocks (like stained glass). Light transmission through water is a work in progress.
 
 ---

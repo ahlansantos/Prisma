@@ -245,7 +245,7 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 8L, aspect);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 12L, fovScale);
                 encoder.setFragmentBytes(uniforms, 16L, 0L);
-                MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 34064)).reinterpret(34064L);
+                MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37136)).reinterpret(37136L);
                 vUniforms.fill((byte)0);
                 if (gridState != null) {
                     vUniforms.set(ValueLayout.JAVA_INT, 0L, gridState.originX());
@@ -334,17 +334,20 @@ public final class MTLBuiltinPipelines {
                     vUniforms.set(ValueLayout.JAVA_INT, 33032L, 0);
                     vUniforms.set(ValueLayout.JAVA_INT, 33036L, 0);
                     if (mobData != null && activeMobCount > 0) {
-                        int maxMobs = Math.min(activeMobCount, 16);
+                        int maxMobs = Math.min(activeMobCount, 64);
                         for (int i = 0; i < maxMobs; ++i) {
                             int mobBase = i * 16;
-                            long dstBase = 784L + (long)i * 64L;
+                            long dstBase = 33040L + (long)i * 64L;
                             for (int f = 0; f < 16; ++f) {
                                 vUniforms.set(ValueLayout.JAVA_FLOAT, dstBase + (long)f * 4L, mobData[mobBase + f]);
                             }
                         }
                     }
                 }
-                encoder.setFragmentBytes(vUniforms, 4352L, 2L);
+                MTLBuffer buf = device.newBuffer(37136L, 0L);
+            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37136L), 0L, 37136L);
+            encoder.setFragmentBuffer(buf.handle(), 0L, 2L);
+            ObjC.release(buf.handle());
             }
             encoder.drawPrimitives(MTLPrimitiveType.Triangle, 0, 3, 1, 0);
             if (globalFence != null) {
@@ -452,7 +455,7 @@ public final class MTLBuiltinPipelines {
             encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 4L);
         }
         try (MemoryStack stack = MemoryStack.stackPush();){
-            MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 34064)).reinterpret(34064L);
+            MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37136)).reinterpret(37136L);
             vUniforms.fill((byte)0);
             if (gridState != null) {
                 vUniforms.set(ValueLayout.JAVA_INT, 0L, gridState.originX());
@@ -542,17 +545,20 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_INT, 33032L, 0);
                 vUniforms.set(ValueLayout.JAVA_INT, 33036L, 0);
                 if (mobData != null && activeMobCount > 0) {
-                    int maxMobs = Math.min(activeMobCount, 16);
+                    int maxMobs = Math.min(activeMobCount, 64);
                     for (int i = 0; i < maxMobs; ++i) {
                         int mobBase = i * 16;
-                        long dstBase = 784L + (long)i * 64L;
+                        long dstBase = 33040L + (long)i * 64L;
                         for (int f = 0; f < 16; ++f) {
                             vUniforms.set(ValueLayout.JAVA_FLOAT, dstBase + (long)f * 4L, mobData[mobBase + f]);
                         }
                     }
                 }
             }
-            encoder.setFragmentBytes(vUniforms, 4352L, 2L);
+            MTLBuffer buf = device.newBuffer(37136L, 0L);
+            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37136L), 0L, 37136L);
+            encoder.setFragmentBuffer(buf.handle(), 0L, 2L);
+            ObjC.release(buf.handle());
         }
     }
 
