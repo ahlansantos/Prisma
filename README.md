@@ -1,59 +1,66 @@
-# Prisma 💎
+# Prisma
 
-> [!IMPORTANT]
-> **Prisma is now 100% open-source!** 
-> Join our [Discord](https://discord.gg/X8u3yJZQbm) for nightly builds and updates.
+> **Notice:** Prisma is fully open-source under the MIT license. However, pre-compiled binaries and official releases are exclusively distributed via our [Discord Server](https://discord.gg/X8u3yJZQbm). 
 
-Native Apple Silicon Metal voxel shader engine for Minecraft and Sodium. Prisma renders real-time lighting, analytical voxel shadows, and reflections directly through Apple Metal (MSL), bypassing OpenGL layers.
+Prisma is a native Apple Silicon Metal voxel shader engine for Minecraft and Sodium. It renders real-time lighting, analytical voxel shadows, and reflections directly through Apple Metal (MSL), bypassing OpenGL compatibility layers for maximum performance on macOS.
 
 ---
 
-## 🚀 Performance (Base Apple M1)
+## Performance
 
-**Common Test (10 Chunks, Double AO, Dynamic Shadows)**
-- **~40-50 FPS** (Open world)
+Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 
-**Ultra Test (4 Chunks, Full Reflections, Volumetric Clouds)**
-- **Native Resolution**: 10-20 FPS
-- **With TAAU (50%)**: 30-40 FPS
-- **With TAAU (50%) + FrameWarp**: 60-70 FPS
+**Common Workload (10 Chunks, Double AO, Dynamic Shadows)**
+- Open World: **40-50 FPS**
+
+**Ultra Workload (4 Chunks, Full Reflections, Volumetric Clouds)**
+- Native Resolution: **10-20 FPS**
+- With TAAU (50% internal resolution): **30-40 FPS**
+- With TAAU + ASFW (Frame Generation): **60-70 FPS**
 
 ---
 
-## ✨ Key Features
+## Features
 
-- **Native FrameWarp (FrameGen):** Asynchronous Space Warp interpolation for massive FPS boosts.
-- **TAAU (Temporal Upscaling):** Custom spatial/temporal upscaler running natively in MSL.
+- **ASFW (Async Space Frame Warp):** Native Frame Generation interpolation that artificially multiplies framerates by projecting previous frames based on camera velocity.
+- **TAAU (Temporal Anti-Aliasing Upscaling):** Custom spatial and temporal upscaler running natively in MSL.
 - **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces.
-- **Volumetric Clouds & Weather:** Raymarched clouds with dynamic lighting, rain puddles, and ripples.
-- **Double AO:** Unified Voxel Ambient Occlusion (VXAO) + Screen-Space (SSAO).
-- **VPLS (Voxel Point Light Shadows):** Dynamic shadows for held/placed light sources (torches, lanterns).
-- **Foliage Ray Tracing:** Alpha cutout sampling for precise foliage shadows.
-- **Native Post-Processing:** Bloom, ACES Filmic Tonemapping, Vignette, and Film Grain.
+- **Volumetric Clouds:** Raymarched clouds with dynamic lighting and self-shadowing.
+- **Dynamic Weather System:** Includes fog, rain puddles, and ripples on the ground.
+- **Double AO:** Unified Voxel Ambient Occlusion (VXAO) and Screen-Space Ambient Occlusion (SSAO).
+- **VPLS (Voxel Point Light Shadows):** Dynamic shadows for held and placed light sources.
+- **Ray-Traced Foliage:** Alpha cutout sampling for precise foliage silhouettes and shadows.
+- **Post-Processing Pipeline:** Native Bloom, ACES Filmic Tonemapping, Vignette, and Film Grain.
 
 ---
 
-## ⚙️ Requirements & Compatibility
+## Requirements
 
-- **Hardware**: Apple Silicon (M1/M2/M3/M4) running macOS 13+
-- **Minecraft**: 26.2 (Java 25+)
-- **Dependencies**: Fabric Loader 0.19.2+, Sodium 0.9.1+
-- ⚠️ **Incompatible with Iris or OptiFine** (Prisma entirely replaces the rendering pipeline).
-
----
-
-## 🛠️ Installation
-
-1. Install Fabric and Sodium.
-2. Drop the `.jar` into your `.minecraft/mods` folder.
-3. Configure settings in **Video Settings -> Prisma**.
+- **OS:** macOS 13 or newer
+- **Hardware:** Apple Silicon (M1, M2, M3, M4)
+- **Minecraft:** 26.2 (Java 25+)
+- **Dependencies:** Fabric Loader 0.19.2+, Sodium 0.9.1+
+- **Incompatible:** Iris, OptiFine, or any other rendering mods (Prisma entirely replaces the rendering pipeline).
 
 ---
 
-## 📝 Known Limitations (Beta)
-- **Voxel Grid Radius**: Terrain reflects sky/ambient light beyond the active voxel chunk radius.
-- **FrameWarp Ghosting**: Minor edge ghosting on very fast camera swipes (TAAU highly recommended).
-- **Light Transmission**: Currently only works through solid translucent blocks (glass), water transmission is WIP.
+## Installation
+
+1. Install Fabric Loader and Sodium.
+2. Download the latest Prisma `.jar` from Discord.
+3. Drop the `.jar` into your `.minecraft/mods` folder.
+4. Configure options under **Video Settings -> Prisma**.
 
 ---
-**Credits:** Built on top of Metallum by kokodio. Powered by Fabric and Sodium. Licensed under MIT.
+
+## Known Limitations
+
+- **Voxel Grid Radius:** Terrain beyond the active voxel chunk radius reflects sky and ambient light rather than discrete geometry.
+- **ASFW Artifacts:** Very fast camera sweeps may produce minor edge ghosting. Using TAAU alongside ASFW is highly recommended.
+- **Light Transmission:** Currently only supports solid translucent blocks (like stained glass). Light transmission through water is a work in progress.
+
+---
+
+## Credits
+
+Built on top of Metallum by kokodio. Powered by Fabric and Sodium.
