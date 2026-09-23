@@ -22,14 +22,14 @@ Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 ## Features
 
 - **ASFW (Async Space Frame Warp):** Native Frame Generation interpolation that artificially multiplies framerates by projecting previous frames based on camera velocity.
-- **TAAU (Temporal Anti-Aliasing Upscaling):** Custom spatial and temporal upscaler running natively in MSL.
+- **TAAU (Temporal Anti-Aliasing Upscaling):** Custom spatial and temporal upscaler running natively in MSL, powered by **CAS (Contrast Adaptive Sharpening)** for incredibly crisp upscaled details.
 - **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces.
 - **Volumetric Clouds:** Raymarched clouds with dynamic lighting and self-shadowing.
 - **Dynamic Weather System:** Includes fog, rain puddles, and ripples on the ground.
 - **Double AO:** Unified Voxel Ambient Occlusion (VXAO) and Screen-Space Ambient Occlusion (SSAO).
 - **VPLS (Voxel Point Light Shadows):** Dynamic shadows for held and placed light sources.
 - **Ray-Traced Foliage:** Alpha cutout sampling for precise foliage silhouettes and shadows.
-- **Post-Processing Pipeline:** Native Bloom, ACES Filmic Tonemapping, Vignette, and Film Grain.
+- **Post-Processing Pipeline:** Native Bloom, ACES Filmic Tonemapping, and Vignette.
 
 ---
 
