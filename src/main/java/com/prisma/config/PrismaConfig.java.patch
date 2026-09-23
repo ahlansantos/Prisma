@@ -1,0 +1,25 @@
+--- src/main/java/com/prisma/config/PrismaConfig.java
++++ src/main/java/com/prisma/config/PrismaConfig.java
+@@ -217,6 +217,21 @@
+                         waterAbsorptionStrength = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.5f, 2.5f);
+                     } catch (Throwable ignored) {
+                     }
+                 }
++
++                if (content.contains("\"volumetricCloudsEnabled\":")) {
++                    try {
++                        int idx = content.indexOf("\"volumetricCloudsEnabled\":") + 26;
++                        int end = findJsonEnd(content, idx);
++                        volumetricCloudsEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
++                    } catch (Throwable ignored) { }
++                }
++
++                if (content.contains("\"cloudQualitySteps\":")) {
++                    try {
++                        int idx = content.indexOf("\"cloudQualitySteps\":") + 20;
++                        int end = findJsonEnd(content, idx);
++                        cloudQualitySteps = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 10, 80);
++                    } catch (Throwable ignored) { }
++                }
+             }
+         } catch (Throwable ignored) {

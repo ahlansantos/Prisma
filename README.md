@@ -9,11 +9,20 @@ Prisma renders real-time lighting, analytical voxel shadows, and reflections dir
 
 ## Performance Benchmark
 
+### Common Test
+
 - **Platform**: Apple Silicon Mac (Base Apple M1, 8GB)
 - **Resolution**: 1650 x 1050
 - **Settings**: 10 Render Distance chunks, 10 Voxelized Chunks, Double AO enabled, dynamic shadows active
-- **Open world**: ~**60 FPS**
-- **Heavy scenes** (lots of reflective surfaces and shadow casters): ~**30 FPS**
+- **Open world**: ~**~40-50 FPS**
+- **Heavy scenes** (lots of reflective surfaces and shadow casters): ~**~25-30 FPS**
+
+### Ultra Test
+
+- **Settings**: 4 Render Distance chunks, 4 Voxelized Chunks, Double AO enabled, dynamic shadows active, all reflections enabled, Volumetric Clouds enabled
+- **Native Resolution**: ~**10-20 FPS**
+- **With TAAU (50%)**: ~**30-40 FPS**
+- **With TAAU (50%) + FrameWarp (1.5x)**: ~**60-70 FPS**
 
 ---
 
@@ -25,6 +34,17 @@ Prisma renders real-time lighting, analytical voxel shadows, and reflections dir
 - **VXR (Voxel Reflections)**:
   - Real-time 3D voxel ray-traced reflections on water and glossy surfaces sampling real block textures directly from the Minecraft texture atlas (pure voxel ray marching, no screen-space planar artifacts).
   - Extended vertical grid tracking (up to 256 blocks tall) and ultra-long raymarching allows distant mountains and ravines to be fully reflected.
+- **Volumetric Clouds**:
+  - Real-time raymarched volumetric clouds with dynamic lighting and self-shadowing.
+  - Fully responds to time of day, sunrise/sunset colors, and weather conditions.
+- **Weather System**:
+  - Dynamic weather with fog, rain puddles, and ripples on the ground.
+  - Clouds automatically darken based on rain strength.
+  - Directional shadows become softer and fade out smoothly during rain.
+- **TAAU (Temporal Anti-Aliasing Upscaling)**:
+  - Custom-built spatial and temporal upscaler running natively in MSL. Dramatically boosts performance by rendering internally at a lower resolution (e.g. 50%) and accumulating historical frame data to reconstruct a sharp native-resolution image.
+- **FrameWarp (Asynchronous Space Warp)**:
+  - Experimental native Frame Generation technique. Projects previous frames using camera velocity (translation and rotation) and depth buffers to artificially multiply frame rates without putting extra load on the CPU or rendering pipeline.
 - **Double AO (Unified VXAO + SSAO)**:
   - **VXAO (Voxel Ambient Occlusion)**: 3D volumetric occlusion computed for broad contact shadows.
   - **SSAO (Screen-Space Ambient Occlusion)**: High-frequency sub-block occlusion.
@@ -49,7 +69,7 @@ Prisma renders real-time lighting, analytical voxel shadows, and reflections dir
 
 ## Technical Limitations (Beta)
 
-As Prisma is currently in Stable-Beta (v0.2.1-nightly), please keep the following limitations in mind:
+As Prisma is currently in Stable-Beta (v0.2.2-revision4), please keep the following limitations in mind:
 
 1. **Voxel Grid Scope**:
 - Voxelization operates within an active radius around the camera (configurable, default 2 chunks / 64 voxels). Terrain beyond the voxel radius reflects sky and ambient light rather than discrete voxel geometry - and water only shows correct inside the Voxel Radius.
@@ -59,16 +79,14 @@ As Prisma is currently in Stable-Beta (v0.2.1-nightly), please keep the followin
 - **Incompatible with OptiFine, Iris, or other rendering overhaul mods.** Prisma completely replaces the rendering pipeline via native Apple Metal APIs; attempting to run alongside other shader loaders or massive rendering patches will result in crashes or visual corruption.
 4. **Light Transmission**:
 - Correct light transmission only works through translucent blocks for now. Water does not transmit light correctly yet (planned).
-5. **Mob Lighting**:
-- Only sunlight illuminates mobs right now. Moonlight, point lights, handheld lights and other light sources do not light them yet. This will be fixed.
+5. **FrameWarp Artifacts**:
+- FrameWarp is in its initial version. You may experience slightly floating input latency (camera lag) and minor visual ghosting/tearing off-screen when doing very fast camera sweeps. TAAU is heavily recommended to be used alongside it to mitigate the latency.
 
 ---
 
 ## Future Plans
 
-- **MetalFX Upscaling**: High-performance spatial and temporal upscaling for higher base resolutions.
-- **AMD FSR Support**: Integration of FidelityFX Super Resolution for improved visuals and framerates.
-- **FSR FrameGen**: Frame generation capabilities to dramatically push beyond 60 FPS.
+- **FrameWarp Refinements**: Further optimization of our native Frame Generation to reduce ghosting and input lag, possibly utilizing Metal motion vectors.
 - **PBR Support (Physically Based Rendering)**: Normal maps, specular maps, and emission rendering utilizing LabPBR standard resource packs.
 - **Water Light Transmission**: Correct light transmission through water.
 - **Advanced Post-Processing**: Depth of field, bloom, motion blur, and color grading on top of the current basic pipeline, natively written in MSL.
@@ -89,14 +107,14 @@ As Prisma is currently in Stable-Beta (v0.2.1-nightly), please keep the followin
 ## Installation
 
 1. Install Fabric Loader and Sodium.
-2. Drop `20092026-0.2.1-nightly` into your `.minecraft/mods` folder.
+2. Drop `23092026-0.2.2-revision4` into your `.minecraft/mods` folder.
 3. Launch Minecraft and adjust options under **Video Settings -> Prisma**.
 
 ---
 
 ## Availability
 
-Nightly and stable builds are distributed on Discord first; this repository is licensed under MIT. The full open-source release is planned for **v1.0.0**.
+Prisma is now **100% open-source** and licensed under MIT! Nightly and stable builds are distributed on our Discord first, and source code is fully available right here.
 
 ---
 

@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "com.prisma.mixin",
+  "plugin": "com.prisma.mixin.PrismaMixinConfigPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [],
+  "client": [
+    "gui.TitleScreenMixin",
+    "gui.HudMixin",
+    "render.GameRendererMixin",
+    "render.PreferredGraphicsApiMixin",
+    "sodium.DrawBackendMixin",
+    "sodium.DrawContextMixin",
+    "sodium.SodiumPreferredGraphicsApiMixin",
+    "world.ClientLevelMixin",
+    "world.ResourceManagerReloadMixin",
+    "gui.ChatMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

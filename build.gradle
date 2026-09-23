@@ -1,0 +1,99 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+import java.text.SimpleDateFormat
+import java.util.Date
+
+def isFinal = gradle.startParameter.taskNames.contains("buildFinal")
+
+if (isFinal) {
+    version = "${project.mod_base_version}"
+} else {
+    def dateFormat = new SimpleDateFormat("ddMMyyyy_HHmm")
+    def currentDate = dateFormat.format(new Date())
+    version = "${currentDate}-${project.mod_base_version}-${project.mod_revision}"
+}
+
+group = project.maven_group
+
+loom {
+	accessWidenerPath = file("src/main/resources/prisma.accesswidener")
+}
+
+repositories {
+	maven { url "https://api.modrinth.com/maven" }
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "maven.modrinth:sodium:${project.sodium_version}"
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+    if (!isFinal) {
+        withSourcesJar()
+    }
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+if (!isFinal) {
+    sourcesJar {
+        exclude("fabric.mod.json")
+        exclude("*.mixins.json")
+    }
+}
+
+jar {
+	inputs.property "projectName", project.name
+
+	from("LICENSE") {
+		rename { "${it}_${project.name}"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
+
+task buildFinal {
+    dependsOn 'build'
+    group = 'build'
+    description = 'Builds the final release jar without sources and with clean naming.'
+}
+
+task buildRev {
+    dependsOn 'build'
+    group = 'build'
+    description = 'Builds the revision jar with sources and timestamped naming.'
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "prisma",
+  "version": "${version}",
+  "name": "Prisma",
+  "description": "Prisma - Native Metal shaders with real-time ray marching for macOS.",
+  "authors": [
+    "kokodio",
+    "Prisma Contributors"
+  ],
+  "contact": {
+    "homepage": "https://github.com/ahlansantos/Prisma",
+    "sources": "https://github.com/ahlansantos/Prisma"
+  },
+  "license": "MIT",
+  "icon": "assets/prisma/icon.png",
+  "accessWidener": "prisma.accesswidener",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.prisma.Prisma"
+    ],
+    "sodium:config_api_user": [
+      "com.prisma.config.PrismaSodiumConfig"
+    ]
+  },
+  "mixins": [
+    "prisma.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~26.2-",
+    "java": ">=25",
+    "sodium": ">=0.9.1"
+  },
+  "breaks": {
+    "iris": "*"
+  }
+}

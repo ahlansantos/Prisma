@@ -1,43 +1,27 @@
-# gradle
-
 .gradle/
-build/
-out/
-classes/
-
-# eclipse
-
-*.launch
-
-# idea
-
 .idea/
-*.iml
-*.ipr
-*.iws
-
-# vscode
-
-.settings/
-.vscode/
-bin/
-.classpath
-.project
-
-# macos
-
-*.DS_Store
-
-# fabric
-
+logs/
 run/
+*.zip
 
-# java
-
-hs_err_*.log
-replay_*.log
-*.hprof
-*.jfr
-/src/main/resources/natives/macos/*
-libs/
-.wrangler
+*.py
+scratch/
+build/classes
+build/generated
+build/loom-cache
+build/processIncludeJars
+build/reports
+build/resources
+build/tmp
+build/libs/prisma-22092026-0.2.2-revision3-sources - cópia
+build/libs/prisma-23092026-0.2.2-revision4-sources - cópia
+build/libs/*.zip
+build
+build/libs/*-sources.jar
+*.py
+*.class
+*.txt
+cfr.jar
+TestJOML.java
+run.log
+scratch.metal
