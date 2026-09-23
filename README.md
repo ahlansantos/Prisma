@@ -13,10 +13,9 @@ Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 **Common Workload (10 Chunks, Double AO, Dynamic Shadows)**
 - Open World: **40-50 FPS**
 
-**Ultra Workload (4 Chunks, Full Reflections, Volumetric Clouds)**
-- Native Resolution: **10-20 FPS**
-- With TAAU (50% internal resolution): **30-40 FPS**
-- With TAAU + ASFW (Frame Generation): **60-70 FPS**
+**Ultra Workload (12 Render Chunks, 8 Voxel Chunks, Full Reflections, Volumetric Clouds)**
+- Native Resolution: **10-19 FPS**
+- With TAAU (50%) + ASFW: **45-60 FPS**
 
 ---
 
