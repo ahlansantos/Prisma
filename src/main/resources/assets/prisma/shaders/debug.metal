@@ -1,4 +1,4 @@
-            struct DebugVertexOut {
+struct DebugVertexOut {
               float4 position [[position]];
               float2 uv;
             };
@@ -39,7 +39,7 @@
               float hDepth = handDepthTex.sample(smp, in.uv);
               float effectiveDepth = (wDepth <= 0.00005f && lightData.z > 0.5f && lightData.w > 0.00005f) ? lightData.w : wDepth;
               if (effectiveDepth <= 0.00005f && hDepth <= 0.0001f) return float4(0.0);
-              if (hDepth > 0.0001f) return float4(albedo.rgb, 1.0);
+              
               float3 pWorld = reconstructWorldPos(in.uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
               bool isEntity = lightData.z < 0.5f;
               float3 nWorld;
