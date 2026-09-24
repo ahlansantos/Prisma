@@ -183,15 +183,7 @@ public final class PrismaSodiumConfig implements ConfigEntryPoint {
         waterPage.addOptionGroup(waveGroup);
         waterPage.addOptionGroup(opticalGroup);
 
-        OptionPageBuilder debugPage = builder.createOptionPage();
-        debugPage.setName(Component.literal("🔧 Diagnostics & Debug"));
-
-        OptionGroupBuilder debugGroup = builder.createOptionGroup();
-        debugGroup.setName(Component.literal("MRT Pipeline Visualizer"));
-
         
-
-        debugPage.addOptionGroup(debugGroup);
 
         
 
@@ -399,7 +391,7 @@ public final class PrismaSodiumConfig implements ConfigEntryPoint {
         expPage.addOptionGroup(expGroup);
 
         modOptions.addPage(expPage);
-        modOptions.addPage(debugPage);
+        
 
 
         
