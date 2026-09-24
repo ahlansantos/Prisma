@@ -124,12 +124,32 @@ fragment float4 prisma_postprocess_fs(
   }
   
   
-  float a = 2.51f;
-  float b = 0.03f;
-  float c = 2.43f;
-  float d = 0.59f;
-  float e = 0.14f;
-  color = saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+  // Uchimura (Gran Turismo) Tonemapper
+  float P = 1.0f;  // max display brightness
+  float a = 1.0f;  // contrast
+  float m = 0.22f; // linear section start
+  float l = 0.4f;  // linear section length
+  float c = 0.33f; // black
+  float b = 0.0f;  // pedestal
+  
+  float l0 = ((P - m) * l) / a;
+  float L0 = m - m / a;
+  float L1 = m + (1.0f - m) / a;
+  float S0 = m + l0;
+  float S1 = m + a * l0;
+  float C2 = (a * P) / (P - S1);
+  float CP = -C2 / P;
+
+  float3 w0 = 1.0f - smoothstep(0.0f, m, color);
+  float3 w2 = step(m + l0, color);
+  float3 w1 = 1.0f - w0 - w2;
+
+  float3 T = m * pow(color / m, c) + b;
+  float3 S = P - (P - S1) * exp(CP * (color - S0));
+  float3 L = m + a * (color - m);
+
+  color = T * w0 + L * w1 + S * w2;
+
 
   float postLumaVal = postLuma(color);
   color = mix(float3(postLumaVal), color, 0.95f);
