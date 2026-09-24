@@ -23,7 +23,9 @@ Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 
 ---
 
-## Features
+## Built-in Shader: Prisma's VXR Default
+
+The engine comes with a flagship built-in shaderpack out of the box. Here are its features:
 
 - **ASFW (Async Space Frame Warp):** Native Frame Generation interpolation that artificially multiplies framerates by projecting previous frames based on camera velocity.
 - **TAAU (Temporal Anti-Aliasing Upscaling):** Custom spatial and temporal upscaler running natively in MSL. Now utilizes **Catmull-Rom Bicubic spatial upscaling** and **CAUM (Contrast Adaptive Unsharp Mask)** for incredibly crisp details.
@@ -36,6 +38,17 @@ Tested on a Base Apple M1 (8GB RAM) at 1650 x 1050 resolution.
 - **Post-Processing Pipeline:** Velocity-Based Motion Blur, Native Bloom, ACES Filmic Tonemapping, and Vignette.
 
 ---
+
+
+---
+
+## For Developers (Custom Shaderpacks)
+
+Starting from v0.2.4, Prisma is designed as a Shader Loader. It is entirely possible to port existing GLSL shaders to MSL (Metal Shading Language) or write your own from scratch.
+
+- **No Official Tutorial Yet:** While the API is fully functional, comprehensive documentation for writing Prisma Shaderpacks is still a work in progress.
+- **Optional Voxel APIs:** Shaders can optionally tap into Prisma's 3D Voxel Grid API. You can use it to create Ray Traced Point Light Shadows, Voxel-based Reflections, or ignore it entirely and write a traditional Screen-Space shader.
+- **MakeUp Ultra Fast - Metal Port:** As a proof of concept, we are currently working on an official Native Metal port of the beloved [MakeUp Ultra Fast](https://modrinth.com/shader/makeup-ultra-fast) shaderpack!
 
 ## Requirements
 
