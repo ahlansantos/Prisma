@@ -72,7 +72,47 @@ static inline float3 applyFxaa(texture2d<float> tex, sampler smp, float2 uv, flo
   return mix(rgbCenter, rgbBlur, blendAmount * 0.75f);
 }
 
+
+// Fast Catmull-Rom bicubic interpolation
+static inline float4 sampleBicubic(texture2d<float> tex, sampler smp, float2 uv) {
+    float2 texSize = float2(tex.get_width(), tex.get_height());
+    float2 invTexSize = 1.0f / texSize;
+    
+    uv = uv * texSize - 0.5f;
+    float2 fxy = fract(uv);
+    uv -= fxy;
+
+    float2 p0 = (3.0f - 2.0f * fxy) * fxy * fxy;
+    float2 p1 = (3.0f - 2.0f * (1.0f - fxy)) * (1.0f - fxy) * (1.0f - fxy);
+    float2 w0 = (1.0f - fxy) * (1.0f - fxy) * (1.0f - fxy);
+    float2 w1 = p1 + 3.0f * (1.0f - fxy) * (1.0f - fxy) * fxy;
+    float2 w2 = p0 + 3.0f * fxy * fxy * (1.0f - fxy);
+    float2 w3 = fxy * fxy * fxy;
+
+    float2 weight12 = w1 + w2;
+    float2 offset12 = w2 / (weight12 + 0.0001f);
+
+    float2 tc0 = (uv - 1.0f) * invTexSize;
+    float2 tc3 = (uv + 2.0f) * invTexSize;
+    float2 tc12 = (uv + offset12) * invTexSize;
+
+    float4 c00 = tex.sample(smp, float2(tc12.x, tc0.y));
+    float4 c01 = tex.sample(smp, float2(tc0.x, tc12.y));
+    float4 c11 = tex.sample(smp, float2(tc12.x, tc12.y));
+    float4 c12 = tex.sample(smp, float2(tc3.x, tc12.y));
+    float4 c22 = tex.sample(smp, float2(tc12.x, tc3.y));
+
+    float4 color = c00 * w0.y * weight12.x +
+                   c01 * w0.x * weight12.y +
+                   c11 * weight12.x * weight12.y +
+                   c12 * w3.x * weight12.y +
+                   c22 * w3.y * weight12.x;
+
+    return color / (w0.y * weight12.x + w0.x * weight12.y + weight12.x * weight12.y + w3.x * weight12.y + w3.y * weight12.x);
+}
+
 fragment float4 prisma_postprocess_fs(
+
   PostVertexOut in [[stage_in]],
   texture2d<float> hdrTex [[texture(0)]],
   sampler smp [[sampler(0)]],
@@ -81,11 +121,11 @@ fragment float4 prisma_postprocess_fs(
                 float2 texSize = float2(hdrTex.get_width(), hdrTex.get_height());
   float2 dx = float2(1.0f / texSize.x, 0.0f);
   float2 dy = float2(0.0f, 1.0f / texSize.y);
-  float3 cCol = hdrTex.sample(smp, in.uv).rgb;
-  float3 nCol = hdrTex.sample(smp, in.uv - dy).rgb;
-  float3 sCol = hdrTex.sample(smp, in.uv + dy).rgb;
-  float3 wCol = hdrTex.sample(smp, in.uv - dx).rgb;
-  float3 eCol = hdrTex.sample(smp, in.uv + dx).rgb;
+  float3 cCol = sampleBicubic(hdrTex, smp, in.uv).rgb;
+  float3 nCol = sampleBicubic(hdrTex, smp, in.uv - dy).rgb;
+  float3 sCol = sampleBicubic(hdrTex, smp, in.uv + dy).rgb;
+  float3 wCol = sampleBicubic(hdrTex, smp, in.uv - dx).rgb;
+  float3 eCol = sampleBicubic(hdrTex, smp, in.uv + dx).rgb;
   float3 sharpCol = cCol + (cCol * 4.0f - nCol - sCol - wCol - eCol) * 0.85f;
   float3 minCol = min(cCol, min(min(nCol, sCol), min(wCol, eCol)));
   float3 maxCol = max(cCol, max(max(nCol, sCol), max(wCol, eCol)));
