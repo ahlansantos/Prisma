@@ -25,7 +25,7 @@ vertex PostVertexOut prisma_postprocess_vs(uint vertexId [[vertex_id]]) {
 
 struct PostUniforms {
   float2 texelSize;
-  float fxaaEnabled;
+  float motionBlurEnabled;
   float time;
   
   float sunAngle;
@@ -158,7 +158,7 @@ fragment float4 prisma_postprocess_fs(
       float2 velocity = in.uv - prevUv;
       
       float velLen = length(velocity);
-      if (velLen > 0.0005f) {
+      if (velLen > 0.0005f && u.motionBlurEnabled > 0.5f) {
           velocity *= clamp(0.04f / velLen, 0.0f, 1.0f); // Max velocity length
           int mbSamples = 6;
           float2 velStep = velocity / float(mbSamples);

@@ -656,9 +656,15 @@ public final class PrismaMRTManager implements AutoCloseable {
                 encoder.commandBuffer(),
                 targetColor,
                 hdrTarget,
+                worldDepth,
                 false,
+                com.prisma.config.PrismaConfig.INSTANCE.motionBlurEnabled,
                 sunAngle,
                 viewProj,
+                this.prevViewProj,
+                invViewProj,
+                camPosX, camPosY, camPosZ,
+                this.prevCamPos.x, this.prevCamPos.y, this.prevCamPos.z,
                 encoder.fence()
         );
     }

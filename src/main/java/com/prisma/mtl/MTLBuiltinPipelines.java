@@ -663,7 +663,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         }
     }
 
-    public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, MemorySegment depthTexture, boolean fxaaEnabled, float sunAngle, Matrix4fc viewProj, Matrix4fc prevViewProj, Matrix4fc invViewProj, float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ, MTLFence globalFence) {
+    public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, MemorySegment depthTexture, boolean fxaaEnabled, boolean motionBlurEnabled, float sunAngle, Matrix4fc viewProj, Matrix4fc prevViewProj, Matrix4fc invViewProj, float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLRenderCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(sourceHdrTexture)) {
@@ -698,7 +698,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
                 long srcHeight = MTLTexture.height(sourceHdrTexture);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 0L, srcWidth > 0L ? 1.0f / (float)srcWidth : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 4L, srcHeight > 0L ? 1.0f / (float)srcHeight : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 8L, fxaaEnabled ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 8L, motionBlurEnabled ? 1.0f : 0.0f);
                 float t = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
                 uniforms.set(ValueLayout.JAVA_FLOAT, 12L, t);
                 

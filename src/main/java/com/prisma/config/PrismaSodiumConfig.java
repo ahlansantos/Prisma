@@ -347,6 +347,20 @@ public final class PrismaSodiumConfig implements ConfigEntryPoint {
         upscalingOption.setStorageHandler(PrismaConfig.INSTANCE::save);
         frameGroup.addOption(upscalingOption);
 
+        
+        BooleanOptionBuilder mbOption = builder.createBooleanOption(
+                Identifier.fromNamespaceAndPath("prisma", "motion_blur")
+        );
+        mbOption.setName(Component.literal("Camera Motion Blur"));
+        mbOption.setTooltip(Component.literal("Blurs the screen when the camera moves quickly."));
+        mbOption.setDefaultValue(true);
+        mbOption.setBinding(
+                val -> PrismaConfig.INSTANCE.motionBlurEnabled = val,
+                () -> PrismaConfig.INSTANCE.motionBlurEnabled
+        );
+        mbOption.setStorageHandler(PrismaConfig.INSTANCE::save);
+        frameGroup.addOption(mbOption);
+
         BooleanOptionBuilder spaceWarpOption = builder.createBooleanOption(
                 Identifier.fromNamespaceAndPath("prisma", "space_warp")
         );
