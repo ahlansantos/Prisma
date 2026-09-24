@@ -211,48 +211,13 @@ fragment float4 prisma_postprocess_fs(
   // Tonemapper (ACES)
   
   
-  // Boost Exposure
-  color *= 1.35f;
-
-  // AgX Tonemap
-  const float3x3 agx_mat = float3x3(
-    float3(0.84166f, 0.04639f, 0.04018f),
-    float3(0.05737f, 0.81755f, 0.14197f),
-    float3(0.10097f, 0.13606f, 0.81785f)
-  );
-  const float3x3 agx_mat_inv = float3x3(
-    float3(1.19688f, -0.09802f, -0.09903f),
-    float3(-0.05290f, 1.15190f, -0.22208f),
-    float3(-0.14398f, -0.05388f, 1.32111f)
-  );
-  
-  float3 min_ev = float3(-10.0f);
-  float3 max_ev = float3(6.5f);
-  
-  color = agx_mat * color;
-  color = clamp((log2(max(color, 1e-10f)) - min_ev) / (max_ev - min_ev), 0.0f, 1.0f);
-  
-  // AgX Default Contrast
-  float3 x2 = color * color;
-  float3 x4 = x2 * x2;
-  color = 15.5f * x4 * x2 - 40.14f * x4 * color + 31.96f * x4 - 6.868f * x2 * color + 0.4298f * x2 + 0.1191f * color - 0.00232f;
-  
-  color = agx_mat_inv * color;
-  color = max(color, float3(0.0f));
-  
-  
-  // Make it darker / Punchy (Strong Contrast S-Curve)
-  color = max(color, float3(0.0f));
-  
-  // Strong contrast curve
-  color = pow(max(color, float3(0.0f)), float3(1.45f)); // Strong shadow crush
- 
-  
-  // Boost Saturation (Vibrance)
-  float lumaSat = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
-  color = mix(float3(lumaSat), color, 1.35f);
-
-
+  // Tonemapper (ACES)
+  float a = 2.51f;
+  float b = 0.03f;
+  float c = 2.43f;
+  float d = 0.59f;
+  float e = 0.14f;
+  color = saturate((color * (a * color + b)) / (color * (c * color + d) + e));
 
   float postLumaVal = postLuma(color);
   color = mix(float3(postLumaVal), color, 0.95f);
