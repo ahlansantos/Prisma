@@ -167,7 +167,7 @@ public class GameRendererMixin {
                         playerHeight = (float) player.getBbHeight();
                         float pBodyDeg = net.minecraft.util.Mth.rotLerp(partialTick, player.yBodyRotO, player.yBodyRot);
                         float pHeadDeg = net.minecraft.util.Mth.rotLerp(partialTick, player.yHeadRotO, player.yHeadRot);
-                        playerBodyYaw = (float) Math.toRadians(pBodyDeg);
+                        playerBodyYaw = (float) Math.toRadians(pBodyDeg + 180.0f);
                         playerLimbSwing = (float) player.walkAnimation.position(partialTick);
                         playerLimbAmount = (float) player.walkAnimation.speed(partialTick);
                         playerIsCrouch = player.isCrouching() ? 1.0f : 0.0f;
