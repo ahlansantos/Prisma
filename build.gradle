@@ -97,3 +97,8 @@ task buildRev {
     group = 'build'
     description = 'Builds the revision jar with sources and timestamped naming.'
 }
+
+task runShaderDumper(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.prisma.mtl.ShaderDumper'
+}
