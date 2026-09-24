@@ -452,6 +452,25 @@ public final class PrismaMRTManager implements AutoCloseable {
         );
     }
 
+    
+    private static MemorySegment getPlayerSkinTexture(net.minecraft.client.Minecraft mc) {
+        if (mc.player == null) return MemorySegment.NULL;
+        net.minecraft.client.renderer.texture.TextureManager tm = mc.getTextureManager();
+        var skinLoc = mc.player.getSkin().body().texturePath();
+        if (skinLoc != null) {
+            net.minecraft.client.renderer.texture.AbstractTexture skinTex = tm.getTexture(skinLoc);
+            if (skinTex != null) {
+                if (skinTex.getTexture() instanceof com.prisma.render.MetalGpuTexture mtlTex) {
+                    return mtlTex.nativeHandle();
+                }
+                if (skinTex.getTextureView() instanceof com.prisma.render.MetalGpuTextureView mtlView) {
+                    return mtlView.nativeHandle();
+                }
+            }
+        }
+        return MemorySegment.NULL;
+    }
+
     public void applyDeferredLightingPass(
             final MetalCommandEncoder encoder,
             final com.mojang.blaze3d.textures.GpuTexture colorGpuTex,
@@ -564,6 +583,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 worldDepth,
                 handDepth,
                 blockAtlasTexture(),
+                    getPlayerSkinTexture(net.minecraft.client.Minecraft.getInstance()),
                 aspect,
                 fovScale,
                 sunAngle,
