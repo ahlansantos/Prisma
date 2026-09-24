@@ -202,8 +202,8 @@ public class GameRendererMixin {
 
                     boolean sunShadows = PrismaConfig.INSTANCE.sunShadowsEnabled;
                     boolean playerShadow = PrismaConfig.INSTANCE.playerShadowEnabled;
-                    float shadowQuality = (float) PrismaConfig.INSTANCE.shadowQuality;
-                    float penumbraSoftness = PrismaConfig.INSTANCE.reflectionsEnabled ? 1.0f : 0.0f;
+                    float shadowQuality = (float) PrismaConfig.INSTANCE.reflectionBounces;
+                    float penumbraSoftness = PrismaConfig.INSTANCE.penumbraSoftness;
 
                     if (debugMode != 0) {
                         metalDevice.mrtManager().applyDebugPass(
