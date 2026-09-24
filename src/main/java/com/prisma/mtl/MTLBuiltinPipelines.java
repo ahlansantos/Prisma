@@ -52,28 +52,21 @@ import org.lwjgl.system.MemoryStack;
 
 @Environment(value=EnvType.CLIENT)
 public final class MTLBuiltinPipelines {
-    private static String readShader(String name) {
-        try (java.io.InputStream is = MTLBuiltinPipelines.class.getResourceAsStream("/assets/prisma/shaders/" + name)) {
-            if (is == null) throw new RuntimeException("Shader not found: " + name);
-            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to read shader: " + name, e);
-        }
-    }
+    
 
-    private static final String PRESENT_MSL = readShader("present.metal");
     
     
     
     
     
-private static final String VOXEL_COMMON = readShader("voxel_common.metal");
-    private static final String DEFERRED_LIGHTING_MSL = concat(VOXEL_COMMON, readShader("deferred.metal"));
-    private static final String POSTPROCESS_MSL = readShader("postprocess.metal");
+    
 
-        private static final String SPACE_WARP_MSL = readShader("spacewarp.metal");
+    
+    
 
-    private static final String CLEAR_MSL = readShader("clear.metal");
+        
+
+    
         private static MTLDevice device;
     private static MemorySegment presentPipeline;
     private static MemorySegment presentLinearSampler;
@@ -91,9 +84,29 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
     private MTLBuiltinPipelines() {
     }
 
+    
+    public static void reloadShaders() {
+        if (presentPipeline != null) ObjC.release(presentPipeline);
+        presentPipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        
+        for (MemorySegment p : clearPipelines.values()) ObjC.release(p);
+        clearPipelines.clear();
+        
+        for (MemorySegment p : deferredLightingPipelines.values()) ObjC.release(p);
+        deferredLightingPipelines.clear();
+        
+        for (MemorySegment p : postProcessPipelines.values()) ObjC.release(p);
+        postProcessPipelines.clear();
+        
+        if (spaceWarpPipeline != null) {
+            ObjC.release(spaceWarpPipeline);
+            spaceWarpPipeline = null;
+        }
+    }
+
     public static void init(MTLDevice mtlDevice) {
         device = mtlDevice;
-        presentPipeline = MTLBuiltinPipelines.buildPipeline(PRESENT_MSL, "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        presentPipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         presentLinearSampler = MTLBuiltinPipelines.buildPresentSampler(MTLSamplerMinMagFilter.Linear);
         presentNearestSampler = MTLBuiltinPipelines.buildPresentSampler(MTLSamplerMinMagFilter.Nearest);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
@@ -441,7 +454,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
     private static MemorySegment spaceWarpPipeline = MemorySegment.NULL;
     public static MemorySegment ensureSpaceWarpPipeline(long colorFormat) {
         if (!ObjC.isNil(spaceWarpPipeline)) return spaceWarpPipeline;
-        spaceWarpPipeline = buildPipeline(SPACE_WARP_MSL, "prisma_spacewarp_vs", "prisma_spacewarp_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        spaceWarpPipeline = buildPipeline(PrismaShaderLoader.readShaderSource("spacewarp.metal"), "prisma_spacewarp_vs", "prisma_spacewarp_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         return spaceWarpPipeline;
     }
 
@@ -581,7 +594,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         if (cached != null) {
             return cached;
         }
-        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(CLEAR_MSL, "metallum_clear_vs", "metallum_clear_fs", colorFormat, depthFormat, writeColor ? MTLColorWriteMask.All.value : MTLColorWriteMask.None.value);
+        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("clear.metal"), "metallum_clear_vs", "metallum_clear_fs", colorFormat, depthFormat, writeColor ? MTLColorWriteMask.All.value : MTLColorWriteMask.None.value);
         if (!ObjC.isNil(pipeline)) {
             clearPipelines.put(key, pipeline);
         }
@@ -593,7 +606,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         if (cached != null) {
             return cached;
         }
-        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(POSTPROCESS_MSL, "prisma_postprocess_vs", "prisma_postprocess_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("postprocess.metal"), "prisma_postprocess_vs", "prisma_postprocess_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         if (!ObjC.isNil(pipeline)) {
             postProcessPipelines.put(colorFormat, pipeline);
         }
@@ -605,7 +618,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         if (cached != null) {
             return cached;
         }
-        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(DEFERRED_LIGHTING_MSL, "prisma_deferred_vs", "prisma_deferred_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(concat(PrismaShaderLoader.readShaderSource("voxel_common.metal"), PrismaShaderLoader.readShaderSource("deferred.metal")), "prisma_deferred_vs", "prisma_deferred_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         if (!ObjC.isNil(pipeline)) {
             deferredLightingPipelines.put(colorFormat, pipeline);
         }

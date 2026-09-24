@@ -11,6 +11,8 @@ public final class PrismaConfig {
         public volatile int voxelRadius = 6;
     public volatile boolean vxaoEnabled = true;
     public volatile float vxaoStrength = 1.0f;
+    public volatile String shaderPack = "VXR Default";
+
     public volatile boolean pointLightsEnabled = true;
     public volatile boolean reflectionsEnabled = true;
     public volatile boolean cloudsInReflections = true;
@@ -62,6 +64,14 @@ public final class PrismaConfig {
             Path configFile = configDir.resolve("prisma.json");
             if (Files.exists(configFile)) {
                 String content = Files.readString(configFile);
+                                if (content.contains("\"shaderPack\":")) {
+                    try {
+                        int idx = content.indexOf("\"shaderPack\":") + 14;
+                        int endIdx = content.indexOf("\"", idx);
+                        shaderPack = content.substring(idx, endIdx);
+                    } catch (Exception ignored) {}
+                }
+
                 if (content.contains("\"voxelRadius\":")) {
                     try {
                         int idx = content.indexOf("\"voxelRadius\":") + 14;
