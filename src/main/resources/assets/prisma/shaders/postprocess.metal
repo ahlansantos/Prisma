@@ -25,10 +25,18 @@ vertex PostVertexOut prisma_postprocess_vs(uint vertexId [[vertex_id]]) {
 
 struct PostUniforms {
   float2 texelSize;
+  float fxaaEnabled;
   float time;
+  
   float sunAngle;
-  float3 _pad;
+  packed_float3 camPos;
+  
+  packed_float3 prevCamPos;
+  float _pad1;
+  
   float4x4 viewProj;
+  float4x4 prevViewProj;
+  float4x4 invViewProj;
 };
 
 static inline float postLuma(float3 c) {
@@ -115,6 +123,7 @@ fragment float4 prisma_postprocess_fs(
 
   PostVertexOut in [[stage_in]],
   texture2d<float> hdrTex [[texture(0)]],
+  depth2d<float> depthTex [[texture(1)]],
   sampler smp [[sampler(0)]],
   constant PostUniforms& u [[buffer(0)]]
 ) {
@@ -131,7 +140,39 @@ fragment float4 prisma_postprocess_fs(
   float3 maxCol = max(cCol, max(max(nCol, sCol), max(wCol, eCol)));
   float3 color = clamp(sharpCol, minCol, maxCol);
 
-    // Extract Bloom using Vogel Disk (Golden Angle)
+  float depth = depthTex.sample(smp, in.uv);
+  if (depth < 1.0f) {
+      float4 clipPos = float4(in.uv.x * 2.0f - 1.0f, in.uv.y * 2.0f - 1.0f, depth, 1.0f);
+      float4 worldRel = u.invViewProj * clipPos;
+      worldRel /= max(worldRel.w, 0.00001f);
+      
+      float3 globalPos = worldRel.xyz + u.camPos;
+      float3 prevRelPos = globalPos - u.prevCamPos;
+      
+      float4 prevClip = u.prevViewProj * float4(prevRelPos, 1.0f);
+      prevClip /= max(prevClip.w, 0.00001f);
+      float2 prevUv = prevClip.xy * 0.5f + 0.5f;
+      // Metal y is inverted clip space usually? Let's check if prevUv y needs flip.
+      // In Space warp we did `prevClip.xy * 0.5 + 0.5`, no flip, and it worked perfectly.
+      
+      float2 velocity = in.uv - prevUv;
+      
+      float velLen = length(velocity);
+      if (velLen > 0.0005f) {
+          velocity *= clamp(0.04f / velLen, 0.0f, 1.0f); // Max velocity length
+          int mbSamples = 6;
+          float2 velStep = velocity / float(mbSamples);
+          float2 mbUv = in.uv;
+          float3 mbColor = float3(0.0f);
+          for (int i = 0; i < mbSamples; i++) {
+              mbColor += hdrTex.sample(smp, mbUv).rgb;
+              mbUv -= velStep;
+          }
+          color = mix(color, mbColor / float(mbSamples), saturate(velLen * 50.0f));
+      }
+  }
+
+  // Extract Bloom using Vogel Disk (Golden Angle)
   float3 bloomSum = float3(0.0f);
   float bloomWeight = 0.0f;
   float radius = 0.12f;
@@ -165,45 +206,7 @@ fragment float4 prisma_postprocess_fs(
   
   
   
-  // Screen Space God Rays (Crepuscular Rays)
-  float sunRad = u.sunAngle;
-  float3 sunDir = normalize(float3(-sin(sunRad), cos(sunRad), 0.0f));
-  float sunWeight = saturate(sunDir.y * 10.0f);
   
-  float4 sunClip = u.viewProj * float4(sunDir, 0.0f); // w=0 ignores camera translation!
-  if (sunClip.w > 0.0001f && sunWeight > 0.05f) {
-      float2 sunUv = (sunClip.xy / sunClip.w) * 0.5f + 0.5f;
-      // Metal UV has 0 at top, so if clip space Y is 1 at top, UV is 1 - (y*0.5+0.5) = 0.5 - y*0.5
-      sunUv.y = 1.0f - sunUv.y; 
-
-      float2 deltaTexCoord = (in.uv - sunUv);
-      float distToSun = length(deltaTexCoord);
-      
-      if (distToSun < 1.5f) {
-          deltaTexCoord *= 1.0f / 16.0f; // num samples
-          float density = 0.85f;
-          float weight = 0.15f;
-          float decay = 0.95f;
-          
-          float2 rayUv = in.uv;
-          float3 godrays = float3(0.0f);
-          float illuminationDecay = 1.0f;
-          
-          for (int i = 0; i < 16; i++) {
-              rayUv -= deltaTexCoord * density;
-              float3 samp = hdrTex.sample(smp, rayUv).rgb;
-              // Extract only the brightest parts (sky/sun)
-              float sampLuma = postLuma(samp);
-              samp *= smoothstep(1.5f, 3.0f, sampLuma); 
-              
-              godrays += samp * illuminationDecay * weight;
-              illuminationDecay *= decay;
-          }
-          
-          // Add God Rays to color
-          color += godrays * sunWeight * smoothstep(1.5f, 0.2f, distToSun);
-      }
-  }
 
   // Tonemapper (ACES)
   

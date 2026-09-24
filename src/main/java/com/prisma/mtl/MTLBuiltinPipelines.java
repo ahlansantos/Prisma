@@ -663,7 +663,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         }
     }
 
-    public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, boolean fxaaEnabled, float sunAngle, Matrix4fc viewProj, MTLFence globalFence) {
+    public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, MemorySegment depthTexture, boolean fxaaEnabled, float sunAngle, Matrix4fc viewProj, Matrix4fc prevViewProj, Matrix4fc invViewProj, float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLRenderCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(sourceHdrTexture)) {
@@ -689,9 +689,11 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
             encoder.setViewport(0.0, 0.0, width, height, 0.0, 1.0);
             encoder.setRenderPipelineState(pipeline);
             encoder.setFragmentTexture(sourceHdrTexture, 0L);
+            encoder.setFragmentTexture(depthTexture, 1L);
             encoder.setFragmentSamplerState(presentLinearSampler, 0L);
             try (MemoryStack stack = MemoryStack.stackPush();){
-                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 16)).reinterpret(16L);
+                int size = 240;
+                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, size)).reinterpret((long)size);
                 long srcWidth = MTLTexture.width(sourceHdrTexture);
                 long srcHeight = MTLTexture.height(sourceHdrTexture);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 0L, srcWidth > 0L ? 1.0f / (float)srcWidth : 0.0f);
@@ -699,7 +701,23 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
                 uniforms.set(ValueLayout.JAVA_FLOAT, 8L, fxaaEnabled ? 1.0f : 0.0f);
                 float t = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
                 uniforms.set(ValueLayout.JAVA_FLOAT, 12L, t);
-                encoder.setFragmentBytes(uniforms, 16L, 0L);
+                
+                uniforms.set(ValueLayout.JAVA_FLOAT, 16L, sunAngle);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 20L, camPosX);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 24L, camPosY);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 28L, camPosZ);
+                
+                uniforms.set(ValueLayout.JAVA_FLOAT, 32L, prevCamPosX);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 36L, prevCamPosY);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 40L, prevCamPosZ);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 44L, 0.0f);
+                
+                java.nio.ByteBuffer bb = uniforms.asByteBuffer().order(java.nio.ByteOrder.nativeOrder());
+                viewProj.get(48, bb);
+                prevViewProj.get(112, bb);
+                invViewProj.get(176, bb);
+                
+                encoder.setFragmentBytes(uniforms, (long)size, 0L);
             }
             encoder.drawPrimitives(MTLPrimitiveType.Triangle, 0, 3, 1, 0);
             if (globalFence != null) {
