@@ -235,6 +235,7 @@ fragment float4 prisma_postprocess_fs(
   
   color = agx_mat_inv * color;
   color = max(color, float3(0.0f));
+  color = pow(color, float3(1.25f)); // Punchy look
 
 
   float postLumaVal = postLuma(color);
