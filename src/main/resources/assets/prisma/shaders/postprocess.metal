@@ -210,6 +210,10 @@ fragment float4 prisma_postprocess_fs(
 
   // Tonemapper (ACES)
   
+  
+  // Boost Exposure
+  color *= 1.35f;
+
   // AgX Tonemap
   const float3x3 agx_mat = float3x3(
     float3(0.84166f, 0.04639f, 0.04018f),
@@ -235,7 +239,14 @@ fragment float4 prisma_postprocess_fs(
   
   color = agx_mat_inv * color;
   color = max(color, float3(0.0f));
-  color = pow(color, float3(1.25f)); // Punchy look
+  
+  // Make it darker / Punchy (Relaxed)
+  color = pow(color, float3(1.12f)); 
+  
+  // Boost Saturation (Vibrance)
+  float lumaSat = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
+  color = mix(float3(lumaSat), color, 1.35f);
+
 
 
   float postLumaVal = postLuma(color);
