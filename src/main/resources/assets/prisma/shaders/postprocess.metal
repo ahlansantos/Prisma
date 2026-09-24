@@ -240,8 +240,13 @@ fragment float4 prisma_postprocess_fs(
   color = agx_mat_inv * color;
   color = max(color, float3(0.0f));
   
-  // Make it darker / Punchy (Relaxed)
-  color = pow(color, float3(1.12f)); 
+  
+  // Make it darker / Punchy (Strong Contrast S-Curve)
+  color = max(color, float3(0.0f));
+  
+  // Strong contrast curve
+  color = pow(max(color, float3(0.0f)), float3(1.45f)); // Strong shadow crush
+ 
   
   // Boost Saturation (Vibrance)
   float lumaSat = dot(color, float3(0.2126f, 0.7152f, 0.0722f));
