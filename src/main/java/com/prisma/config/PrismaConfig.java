@@ -55,7 +55,8 @@ public final class PrismaConfig {
 
 
 
-    public volatile boolean playerShadowEnabled = false;
+    public volatile boolean playerShadowEnabled = true;
+    public volatile boolean playerReflectionEnabled = true;
     public volatile int shadowQuality = 2;
     public volatile float penumbraSoftness = 1.0f;
     public volatile int reflectionBounces = 2;

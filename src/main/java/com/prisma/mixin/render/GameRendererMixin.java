@@ -204,6 +204,7 @@ public class GameRendererMixin {
 
                     boolean sunShadows = PrismaConfig.INSTANCE.sunShadowsEnabled;
                     boolean playerShadow = PrismaConfig.INSTANCE.playerShadowEnabled;
+                    boolean playerReflection = PrismaConfig.INSTANCE.playerReflectionEnabled;
                     float shadowQuality = (float) PrismaConfig.INSTANCE.reflectionBounces;
                     float penumbraSoftness = PrismaConfig.INSTANCE.penumbraSoftness;
 
@@ -229,6 +230,7 @@ public class GameRendererMixin {
                                 shadowQuality,
                                 penumbraSoftness,
                                 playerShadow,
+                                playerReflection,
                                 playerLimbSwing,
                                 playerLimbAmount,
                                 playerIsCrouch,
@@ -270,6 +272,7 @@ public class GameRendererMixin {
                                 penumbraSoftness,
                                 sunShadows,
                                 playerShadow,
+                                playerReflection,
                                 playerLimbSwing,
                                 playerLimbAmount,
                                 playerIsCrouch,

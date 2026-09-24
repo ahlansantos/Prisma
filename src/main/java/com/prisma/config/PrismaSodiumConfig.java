@@ -326,7 +326,7 @@ public final class PrismaSodiumConfig implements ConfigEntryPoint {
         modOptions.addPage(lightingPage);
         modOptions.addPage(waterPage);
         modOptions.addPage(reflectionsPage);
-        modOptions.addPage(debugPage);
+        
 
         OptionPageBuilder perfPage = builder.createOptionPage();
         perfPage.setName(Component.literal("🚀 Performance & Upscaling"));
@@ -362,6 +362,43 @@ public final class PrismaSodiumConfig implements ConfigEntryPoint {
 
         perfPage.addOptionGroup(frameGroup);
         modOptions.addPage(perfPage);
+
+        OptionPageBuilder expPage = builder.createOptionPage();
+        expPage.setName(Component.literal("🧪 Experimental"));
+
+        OptionGroupBuilder expGroup = builder.createOptionGroup();
+        expGroup.setName(Component.literal("Player Rendering"));
+
+        BooleanOptionBuilder pShadowOpt = builder.createBooleanOption(
+                Identifier.fromNamespaceAndPath("prisma", "player_shadows")
+        );
+        pShadowOpt.setName(Component.literal("Player Shadows"));
+        pShadowOpt.setTooltip(Component.literal("Renders the player's shadow from sunlight and point lights."));
+        pShadowOpt.setDefaultValue(true);
+        pShadowOpt.setBinding(
+                val -> PrismaConfig.INSTANCE.playerShadowEnabled = val,
+                () -> PrismaConfig.INSTANCE.playerShadowEnabled
+        );
+        pShadowOpt.setStorageHandler(PrismaConfig.INSTANCE::save);
+        expGroup.addOption(pShadowOpt);
+
+        BooleanOptionBuilder pReflOpt = builder.createBooleanOption(
+                Identifier.fromNamespaceAndPath("prisma", "player_reflections")
+        );
+        pReflOpt.setName(Component.literal("Player Reflections"));
+        pReflOpt.setTooltip(Component.literal("Renders the player model in raytraced reflections."));
+        pReflOpt.setDefaultValue(true);
+        pReflOpt.setBinding(
+                val -> PrismaConfig.INSTANCE.playerReflectionEnabled = val,
+                () -> PrismaConfig.INSTANCE.playerReflectionEnabled
+        );
+        pReflOpt.setStorageHandler(PrismaConfig.INSTANCE::save);
+        expGroup.addOption(pReflOpt);
+
+        expPage.addOptionGroup(expGroup);
+
+        modOptions.addPage(expPage);
+        modOptions.addPage(debugPage);
 
 
         
