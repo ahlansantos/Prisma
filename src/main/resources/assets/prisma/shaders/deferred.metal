@@ -293,7 +293,7 @@ fragment float4 prisma_deferred_fs(
                 PlayerHit hit;
                 hit.hitDist = 1e6f;
                 float3 sDir = normalize(shadowTarget - rayStart);
-                tracePlayerOBB(rayStart, sDir, uVoxel.playerPos.xyz, uVoxel.playerHead.z, uVoxel.playerHead.y, uVoxel.playerHead.x, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                tracePlayerOBB(rayStart, sDir, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
                 if (hit.hitDist > 0.0f && hit.hitDist < length(shadowTarget - rayStart)) {
                     cRes.vis = 0.0f;
                 }
