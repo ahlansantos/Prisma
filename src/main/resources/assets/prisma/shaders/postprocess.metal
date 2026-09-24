@@ -170,8 +170,8 @@ fragment float4 prisma_postprocess_fs(
   float3 sunDir = normalize(float3(-sin(sunRad), cos(sunRad), 0.0f));
   float sunWeight = saturate(sunDir.y * 10.0f);
   
-  float4 sunClip = u.viewProj * float4(sunDir * 1000.0f, 1.0f);
-  if (sunClip.w > 0.0f && sunWeight > 0.05f) {
+  float4 sunClip = u.viewProj * float4(sunDir, 0.0f); // w=0 ignores camera translation!
+  if (sunClip.w > 0.0001f && sunWeight > 0.05f) {
       float2 sunUv = (sunClip.xy / sunClip.w) * 0.5f + 0.5f;
       // Metal UV has 0 at top, so if clip space Y is 1 at top, UV is 1 - (y*0.5+0.5) = 0.5 - y*0.5
       sunUv.y = 1.0f - sunUv.y; 
