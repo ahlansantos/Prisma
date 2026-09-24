@@ -53,12 +53,15 @@ Starting from v0.2.4, Prisma is designed as a Shader Loader. It is entirely poss
 
 ---
 
-## Known Limitations
+<details>
+<summary><b>Known Limitations (Prisma's VXR Default)</b></summary>
 
 - **Voxel Grid Radius:** Terrain beyond the active voxel chunk radius reflects sky and ambient light rather than discrete geometry.
 - **ASFW Hardware Compatibility:** FrameWarp (ASFW) currently ONLY works on M1 and M2 chips. On M3 and newer architectures, it produces a black screen flicker due to Dynamic Caching memory barriers. We are working on a fix.
 - **ASFW Artifacts:** On supported chips, very fast camera sweeps may produce minor edge ghosting. Using TAAU alongside ASFW is highly recommended.
 - **Light Transmission:** Currently only supports solid translucent blocks (like stained glass). Light transmission through water is a work in progress.
+
+</details>
 
 ---
 
