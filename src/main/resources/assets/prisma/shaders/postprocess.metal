@@ -124,34 +124,54 @@ fragment float4 prisma_postprocess_fs(
   }
   
   
-  // Uchimura (Gran Turismo) Tonemapper
-  float P = 1.0f;  // max display brightness
-  float a = 1.0f;  // contrast
-  float m = 0.22f; // linear section start
-  float l = 0.4f;  // linear section length
-  float c = 1.33f; // black
-  float b = 0.0f;  // pedestal
   
-  float l0 = ((P - m) * l) / a;
-  float L0 = m - m / a;
-  float L1 = m + (1.0f - m) / a;
-  float S0 = m + l0;
-  float S1 = m + a * l0;
-  float C2 = (a * P) / (P - S1);
-  float CP = -C2 / P;
+  // Screen Space God Rays (Crepuscular Rays)
+  float sunRad = u.sunAngle;
+  float3 sunDir = normalize(float3(-sin(sunRad), cos(sunRad), 0.0f));
+  float sunWeight = saturate(sunDir.y * 10.0f);
+  
+  float4 sunClip = u.viewProj * float4(sunDir * 1000.0f, 1.0f);
+  if (sunClip.w > 0.0f && sunWeight > 0.05f) {
+      float2 sunUv = (sunClip.xy / sunClip.w) * 0.5f + 0.5f;
+      // Metal UV has 0 at top, so if clip space Y is 1 at top, UV is 1 - (y*0.5+0.5) = 0.5 - y*0.5
+      sunUv.y = 1.0f - sunUv.y; 
 
-  float3 w0 = 1.0f - smoothstep(0.0f, m, color);
-  float3 w2 = step(m + l0, color);
-  float3 w1 = 1.0f - w0 - w2;
+      float2 deltaTexCoord = (in.uv - sunUv);
+      float distToSun = length(deltaTexCoord);
+      
+      if (distToSun < 1.5f) {
+          deltaTexCoord *= 1.0f / 16.0f; // num samples
+          float density = 0.85f;
+          float weight = 0.15f;
+          float decay = 0.95f;
+          
+          float2 rayUv = in.uv;
+          float3 godrays = float3(0.0f);
+          float illuminationDecay = 1.0f;
+          
+          for (int i = 0; i < 16; i++) {
+              rayUv -= deltaTexCoord * density;
+              float3 samp = hdrTex.sample(smp, rayUv).rgb;
+              // Extract only the brightest parts (sky/sun)
+              float sampLuma = postLuma(samp);
+              samp *= smoothstep(1.5f, 3.0f, sampLuma); 
+              
+              godrays += samp * illuminationDecay * weight;
+              illuminationDecay *= decay;
+          }
+          
+          // Add God Rays to color
+          color += godrays * sunWeight * smoothstep(1.5f, 0.2f, distToSun);
+      }
+  }
 
-  float3 T = m * pow(color / m, c) + b;
-  float3 S = P - (P - S1) * exp(CP * (color - S0));
-  float3 L = m + a * (color - m);
-
-  color = T * w0 + L * w1 + S * w2;
-
-
-  color = pow(max(color, float3(0.0f)), float3(1.0f / 2.2f));
+  // Tonemapper (ACES)
+  float a = 2.51f;
+  float b = 0.03f;
+  float c = 2.43f;
+  float d = 0.59f;
+  float e = 0.14f;
+  color = saturate((color * (a * color + b)) / (color * (c * color + d) + e));
 
   float postLumaVal = postLuma(color);
   color = mix(float3(postLumaVal), color, 0.95f);
