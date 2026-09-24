@@ -206,7 +206,6 @@ public class GameRendererMixin {
                     boolean playerShadow = PrismaConfig.INSTANCE.playerShadowEnabled;
                     boolean playerReflection = PrismaConfig.INSTANCE.playerReflectionEnabled;
                     float shadowQuality = (float) PrismaConfig.INSTANCE.reflectionBounces;
-                    float penumbraSoftness = PrismaConfig.INSTANCE.penumbraSoftness;
 
                     if (debugMode != 0) {
                         metalDevice.mrtManager().applyDebugPass(
@@ -228,7 +227,6 @@ public class GameRendererMixin {
                                 playerHeight,
                                 playerBodyYaw,
                                 shadowQuality,
-                                penumbraSoftness,
                                 playerShadow,
                                 playerReflection,
                                 playerLimbSwing,
@@ -269,7 +267,6 @@ public class GameRendererMixin {
                                 playerHeight,
                                 playerBodyYaw,
                                 shadowQuality,
-                                penumbraSoftness,
                                 sunShadows,
                                 playerShadow,
                                 playerReflection,

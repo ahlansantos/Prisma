@@ -58,8 +58,7 @@ public final class PrismaConfig {
     public volatile boolean playerShadowEnabled = true;
     public volatile boolean playerReflectionEnabled = true;
     public volatile int shadowQuality = 2;
-    public volatile float penumbraSoftness = 1.0f;
-    public volatile int reflectionBounces = 2;
+        public volatile int reflectionBounces = 2;
     
 
     public volatile int csmResolution = 2048;
@@ -83,8 +82,8 @@ public final class PrismaConfig {
             Files.createDirectories(configDir);
             Path configFile = configDir.resolve("prisma.json");
             Files.writeString(configFile, String.format(java.util.Locale.ROOT,
-                    "{\"debugView\":\"%s\",\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"shadowQuality\":%d,\"penumbraSoftness\":%.2f,\"reflectionBounces\":%d,\"upscalingMode\":%d,\"spaceWarpEnabled\":%b}",
-                    debugView.name(), voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, shadowQuality, penumbraSoftness, reflectionBounces, upscalingMode, spaceWarpEnabled));
+                    "{\"debugView\":\"%s\",\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"shadowQuality\":%d,\"reflectionBounces\":%d,\"upscalingMode\":%d,\"spaceWarpEnabled\":%b}",
+                    debugView.name(), voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, shadowQuality, reflectionBounces, upscalingMode, spaceWarpEnabled));
         } catch (Throwable ignored) {
         }
     }
@@ -270,13 +269,6 @@ public final class PrismaConfig {
                         int idx = content.indexOf("\"shadowQuality\":") + 16;
                         int end = findJsonEnd(content, idx);
                         shadowQuality = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 1, 4);
-                    } catch (Throwable ignored) { }
-                }
-                if (content.contains("\"penumbraSoftness\":")) {
-                    try {
-                        int idx = content.indexOf("\"penumbraSoftness\":") + 19;
-                        int end = findJsonEnd(content, idx);
-                        penumbraSoftness = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.0f, 4.0f);
                     } catch (Throwable ignored) { }
                 }
                 if (content.contains("\"reflectionBounces\":")) {
