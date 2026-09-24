@@ -159,6 +159,7 @@ public class GameRendererMixin {
                     float playerIsCrouch = 0.0f;
                     float playerHeadYawDelta = 0.0f;
                     float playerHeadPitch = 0.0f;
+                    float playerAttackAnim = 0.0f;
 
                     if (player != null) {
                         playerX = (float) net.minecraft.util.Mth.lerp(partialTick, player.xo, player.getX());
@@ -173,6 +174,7 @@ public class GameRendererMixin {
                         playerIsCrouch = player.isCrouching() ? 1.0f : 0.0f;
                         playerHeadYawDelta = (float) Math.toRadians(pHeadDeg - pBodyDeg);
                         playerHeadPitch = (float) Math.toRadians(net.minecraft.util.Mth.lerp(partialTick, player.xRotO, player.getXRot()));
+                        playerAttackAnim = player.getAttackAnim(partialTick);
                     } else {
                         playerX = (float) camX;
                         playerY = (float) (camY - 1.62f);
@@ -230,6 +232,7 @@ public class GameRendererMixin {
                                 playerLimbSwing,
                                 playerLimbAmount,
                                 playerIsCrouch,
+                                playerAttackAnim,
                                 playerHeadYawDelta,
                                 playerHeadPitch,
                                 activeMobCount,
@@ -270,6 +273,7 @@ public class GameRendererMixin {
                                 playerLimbSwing,
                                 playerLimbAmount,
                                 playerIsCrouch,
+                                playerAttackAnim,
                                 playerHeadYawDelta,
                                 playerHeadPitch,
                                 activeMobCount,
