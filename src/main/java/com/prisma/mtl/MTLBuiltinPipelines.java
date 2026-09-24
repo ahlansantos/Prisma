@@ -74,8 +74,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         private static final String SPACE_WARP_MSL = readShader("spacewarp.metal");
 
     private static final String CLEAR_MSL = readShader("clear.metal");
-    private static final String DEBUG_MSL = concat(VOXEL_COMMON, readShader("debug.metal"));
-    private static MTLDevice device;
+        private static MTLDevice device;
     private static MemorySegment presentPipeline;
     private static MemorySegment presentLinearSampler;
     private static MemorySegment presentNearestSampler;
@@ -100,9 +99,7 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.RGBA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, true);
-        MTLBuiltinPipelines.ensureDebugPipeline(MTLPixelFormat.RGBA8Unorm.value);
-        MTLBuiltinPipelines.ensureDebugPipeline(MTLPixelFormat.BGRA8Unorm.value);
-        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA8Unorm.value);
+                        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA8Unorm.value);
         MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.BGRA8Unorm.value);
         MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA16Float.value);
         MTLBuiltinPipelines.ensurePostProcessPipeline(MTLPixelFormat.RGBA8Unorm.value);
@@ -194,175 +191,6 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
                 }
                 MTLBuiltinPipelines.encodeClearDraw(encoder, pipeline, textureWidth, textureHeight, clearColor, clampedX, clampedY, clampedMaxX - clampedX, clampedMaxY - clampedY, depthState, clearDepth);
             }
-            if (globalFence != null) {
-                encoder.updateFence(globalFence, MTLRenderStages.Fragment);
-            }
-            encoder.endEncoding();
-        }
-    }
-
-    public static void encodeDebugPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, int debugMode, float aspect, float fovScale, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, VoxelGridManager voxelManager, MTLFence globalFence) {
-        try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
-            MTLRenderCommandEncoder encoder;
-            if (ObjC.isNil(targetColorTexture) || debugMode == 0) {
-                return;
-            }
-            long width = MTLTexture.width(targetColorTexture);
-            long height = MTLTexture.height(targetColorTexture);
-            if (width <= 0L || height <= 0L) {
-                return;
-            }
-            long colorFormat = MTLTexture.pixelFormat(targetColorTexture);
-            MemorySegment pipeline = MTLBuiltinPipelines.ensureDebugPipeline(colorFormat);
-            if (ObjC.isNil(pipeline)) {
-                return;
-            }
-            try (MTLRenderPassDescriptor renderPass = new MTLRenderPassDescriptor();){
-                renderPass.colorAttachment(0L, targetColorTexture, 0L, 1L, null);
-                encoder = commandBuffer.makeRenderCommandEncoder(renderPass);
-            }
-            if (globalFence != null) {
-                encoder.waitForFence(globalFence, MTLRenderStages.Fragment);
-            }
-            encoder.setViewport(0.0, 0.0, width, height, 0.0, 1.0);
-            encoder.setRenderPipelineState(pipeline);
-            encoder.setFragmentTexture(albedoTexture, 0L);
-            encoder.setFragmentTexture(normalTexture, 1L);
-            encoder.setFragmentTexture(lightDataTexture, 2L);
-            encoder.setFragmentTexture(worldDepthTexture, 3L);
-            encoder.setFragmentTexture(handDepthTexture, 4L);
-            encoder.setFragmentTexture(blockAtlasTexture, 5L);
-            
-            encoder.setFragmentSamplerState(presentLinearSampler, 0L);
-            VoxelGridManager.GridState gridState = voxelManager != null ? voxelManager.activeState() : null;
-            VoxelGridManager.GridState gridState2 = gridState;
-            if (gridState != null && gridState.buffer() != null) {
-                encoder.setFragmentBuffer(gridState.buffer(), 0L, 1L);
-            } else {
-                encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 1L);
-            }
-            if (voxelManager != null && voxelManager.blockUvBuffer() != null) {
-                encoder.setFragmentBuffer(voxelManager.blockUvBuffer().handle(), 0L, 3L);
-            } else {
-                encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 3L);
-            }
-            if (voxelManager != null && voxelManager.blockBitmaskBuffer() != null) {
-                encoder.setFragmentBuffer(voxelManager.blockBitmaskBuffer().handle(), 0L, 4L);
-            } else {
-                encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 4L);
-            }
-            try (MemoryStack stack = MemoryStack.stackPush();){
-                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 16)).reinterpret(16L);
-                uniforms.set(ValueLayout.JAVA_INT, 0L, debugMode);
-                uniforms.set(ValueLayout.JAVA_INT, 4L, 1);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 8L, aspect);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 12L, fovScale);
-                encoder.setFragmentBytes(uniforms, 16L, 0L);
-                MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37136)).reinterpret(37136L);
-                vUniforms.fill((byte)0);
-                if (gridState != null) {
-                    vUniforms.set(ValueLayout.JAVA_INT, 0L, gridState.originX());
-                    vUniforms.set(ValueLayout.JAVA_INT, 4L, gridState.originY());
-                    vUniforms.set(ValueLayout.JAVA_INT, 8L, gridState.originZ());
-                    vUniforms.set(ValueLayout.JAVA_INT, 12L, gridState.radius());
-                    vUniforms.set(ValueLayout.JAVA_INT, 16L, gridState.sizeX());
-                    vUniforms.set(ValueLayout.JAVA_INT, 20L, gridState.sizeY());
-                    vUniforms.set(ValueLayout.JAVA_INT, 24L, gridState.sizeZ());
-                    java.util.List<com.prisma.voxel.PointLight> lights = voxelManager != null ? voxelManager.getCombinedLights(voxelManager.handheldLight()) : (gridState != null ? gridState.lights() : java.util.Collections.emptyList());
-                    vUniforms.set(ValueLayout.JAVA_INT, 28L, Math.min(lights.size(), 64));
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 32L, camPosX);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 36L, camPosY);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 40L, camPosZ);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 44L, 1.0f);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 48L, camRightX);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 52L, camRightY);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 56L, camRightZ);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 60L, 1.0f);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 64L, playerPosX);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 68L, playerPosY);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 72L, playerPosZ);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 76L, playerHeight);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 80L, playerBodyYaw);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 84L, shadowQuality);
-                    
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 92L, playerShadowEnabled ? 1.0f : 0.0f);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 96L, playerLimbSwing);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 100L, playerLimbAmount);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 104L, playerIsCrouch);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 108L, playerAttackAnim);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 112L, playerHeadYawDelta);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 116L, playerHeadPitch);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 120L, playerReflectionEnabled ? 1.0f : 0.0f);
-                    vUniforms.set(ValueLayout.JAVA_FLOAT, 124L, 0.0f);
-                    if (invViewProj != null) {
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 128L, invViewProj.m00());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 132L, invViewProj.m01());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 136L, invViewProj.m02());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 140L, invViewProj.m03());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 144L, invViewProj.m10());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 148L, invViewProj.m11());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 152L, invViewProj.m12());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 156L, invViewProj.m13());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 160L, invViewProj.m20());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 164L, invViewProj.m21());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 168L, invViewProj.m22());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 172L, invViewProj.m23());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 176L, invViewProj.m30());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 180L, invViewProj.m31());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 184L, invViewProj.m32());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 188L, invViewProj.m33());
-                    }
-                    if (viewProj != null) {
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 192L, viewProj.m00());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 196L, viewProj.m01());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 200L, viewProj.m02());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 204L, viewProj.m03());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 208L, viewProj.m10());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 212L, viewProj.m11());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 216L, viewProj.m12());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 220L, viewProj.m13());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 224L, viewProj.m20());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 228L, viewProj.m21());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 232L, viewProj.m22());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 236L, viewProj.m23());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 240L, viewProj.m30());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 244L, viewProj.m31());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 248L, viewProj.m32());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, 252L, viewProj.m33());
-                    }
-                    int maxL = Math.min(lights.size(), 64);
-                    for (int i = 0; i < maxL; ++i) {
-                        PointLight pl = (PointLight)lights.get(i);
-                        long offset = 256L + (long)i * 32L;
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 0L, pl.x());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 4L, pl.y());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 8L, pl.z());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 12L, pl.radius());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 16L, pl.r());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 20L, pl.g());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 24L, pl.b());
-                        vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 28L, pl.intensity());
-                    }
-                    vUniforms.set(ValueLayout.JAVA_INT, 33024L, Math.min(activeMobCount, 64));
-                    vUniforms.set(ValueLayout.JAVA_INT, 33032L, 0);
-                    vUniforms.set(ValueLayout.JAVA_INT, 33036L, 0);
-                    if (mobData != null && activeMobCount > 0) {
-                        int maxMobs = Math.min(activeMobCount, 64);
-                        for (int i = 0; i < maxMobs; ++i) {
-                            int mobBase = i * 16;
-                            long dstBase = 33040L + (long)i * 64L;
-                            for (int f = 0; f < 16; ++f) {
-                                vUniforms.set(ValueLayout.JAVA_FLOAT, dstBase + (long)f * 4L, mobData[mobBase + f]);
-                            }
-                        }
-                    }
-                }
-                MTLBuffer buf = device.newBuffer(37136L, 0L);
-            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37136L), 0L, 37136L);
-            encoder.setFragmentBuffer(buf.handle(), 0L, 2L);
-            ObjC.release(buf.handle());
-            }
-            encoder.drawPrimitives(MTLPrimitiveType.Triangle, 0, 3, 1, 0);
             if (globalFence != null) {
                 encoder.updateFence(globalFence, MTLRenderStages.Fragment);
             }
@@ -756,18 +584,6 @@ private static final String VOXEL_COMMON = readShader("voxel_common.metal");
         MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(CLEAR_MSL, "metallum_clear_vs", "metallum_clear_fs", colorFormat, depthFormat, writeColor ? MTLColorWriteMask.All.value : MTLColorWriteMask.None.value);
         if (!ObjC.isNil(pipeline)) {
             clearPipelines.put(key, pipeline);
-        }
-        return pipeline;
-    }
-
-    private static MemorySegment ensureDebugPipeline(long colorFormat) {
-        MemorySegment cached = debugPipelines.get(colorFormat);
-        if (cached != null) {
-            return cached;
-        }
-        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(DEBUG_MSL, "prisma_debug_vs", "prisma_debug_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
-        if (!ObjC.isNil(pipeline)) {
-            debugPipelines.put(colorFormat, pipeline);
         }
         return pipeline;
     }

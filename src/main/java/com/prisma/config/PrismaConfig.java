@@ -8,40 +8,7 @@ import java.nio.file.Path;
 public final class PrismaConfig {
     public static final PrismaConfig INSTANCE = new PrismaConfig();
 
-    public enum DebugView {
-        DISABLED("Disabled", 0),
-        DEPTH("Depth View", 1),
-        NORMAL("Normal View", 2),
-        DOUBLE_AO("Double AO (VXAO + SSAO)", 3),
-        VXAO("VXAO View (Voxel AO)", 6),
-        SSAO("SSAO View (Screen-Space AO)", 7),
-        POINT_LIGHTS("VPLS (Point Lights DDA)", 4),
-        VOXEL_GRID("Voxel Grid (Reflected Scene)", 5);
-
-        private final String name;
-        private final int shaderMode;
-
-        DebugView(String name, int shaderMode) {
-            this.name = name;
-            this.shaderMode = shaderMode;
-        }
-
-        public String getName() {
-            return this.name;
-        }
-
-        public int getShaderMode() {
-            return this.shaderMode;
-        }
-
-        @Override
-        public String toString() {
-            return this.name;
-        }
-    }
-
-    public volatile DebugView debugView = DebugView.DISABLED;
-    public volatile int voxelRadius = 6;
+        public volatile int voxelRadius = 6;
     public volatile boolean vxaoEnabled = true;
     public volatile float vxaoStrength = 1.0f;
     public volatile boolean pointLightsEnabled = true;
@@ -84,7 +51,7 @@ public final class PrismaConfig {
             Path configFile = configDir.resolve("prisma.json");
             Files.writeString(configFile, String.format(java.util.Locale.ROOT,
                     "{\"debugView\":\"%s\",\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"shadowQuality\":%d,\"reflectionBounces\":%d,\"upscalingMode\":%d,\"spaceWarpEnabled\":%b}",
-                    debugView.name(), voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, shadowQuality, reflectionBounces, upscalingMode, spaceWarpEnabled, motionBlurEnabled));
+                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, shadowQuality, reflectionBounces, upscalingMode, spaceWarpEnabled, motionBlurEnabled));
         } catch (Throwable ignored) {
         }
     }
@@ -95,24 +62,6 @@ public final class PrismaConfig {
             Path configFile = configDir.resolve("prisma.json");
             if (Files.exists(configFile)) {
                 String content = Files.readString(configFile);
-                if (content.contains("\"DEPTH\"")) {
-                    debugView = DebugView.DEPTH;
-                } else if (content.contains("\"NORMAL\"")) {
-                    debugView = DebugView.NORMAL;
-                } else if (content.contains("\"DOUBLE_AO\"")) {
-                    debugView = DebugView.DOUBLE_AO;
-                } else if (content.contains("\"VXAO\"")) {
-                    debugView = DebugView.VXAO;
-                } else if (content.contains("\"SSAO\"")) {
-                    debugView = DebugView.SSAO;
-                } else if (content.contains("\"POINT_LIGHTS\"")) {
-                    debugView = DebugView.POINT_LIGHTS;
-                } else if (content.contains("\"VOXEL_GRID\"")) {
-                    debugView = DebugView.VOXEL_GRID;
-                } else {
-                    debugView = DebugView.DISABLED;
-                }
-
                 if (content.contains("\"voxelRadius\":")) {
                     try {
                         int idx = content.indexOf("\"voxelRadius\":") + 14;

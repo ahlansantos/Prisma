@@ -189,20 +189,7 @@ public final class PrismaSodiumConfig implements ConfigEntryPoint {
         OptionGroupBuilder debugGroup = builder.createOptionGroup();
         debugGroup.setName(Component.literal("MRT Pipeline Visualizer"));
 
-        EnumOptionBuilder<PrismaConfig.DebugView> debugViewOption = builder.createEnumOption(
-                Identifier.fromNamespaceAndPath("prisma", "debug_view"),
-                PrismaConfig.DebugView.class
-        );
-        debugViewOption.setName(Component.literal("Debug Buffer View"));
-        debugViewOption.setTooltip(Component.literal("Inspect real-time G-Buffer and compute passes: Standard Presentation, Depth, Normals, Double AO, VXAO (Macro), SSAO (Micro), VPLS (Shadows), or Voxel Grid."));
-        debugViewOption.setDefaultValue(PrismaConfig.DebugView.DISABLED);
-        debugViewOption.setBinding(
-                val -> PrismaConfig.INSTANCE.debugView = val,
-                () -> PrismaConfig.INSTANCE.debugView
-        );
-        debugViewOption.setStorageHandler(PrismaConfig.INSTANCE::save);
-        debugViewOption.setElementNameProvider(val -> Component.literal(val.getName()));
-        debugGroup.addOption(debugViewOption);
+        
 
         debugPage.addOptionGroup(debugGroup);
 

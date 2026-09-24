@@ -73,7 +73,6 @@ public class GameRendererMixin {
             this.minecraft.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF);
         }
         if (renderLevel && this.minecraft.level != null) {
-            int debugMode = PrismaConfig.INSTANCE.debugView.getShaderMode();
             MetalDevice metalDevice = MetalBackend.getActiveDevice();
             if (metalDevice != null) {
                 float fov = (float) this.minecraft.options.fov().get();
@@ -207,41 +206,7 @@ public class GameRendererMixin {
                     boolean playerReflection = PrismaConfig.INSTANCE.playerReflectionEnabled;
                     float shadowQuality = (float) PrismaConfig.INSTANCE.reflectionBounces;
 
-                    if (debugMode != 0) {
-                        metalDevice.mrtManager().applyDebugPass(
-                                metalDevice.commandEncoder(),
-                                mainTarget.getColorTexture(),
-                                mainTarget.getDepthTexture(),
-                                debugMode,
-                                aspect,
-                                fovScale,
-                                (float) camX,
-                                (float) camY,
-                                (float) camZ,
-                                camRightX,
-                                camRightY,
-                                camRightZ,
-                                playerX,
-                                playerY,
-                                playerZ,
-                                playerHeight,
-                                playerBodyYaw,
-                                shadowQuality,
-                                playerShadow,
-                                playerReflection,
-                                playerLimbSwing,
-                                playerLimbAmount,
-                                playerIsCrouch,
-                                playerAttackAnim,
-                                playerHeadYawDelta,
-                                playerHeadPitch,
-                                activeMobCount,
-                                mobData,
-                                invViewProj,
-                                viewProj,
-                                voxelManager
-                        );
-                    } else {
+                    
                         float vxaoStrength = PrismaConfig.INSTANCE.vxaoEnabled ? PrismaConfig.INSTANCE.vxaoStrength : 0.0f;
                         boolean ptLights = PrismaConfig.INSTANCE.pointLightsEnabled;
 
@@ -293,7 +258,6 @@ public class GameRendererMixin {
                                 rainStrength,
                                 voxelManager
                         );
-                    }
                 }
             }
         }
