@@ -422,6 +422,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 worldDepth,
                 handDepth,
                 blockAtlasTexture(),
+                getPlayerSkinTexture(net.minecraft.client.Minecraft.getInstance()),
                 debugMode,
                 aspect,
                 fovScale,
