@@ -129,7 +129,7 @@ fragment float4 prisma_postprocess_fs(
   float a = 1.0f;  // contrast
   float m = 0.22f; // linear section start
   float l = 0.4f;  // linear section length
-  float c = 0.33f; // black
+  float c = 1.33f; // black
   float b = 0.0f;  // pedestal
   
   float l0 = ((P - m) * l) / a;
@@ -150,6 +150,8 @@ fragment float4 prisma_postprocess_fs(
 
   color = T * w0 + L * w1 + S * w2;
 
+
+  color = pow(max(color, float3(0.0f)), float3(1.0f / 2.2f));
 
   float postLumaVal = postLuma(color);
   color = mix(float3(postLumaVal), color, 0.95f);
