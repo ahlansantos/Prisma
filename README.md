@@ -2,7 +2,11 @@
 
 > **Notice:** Prisma is fully open-source under the MIT license. However, pre-compiled binaries and official releases are exclusively distributed via our [Discord Server](https://discord.gg/X8u3yJZQbm). 
 
-Prisma is a native Apple Silicon Metal voxel shader engine for Minecraft and Sodium. It renders real-time lighting, analytical voxel shadows, and reflections directly through Apple Metal (MSL), bypassing OpenGL compatibility layers for maximum performance on macOS.
+Prisma is a **Native Apple Silicon Metal Shader Loader** for Minecraft and Sodium (Starting in v0.2.4). 
+
+By completely bypassing OpenGL, MoltenVK, and translation layers, Prisma loads and compiles `.metal` (MSL) shaderpacks directly to the GPU. This provides unprecedented performance for shaders on Mac. 
+
+Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, which features real-time lighting, analytical voxel ray-traced shadows, and reflections.
 
 ---
 
