@@ -166,9 +166,16 @@ kernel void prisma_deferred_cs(
               float3 pY = reconstructWorldPos(uv + float2(0.0f, texel.y), depthY, uVoxel.camPos.xyz, uVoxel.invViewProj);
               float3 dX = pX - pWorld;
               float3 dY = pY - pWorld;
-              float3 nWorld = normalize(cross(dY, dX));
+              float3 crossDir = cross(dY, dX);
+              float crossLen = dot(crossDir, crossDir);
+              float3 nWorld = crossLen > 1e-12f ? normalize(crossDir) : float3(0.0f, 1.0f, 0.0f);
 
-              float3 safePWorld = pWorld - normalize(pWorld - uVoxel.camPos.xyz) * 0.05f;
+              float3 toCam = pWorld - uVoxel.camPos.xyz;
+              float distToCamSq = dot(toCam, toCam);
+              float3 safePWorld = pWorld;
+              if (distToCamSq > 0.0001f) {
+                  safePWorld -= toCam * (0.05f / sqrt(distToCamSq));
+              }
               uint2 safeVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(safePWorld)));
               bool isEntity = (safeVox.x == 0 && safeVox.y == 0); // Fallback entity heuristic
 
