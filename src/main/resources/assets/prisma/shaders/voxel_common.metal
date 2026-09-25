@@ -498,7 +498,8 @@ static inline float intersectOBB(float3 rayOrigin, float3 rayDir, OBB obb, threa
     float tNear = max(max(tmin.x, tmin.y), tmin.z);
     float tFar = min(min(tmax.x, tmax.y), tmax.z);
     if (tNear > tFar || tFar < 0.0f) return -1.0f;
-    float3 hitLocal = localP + localD * tNear;
+    float tHit = tNear < 0.0f ? 0.0001f : tNear;
+    float3 hitLocal = localP + localD * tHit;
     float3 normalLocal = float3(0.0f);
     float3 absHit = abs(hitLocal) / obb.extents;
     if (absHit.x > absHit.y && absHit.x > absHit.z) {
@@ -511,7 +512,7 @@ static inline float intersectOBB(float3 rayOrigin, float3 rayDir, OBB obb, threa
     outNormal = normalLocal.x * obb.rotation[0] + normalLocal.y * obb.rotation[1] + normalLocal.z * obb.rotation[2];
     outLocalP = hitLocal / obb.extents;
     outLocalN = normalLocal;
-    return tNear;
+    return tHit;
 }
 
 struct PlayerHit {
