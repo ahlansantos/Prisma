@@ -317,7 +317,8 @@ static inline float computeSSAO(
     float2 sUv = (clip.xy / clip.w) * 0.5f + 0.5f;
     if (sUv.x < 0.0f || sUv.x > 1.0f || sUv.y < 0.0f || sUv.y > 1.0f) continue;
 
-    float sDepth = worldDepthTex.sample(smp, sUv);
+    uint2 depthGid = uint2(sUv * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
+    float sDepth = worldDepthTex.read(depthGid);
     if (sDepth <= 0.00005f) continue;
 
     float distGeom = linearizeDepth(sDepth);
