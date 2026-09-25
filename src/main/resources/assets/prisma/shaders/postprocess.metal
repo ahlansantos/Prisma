@@ -225,12 +225,12 @@ fragment float4 prisma_postprocess_fs(
   
   
   // Tonemapper (ACES)
-  float a = 2.51f;
-  float b = 0.03f;
-  float c = 2.43f;
-  float d = 0.59f;
-  float e = 0.14f;
-  color = saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+  float ta = 2.51f;
+  float tb = 0.03f;
+  float tc = 2.43f;
+  float td = 0.59f;
+  float te = 0.14f;
+  color = saturate((color * (ta * color + tb)) / (color * (tc * color + td) + te));
 
   float postLumaVal = postLuma(color);
   color = mix(float3(postLumaVal), color, 0.95f);
