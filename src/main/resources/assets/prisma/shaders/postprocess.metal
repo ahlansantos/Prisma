@@ -147,11 +147,19 @@ fragment float4 prisma_postprocess_fs(
   float maxLuma = max(lC, max(max(lN, lS), max(lW, lE)));
   float contrast = saturate((maxLuma - minLuma) / max(maxLuma, 0.05f));
 
+  float sdaa = u._pad1;
   float sharpness = mix(-0.08f, -0.22f, contrast);
+  if (sdaa > 0.5f) {
+      sharpness = mix(-0.08f, 0.25f, contrast); // Positive sharpness acts as edge blur (SDAA)
+  }
+  
   float3 sharpCol = c + (n + s + w + e) * sharpness + (nw + ne + sw + se) * (sharpness * 0.5f);
   float weight = 1.0f + 4.0f * sharpness + 4.0f * (sharpness * 0.5f);
   
-  float3 color = clamp(sharpCol / weight, min(min(n,s), min(w,e)), max(max(n,s), max(w,e)));
+  float3 color = sharpCol / weight;
+  if (sdaa < 0.5f) {
+      color = clamp(color, min(min(n,s), min(w,e)), max(max(n,s), max(w,e)));
+  }
 
   float depth = depthTex.sample(smp, in.uv);
   if (depth < 1.0f) {

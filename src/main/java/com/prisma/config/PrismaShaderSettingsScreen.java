@@ -109,6 +109,9 @@ public class PrismaShaderSettingsScreen extends Screen {
                         this.listWidget.add(new SettingsEntry(Component.literal("Performance").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             ConfigSlider vrad = new ConfigSlider("Voxel Grid Radius", 2.0, 16.0, PrismaConfig.INSTANCE.voxelRadius, false, v -> PrismaConfig.INSTANCE.voxelRadius = v.intValue());
             this.listWidget.add(new SettingsEntry(vrad, null));
+            this.listWidget.add(new SettingsEntry(Component.literal("Spatial Denoiser & Anti Aliaser (SDAA)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button bSdaa = createToggle("SDAA Enabled", PrismaConfig.INSTANCE.sdaaEnabled, v -> PrismaConfig.INSTANCE.sdaaEnabled = v);
+            this.listWidget.add(new SettingsEntry(bSdaa, null));
             this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
             Button b2 = createToggle("SpaceWarp", PrismaConfig.INSTANCE.spaceWarpEnabled, v -> PrismaConfig.INSTANCE.spaceWarpEnabled = v);

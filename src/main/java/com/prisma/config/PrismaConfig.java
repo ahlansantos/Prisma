@@ -39,6 +39,7 @@ public final class PrismaConfig {
     public volatile float upscalingRatio = 0.75f;
     public volatile boolean spaceWarpEnabled = false;
     public volatile boolean motionBlurEnabled = true;
+    public volatile boolean sdaaEnabled = true;
 
     
     private PrismaConfig() {
@@ -51,7 +52,7 @@ public final class PrismaConfig {
             Path configFile = configDir.resolve("prisma.json");
                         Files.writeString(configFile, String.format(java.util.Locale.ROOT,
                     "{\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"upscalingRatio\":%.2f,\"spaceWarpEnabled\":%b,\"motionBlurEnabled\":%b,\"playerShadowEnabled\":%b,\"playerReflectionEnabled\":%b}",
-                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, upscalingRatio, spaceWarpEnabled, motionBlurEnabled, playerShadowEnabled, playerReflectionEnabled));
+                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, upscalingRatio, spaceWarpEnabled, motionBlurEnabled, playerShadowEnabled, playerReflectionEnabled, sdaaEnabled));
         } catch (Throwable ignored) {
         }
     }
@@ -242,6 +243,15 @@ public final class PrismaConfig {
                         int idx = content.indexOf("\"playerReflectionEnabled\":") + 25;
                         int end = findJsonEnd(content, idx);
                         playerReflectionEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
+                    } catch (Throwable ignored) { }
+                }
+
+                
+                if (content.contains("\"sdaaEnabled\":")) {
+                    try {
+                        int idx = content.indexOf("\"sdaaEnabled\":") + 15;
+                        int end = findJsonEnd(content, idx);
+                        sdaaEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
                     } catch (Throwable ignored) { }
                 }
 
