@@ -247,10 +247,20 @@ fragment float4 prisma_deferred_fs(
               float vxaoStrength = uVoxel.camPos.w;
               float vxao = (!isEntity && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, in.position.xy) * vxaoStrength : 0.0f;
               float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, in.uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, in.position.xy) * vxaoStrength : 0.0f;
-              float rawSky = (lightData.z > 0.5f) ? lightData.g : (float((atVox.x >> 8) & 0x0F) / 15.0f);
-              float rawBlock = (lightData.z > 0.5f) ? lightData.r : (float((atVox.x >> 4) & 0x0F) / 15.0f);
-              if (lightData.z <= 0.5f && (atVox.x & 1) == 0 && (insideVox.x & 1) == 0) {
-                rawSky = 1.0f;
+              float rawSky = lightData.g;
+              float rawBlock = lightData.r;
+              if (lightData.z <= 0.5f) {
+                  int3 localPos = int3(floor(pWorld - float3(uVoxel.gridOrigin.xyz)));
+                  for (int yOffset = 0; yOffset <= 3; yOffset++) {
+                      uint2 entVox = readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, localPos - int3(0, yOffset, 0));
+                      float vSky = float((entVox.x >> 8) & 0x0F) / 15.0f;
+                      float vBlock = float((entVox.x >> 4) & 0x0F) / 15.0f;
+                      if (vSky > 0.0f || vBlock > 0.0f || (entVox.x & 1) != 0) {
+                          rawSky = vSky;
+                          rawBlock = vBlock;
+                          break;
+                      }
+                  }
               }
               float skyLevel = get_vanilla_brightness(rawSky);
               float blockLevel = get_vanilla_brightness(rawBlock);
@@ -278,10 +288,10 @@ fragment float4 prisma_deferred_fs(
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
 
-              float celestialShadow = 1.0f;
+              float celestialShadow = (rawSky > 0.80f && !isEntity) ? 1.0f : 0.0f;
               float3 celestialTint = float3(1.0f);
 
-              if (celestialNdotL > 0.0f && celestialDir.y > 0.001f) {
+              if (celestialNdotL > 0.0f && celestialDir.y > 0.001f && rawSky > 0.80f && !isEntity) {
                 float celestialSlopeBias = mix(0.045f, 0.012f, celestialNdotL);
                 float3 rayStart = pWorld + nWorld * celestialSlopeBias;
                 float temporalFrame = fract(u.gameTime * 20.0f) * 64.0f;
@@ -306,7 +316,7 @@ fragment float4 prisma_deferred_fs(
               }
 
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
-              float shadowAmbientFactor = mix(0.50f, 1.0f, celestialShadow);
+              float shadowAmbientFactor = mix(mix(1.0f, 0.50f, skyLevel), 1.0f, celestialShadow);
               float3 baseAmbient = ambientSky * shadowAmbientFactor;
 
 
@@ -319,6 +329,9 @@ fragment float4 prisma_deferred_fs(
               float3 shadowedSkyLight = skyLight * (1.0f - shadowOcclusion);
 
               float3 baseLighting = shadowedSkyLight + totalBlockLight + float3(minAmbient);
+              if (isEntity) {
+                baseLighting = float3(1.0f) + totalBlockLight * 0.8f;
+              }
 
               baseLighting *= volumetricAo;
 
@@ -392,7 +405,7 @@ fragment float4 prisma_deferred_fs(
                                 float spec = pow(NdotH, 24.0f) * NdotL;
                                 float atten = saturate(1.0f - dist / lRad);
                                 float smoothAtten = atten * atten;
-                                specPoints += uVoxel.lights[i].colorAndIntensity.xyz * (uVoxel.lights[i].colorAndIntensity.w * spec * smoothAtten * 2.2f);
+                                specPoints += uVoxel.lights[i].colorAndIntensity.xyz * (uVoxel.lights[i].colorAndIntensity.w * spec * smoothAtten * 0.3f);
                             }
                         }
                     }
@@ -416,14 +429,14 @@ fragment float4 prisma_deferred_fs(
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
                 float3 underWaterColor = albedo.rgb;
-                float3 shallowColor = float3(0.05f, 0.58f, 0.55f);
-                float3 deepColor = float3(0.01f, 0.12f, 0.25f);
+                float3 shallowColor = float3(0.08f, 0.45f, 0.65f);
+                float3 deepColor = float3(0.01f, 0.15f, 0.35f);
                 float3 toSurf = uVoxel.camPos.xyz - pWorld;
                 float vertDist = max(abs(toSurf.y), 0.5f);
                 float horizDist = length(toSurf.xz);
                 float depthAngle = saturate(vertDist / (vertDist + horizDist * 0.5f));
                 float3 waterVol = mix(deepColor, shallowColor, pow(depthAngle, 0.6f));
-                float3 cleanWaterTint = isWater ? mix(underWaterColor, waterVol, saturate(0.75f * u.waterAbsorption)) : underWaterColor;
+                float3 cleanWaterTint = isWater ? mix(underWaterColor, waterVol, saturate(0.35f * u.waterAbsorption)) : underWaterColor;
                 albedo.rgb = cleanWaterTint;
                 
                 if (isMetal) {
@@ -477,7 +490,7 @@ fragment float4 prisma_deferred_fs(
                                                 // Darken fog in caves (but keep it bright under trees)
                 float surfaceBoost = saturate((pWorld.y - 50.0f) * 0.05f); 
                 float caveDarkness = saturate(skyLevel * 4.0f + surfaceBoost);
-                fogColor *= mix(0.01f, 1.0f, caveDarkness);
+                fogColor *= max(caveDarkness, 0.0f);
 
                 float cosSunTheta = dot(rayDir, sunDir);
                 float miePhase = (1.0f - 0.78f*0.78f) / pow(max(1.0f + 0.78f*0.78f - 2.0f*0.78f*cosSunTheta, 0.01f), 1.5f);
