@@ -141,7 +141,7 @@ kernel void prisma_deferred_cs(
 
               if (effectiveDepth <= 0.00005f && hDepth <= 0.0001f) {
                 if (isNether || isEnd) {
-                    return float4(albedo.rgb, albedo.a); // Let vanilla handle Nether and End skies
+                    outTexture.write(float4(albedo.rgb, albedo.a), gid); return; // Let vanilla handle Nether and End skies
                 }
                 float4 nearPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 1.0f, 1.0f);
                 float4 farPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 0.001f, 1.0f);
@@ -150,12 +150,12 @@ kernel void prisma_deferred_cs(
                 float3 rayDir = normalize(pFar - pNear);
 
                 float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsEnabled, u.cloudSteps, u.rainStrength, 1e6f);
-                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * u.rainStrength; return float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f);
+                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * u.rainStrength; outTexture.write(float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f), gid); return;
               }
 
 
               if (hDepth > 0.0001f) {
-                return float4(albedo.rgb, albedo.a);
+                outTexture.write(float4(albedo.rgb, albedo.a), gid); return;
               }
 
               float3 pWorld = reconstructWorldPos(uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
@@ -246,8 +246,8 @@ kernel void prisma_deferred_cs(
 
 
               float vxaoStrength = uVoxel.camPos.w;
-              float vxao = (!isEntity && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, in.position.xy) * vxaoStrength : 0.0f;
-              float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, in.position.xy) * vxaoStrength : 0.0f;
+              float vxao = (!isEntity && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
+              float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
               float rawSky = lightData.g;
               float rawBlock = lightData.r;
               if (lightData.z <= 0.5f) {
@@ -273,7 +273,7 @@ kernel void prisma_deferred_cs(
 
 
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
-              PointLightResult ptRes = uVoxel.camRight.w > 0.5f ? computePointLights(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, surfNormal, uVoxel.gridSize.w, uVoxel.lights, uVoxel.playerPos, uVoxel.shadowParams, uVoxel.playerAnim, uVoxel.playerHead, uVoxel.mobCounts.x, uVoxel.mobs, in.position.xy, blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface) : PointLightResult{float3(0.0f), 0.0f, 0.0f};
+              PointLightResult ptRes = uVoxel.camRight.w > 0.5f ? computePointLights(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, surfNormal, uVoxel.gridSize.w, uVoxel.lights, uVoxel.playerPos, uVoxel.shadowParams, uVoxel.playerAnim, uVoxel.playerHead, uVoxel.mobCounts.x, uVoxel.mobs, (float2(gid) + 0.5f), blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface) : PointLightResult{float3(0.0f), 0.0f, 0.0f};
               float3 pointLights = ptRes.color;
 
               float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
