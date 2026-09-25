@@ -361,14 +361,13 @@ fragment float4 prisma_deferred_fs(
                 for (int b = 0; b < maxBounces; b++) {
                     int steps = (b == 0) ? 80 : 30;
                     float cloudsRefl = (b == 0) ? u.cloudsInReflections : 0.0f;
-                    float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, cloudsRefl, u.cloudSteps, u.rainStrength) * skyLevel;
+                    float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, cloudsRefl, u.cloudSteps, u.rainStrength, 1e6f) * skyLevel;
                     
                                         VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.vxaoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel);
                     
                     float reflDist = vxr.hitDist;
-                    float rawReflFog = saturate(1.0f - exp(-(reflDist * u.fogDensity) * (reflDist * u.fogDensity)));
-                    float3 reflFogColor = mix(nightFog, dayFog, sunWeight);
-                    reflFogColor = mix(reflFogColor, rainFog, u.rainStrength);
+                    float rawReflFog = saturate(1.0f - exp(-reflDist * reflDist * 0.00028f));
+                    float3 reflFogColor = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
                     
                     float reflY = currentRayOrigin.y + currentRayDir.y * reflDist;
                     float reflSkyLvl = saturate((reflY - 24.0f) / 64.0f);

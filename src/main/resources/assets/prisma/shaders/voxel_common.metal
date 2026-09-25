@@ -1,85 +1,4 @@
-static inline float4 computeVolumetricClouds(
-    float3 pWorld, float3 rWorld, float gameTime, float3 hazeColor, float sunWeight, float3 sunDir, float3 moonDir, float3 currentSunColor, float3 currentMoonColor, float cloudsEnabled, float cloudSteps, float rainStrength, float maxDist
-) {
-    if (cloudsEnabled < 0.5f || rWorld.y <= 0.01f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
-    
-    float cMin = 650.0f;
-    float cMax = 950.0f;
-    float tm = (cMin - pWorld.y) / rWorld.y;
-    float tM = (cMax - pWorld.y) / rWorld.y;
-    if (tM <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
-    
-    tm = max(tm, 0.0f);
-    tM = min(tM, min(tm + 3500.0f, maxDist));
-    if (tM <= tm) return float4(0.0f, 0.0f, 0.0f, 1.0f);
-    
-    float3 sPos = pWorld + rWorld * tm;
-    float3 ePos = pWorld + rWorld * tM;
-    float mL = length(ePos - sPos);
-    float sC = max(10.0f, min(80.0f, cloudSteps));
-    float sZ = mL / sC;
-    float3 st = rWorld * sZ;
-    float3 cP = sPos;
-    float tr = 1.0f;
-    float3 sL = float3(0.0f);
-    
-    float cosSunTheta = dot(rWorld, sunDir);
-    float cosMoonTheta = dot(rWorld, moonDir);
-    float hgF = (1.0f - 0.45f*0.45f) / pow(max(1.0f + 0.45f*0.45f - 2.0f*0.45f*cosSunTheta, 0.01f), 1.5f);
-    float hgB = (1.0f - 0.25f*0.25f) / pow(max(1.0f + 0.25f*0.25f + 2.0f*0.25f*cosSunTheta, 0.01f), 1.5f);
-    float ph = max(0.75f, mix(hgB * 0.85f, hgF, 0.65f));
-    
-    float moonHgF = (1.0f - 0.45f*0.45f) / pow(max(1.0f + 0.45f*0.45f - 2.0f*0.45f*cosMoonTheta, 0.01f), 1.5f);
-    float moonHgB = (1.0f - 0.25f*0.25f) / pow(max(1.0f + 0.25f*0.25f + 2.0f*0.25f*cosMoonTheta, 0.01f), 1.5f);
-    float moonPh = max(0.75f, mix(moonHgB * 0.85f, moonHgF, 0.65f));
-    
-    float3 dayCloudAmbient = mix(float3(0.38f, 0.48f, 0.60f), hazeColor, 0.35f);
-    float3 nightCloudAmbient = float3(0.015f, 0.025f, 0.06f);
-    float3 rainCloudAmbient = mix(float3(0.05f, 0.07f, 0.10f), float3(0.24f, 0.26f, 0.30f), sunWeight);
-    float3 baseCloudAmbient = mix(nightCloudAmbient, dayCloudAmbient, sunWeight);
-    float3 cloudAmbient = mix(baseCloudAmbient, rainCloudAmbient, rainStrength);
-    
-    float3 celDir = (sunWeight > 0.5f) ? sunDir : moonDir;
-    float cloudThreshold = mix(0.40f, 0.20f, rainStrength);
-    float cloudDensityMult = mix(8.0f, 12.0f, rainStrength);
-    
-    for(int i = 0; i < int(sC); i++) {
-        if(tr < 0.05f) break;
-        
-        float3 q = cP * 0.0025f + float3(gameTime * 0.015f, gameTime * 0.008f, gameTime * 0.005f);
-        float n = fbmClouds(q);
-        float d = max(0.0f, n - cloudThreshold) * cloudDensityMult;
-        
-        float hF = (cP.y - cMin) / (cMax - cMin);
-        d *= smoothstep(0.0f, 0.15f, hF) * smoothstep(1.0f, 0.65f, hF);
-        
-        float currDist = length(cP - pWorld);
-        d *= smoothstep(4500.0f, 1500.0f, currDist);
-        
-        if(d > 0.01f){
-            float stT = exp(-d * 0.06f * sZ);
-            
-            float3 lPos = cP + celDir * 25.0f;
-            float3 lq = lPos * 0.0025f + float3(gameTime * 0.015f, gameTime * 0.008f, gameTime * 0.005f);
-            float ln = smoothNoise3D(lq) * 0.85f;
-            float ld = max(0.0f, ln - cloudThreshold) * cloudDensityMult;
-            
-            float lT = exp(-ld * 0.06f * 25.0f);
-            float powder = 1.0f - exp(-d * 2.5f);
-            float inscatter = lT * powder;
-            
-            float3 sunDirect = currentSunColor * (inscatter * ph * sunWeight * 0.95f);
-            float3 moonDirect = currentMoonColor * (inscatter * moonPh * (1.0f - sunWeight) * 0.01f);
-            float3 celestialDirect = (sunDirect + moonDirect) * (1.0f - rainStrength * 0.75f);
-            
-            float3 S = celestialDirect + cloudAmbient;
-            sL += tr * d * 0.06f * S * sZ;
-            tr *= stT;
-        }
-        cP += st;
-    }
-    return float4(sL, tr);
-}
+
 
 #include <metal_stdlib>
 using namespace metal;
@@ -463,6 +382,89 @@ struct ShadowRayResult {  float vis;  float3 tint;}; static inline float hash3D(
     f += w * smoothNoise3D(p); p *= 2.5f; w *= 0.4f;
     f += w * smoothNoise3D(p);
     return f;
+}
+
+static inline float4 computeVolumetricClouds(
+    float3 pWorld, float3 rWorld, float gameTime, float3 hazeColor, float sunWeight, float3 sunDir, float3 moonDir, float3 currentSunColor, float3 currentMoonColor, float cloudsEnabled, float cloudSteps, float rainStrength, float maxDist
+) {
+    if (cloudsEnabled < 0.5f || rWorld.y <= 0.01f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    
+    float cMin = 650.0f;
+    float cMax = 950.0f;
+    float tm = (cMin - pWorld.y) / rWorld.y;
+    float tM = (cMax - pWorld.y) / rWorld.y;
+    if (tM <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    
+    tm = max(tm, 0.0f);
+    tM = min(tM, min(tm + 3500.0f, maxDist));
+    if (tM <= tm) return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    
+    float3 sPos = pWorld + rWorld * tm;
+    float3 ePos = pWorld + rWorld * tM;
+    float mL = length(ePos - sPos);
+    float sC = max(10.0f, min(80.0f, cloudSteps));
+    float sZ = mL / sC;
+    float3 st = rWorld * sZ;
+    float3 cP = sPos;
+    float tr = 1.0f;
+    float3 sL = float3(0.0f);
+    
+    float cosSunTheta = dot(rWorld, sunDir);
+    float cosMoonTheta = dot(rWorld, moonDir);
+    float hgF = (1.0f - 0.45f*0.45f) / pow(max(1.0f + 0.45f*0.45f - 2.0f*0.45f*cosSunTheta, 0.01f), 1.5f);
+    float hgB = (1.0f - 0.25f*0.25f) / pow(max(1.0f + 0.25f*0.25f + 2.0f*0.25f*cosSunTheta, 0.01f), 1.5f);
+    float ph = max(0.75f, mix(hgB * 0.85f, hgF, 0.65f));
+    
+    float moonHgF = (1.0f - 0.45f*0.45f) / pow(max(1.0f + 0.45f*0.45f - 2.0f*0.45f*cosMoonTheta, 0.01f), 1.5f);
+    float moonHgB = (1.0f - 0.25f*0.25f) / pow(max(1.0f + 0.25f*0.25f + 2.0f*0.25f*cosMoonTheta, 0.01f), 1.5f);
+    float moonPh = max(0.75f, mix(moonHgB * 0.85f, moonHgF, 0.65f));
+    
+    float3 dayCloudAmbient = mix(float3(0.38f, 0.48f, 0.60f), hazeColor, 0.35f);
+    float3 nightCloudAmbient = float3(0.015f, 0.025f, 0.06f);
+    float3 rainCloudAmbient = mix(float3(0.05f, 0.07f, 0.10f), float3(0.24f, 0.26f, 0.30f), sunWeight);
+    float3 baseCloudAmbient = mix(nightCloudAmbient, dayCloudAmbient, sunWeight);
+    float3 cloudAmbient = mix(baseCloudAmbient, rainCloudAmbient, rainStrength);
+    
+    float3 celDir = (sunWeight > 0.5f) ? sunDir : moonDir;
+    float cloudThreshold = mix(0.40f, 0.20f, rainStrength);
+    float cloudDensityMult = mix(8.0f, 12.0f, rainStrength);
+    
+    for(int i = 0; i < int(sC); i++) {
+        if(tr < 0.05f) break;
+        
+        float3 q = cP * 0.0025f + float3(gameTime * 0.015f, gameTime * 0.008f, gameTime * 0.005f);
+        float n = fbmClouds(q);
+        float d = max(0.0f, n - cloudThreshold) * cloudDensityMult;
+        
+        float hF = (cP.y - cMin) / (cMax - cMin);
+        d *= smoothstep(0.0f, 0.15f, hF) * smoothstep(1.0f, 0.65f, hF);
+        
+        float currDist = length(cP - pWorld);
+        d *= smoothstep(4500.0f, 1500.0f, currDist);
+        
+        if(d > 0.01f){
+            float stT = exp(-d * 0.06f * sZ);
+            
+            float3 lPos = cP + celDir * 25.0f;
+            float3 lq = lPos * 0.0025f + float3(gameTime * 0.015f, gameTime * 0.008f, gameTime * 0.005f);
+            float ln = smoothNoise3D(lq) * 0.85f;
+            float ld = max(0.0f, ln - cloudThreshold) * cloudDensityMult;
+            
+            float lT = exp(-ld * 0.06f * 25.0f);
+            float powder = 1.0f - exp(-d * 2.5f);
+            float inscatter = lT * powder;
+            
+            float3 sunDirect = currentSunColor * (inscatter * ph * sunWeight * 0.95f);
+            float3 moonDirect = currentMoonColor * (inscatter * moonPh * (1.0f - sunWeight) * 0.01f);
+            float3 celestialDirect = (sunDirect + moonDirect) * (1.0f - rainStrength * 0.75f);
+            
+            float3 S = celestialDirect + cloudAmbient;
+            sL += tr * d * 0.06f * S * sZ;
+            tr *= stT;
+        }
+        cP += st;
+    }
+    return float4(sL, tr);
 } static inline bool testSubVoxelBit(constant ulong* bitmaskTable, uint blockId, float3 localPos) {  if (bitmaskTable == nullptr || blockId >= 32768u) return true;  ulong mask = bitmaskTable[blockId];  if (mask == 0xFFFFFFFFFFFFFFFFULL) return true;  if (mask == 0ULL) return false;  int3 sub = clamp(int3(floor(localPos * 4.0f)), int3(0), int3(3));  uint bitIdx = uint((sub.z * 4 + sub.y) * 4 + sub.x);  return ((mask >> bitIdx) & 1ULL) != 0ULL;}struct OBB {
   float3 center;
   float3 extents;
