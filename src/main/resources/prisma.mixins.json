@@ -10,7 +10,6 @@
     "render.GameRendererMixin",
     "render.PreferredGraphicsApiMixin",
     "sodium.DrawBackendMixin",
-    "sodium.DrawContextMixin",
     "sodium.SodiumPreferredGraphicsApiMixin",
     "world.ClientLevelMixin",
     "world.ResourceManagerReloadMixin",
