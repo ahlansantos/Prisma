@@ -348,7 +348,7 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 108L, playerAttackAnim);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 112L, playerHeadYawDelta);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 116L, playerHeadPitch);
-                vUniforms.set(ValueLayout.JAVA_FLOAT, 120L, 0.0f);
+                vUniforms.set(ValueLayout.JAVA_FLOAT, 120L, com.prisma.config.PrismaConfig.INSTANCE.caveLighting);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 124L, playerReflectionEnabled ? 1.0f : 0.0f);
                 if (invViewProj != null) {
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 128L, invViewProj.m00());

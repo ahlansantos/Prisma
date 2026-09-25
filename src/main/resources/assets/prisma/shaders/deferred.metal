@@ -282,6 +282,7 @@ fragment float4 prisma_deferred_fs(
               if (isNether) {
                 minAmbient = max(minAmbient, 0.11f);
               }
+              minAmbient = max(minAmbient, uVoxel.playerHead.z);
               float3 ambientSky = max(activeSkyLight * (skyLevel * 0.68f), float3(0.03f, 0.025f, 0.02f));
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
