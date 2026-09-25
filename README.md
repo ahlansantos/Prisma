@@ -33,7 +33,6 @@ Starting in version 0.2.4, Prisma acts as an open standard MSL (Metal Shading La
 
 - **Dynamic Loading:** Prisma will automatically scan the `shaderpacks/` directory for any folders containing a `shaders/` sub-directory with `.metal` files.
 - **VXR Isolation:** Advanced built-in features like TAAU (Temporal Anti-Aliasing Upscaler) and ASFW (Frame Generation) are strictly isolated to the built-in VXR Default shader. Custom shaders render perfectly at native resolution with no G-Buffer bleeding or distortion.
-- **The Basic Template:** We provide a ready-to-go, heavily commented `Prisma-Template` (located in `shaderpack-template/Prisma-Template`) that features perfect pass-through of the Vanilla Sky, Sun, and Stars, and robust ambient lighting defaults.
 - **Ray Traced Shadows Template:** Looking to build advanced lighting? Join our [Discord Server](https://discord.gg/X8u3yJZQbm) to download an extended Metal shader template that includes built-in voxel ray-traced shadows!
 
 </details>
