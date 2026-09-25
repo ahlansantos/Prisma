@@ -37,7 +37,7 @@ public class GameRendererMixin {
             method = "renderLevel",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/blaze3d/buffers/GpuBufferSlice;"
+                    target = "Lnet/minecraft/client/renderer/ProjectionMatrixBuffer;getBuffer(Lorg/joml/Matrix4f;)Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;"
             ),
             index = 0
     )
@@ -61,7 +61,7 @@ public class GameRendererMixin {
             method = "render",
             at = @At(
                     value = "INVOKE",
-                    target = "Lcom/mojang/blaze3d/systems/CommandEncoder;clearDepthTexture(Lcom/mojang/blaze3d/textures/GpuTexture;D)V"
+                    target = "Lcom/mojang/renderpearl/api/commands/CommandEncoder;clearDepthTexture(Lcom/mojang/renderpearl/api/textures/GpuTexture;D)V"
             )
     )
     private void prisma$onBeforeGui(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
