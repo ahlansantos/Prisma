@@ -13,7 +13,7 @@ if (isFinal) {
 } else {
     def dateFormat = new SimpleDateFormat("ddMMyyyy_HHmm")
     def currentDate = dateFormat.format(new Date())
-    version = "${project.mod_base_version}-${project.mod_revision}+build.${currentDate}"
+    version = "${project.mod_base_version}"
 }
 
 group = project.maven_group

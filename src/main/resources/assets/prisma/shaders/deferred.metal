@@ -238,7 +238,9 @@ fragment float4 prisma_deferred_fs(
               if (isWater) {
                 float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
                 if (abs(nWorld.y) > 0.65f) {
-                  surfNormal = normalize(float3(waveNorm.x, nWorld.y > 0.0f ? waveNorm.y : -waveNorm.y, waveNorm.z));
+                  float distToWater = length(uVoxel.camPos.xyz - pWorld);
+                  float closeUpMult = mix(2.5f, 1.0f, saturate(distToWater / 12.0f));
+                  surfNormal = normalize(float3(waveNorm.x * closeUpMult, nWorld.y > 0.0f ? waveNorm.y : -waveNorm.y, waveNorm.z * closeUpMult));
                 }
               }
 
