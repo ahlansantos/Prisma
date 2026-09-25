@@ -37,37 +37,35 @@
                         static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
               if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
 
-              float2 wavePos = pWorldXZ * 0.8f;
-              float angle = 0.5f;
+              float2 wavePos = pWorldXZ * 1.5f;
+              float angle = 0.0f;
               float frequency = 1.0f;
-              float wSpeed = 1.5f * speed;
+              float wSpeed = 1.2f * speed;
               float weight = 1.0f;
               float waveSum = 0.0f;
-              float modTime = time * 0.85f;
+              float modTime = time * 0.65f;
               float2 dx = float2(0.0f);
 
               const float GOLDEN_ANGLE = 2.39996f;
 
-              for (int i = 0; i < 7; i++) {
+              for (int i = 0; i < 5; i++) {
                 float2 dir = float2(cos(angle), sin(angle));
                 float x = dot(dir, wavePos) * frequency + modTime * wSpeed;
-                x += cos(wavePos.y * 0.5f - modTime * 0.2f) * 0.5f;
                 float wave = exp(sin(x) - 1.0f);
                 float result = wave * cos(x);
                 float2 force = result * weight * dir;
 
                 dx += force;
-                wavePos -= force * 0.05f;
+                wavePos -= force * 0.03f;
                 angle += GOLDEN_ANGLE;
                 waveSum += weight;
-                weight *= 0.55f;
-                frequency *= 1.65f;
-                wSpeed *= 1.15f;
+                weight *= 0.62f;
+                frequency *= 1.55f;
+                wSpeed *= 1.12f;
               }
 
               float2 waveSlope = -dx / max(waveSum, 0.001f);
-              float normalMult = 0.08f * strength;
-
+              float normalMult = 0.06f * strength;
               return normalize(float3(waveSlope.x * normalMult, 1.0f, waveSlope.y * normalMult));
             }
 
@@ -238,9 +236,7 @@ fragment float4 prisma_deferred_fs(
               if (isWater) {
                 float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
                 if (abs(nWorld.y) > 0.65f) {
-                  float distToWater = length(uVoxel.camPos.xyz - pWorld);
-                  float closeUpMult = mix(2.5f, 1.0f, saturate(distToWater / 12.0f));
-                  surfNormal = normalize(float3(waveNorm.x * closeUpMult, nWorld.y > 0.0f ? waveNorm.y : -waveNorm.y, waveNorm.z * closeUpMult));
+                  surfNormal = normalize(float3(waveNorm.x, nWorld.y > 0.0f ? waveNorm.y : -waveNorm.y, waveNorm.z));
                 }
               }
 

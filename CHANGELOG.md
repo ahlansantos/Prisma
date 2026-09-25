@@ -11,7 +11,6 @@
 ## Main Graphics
 - **New Shaderpack System:**
   - `VXR Default`: The classic Voxel Raytracing shader you know and love is now fully packaged as the default built-in shaderpack, running flawlessly on the new loader system!
-- **Water Realism:** Implemented highly detailed chaotic Gerstner waves that are up to 2.5x more visible up close. Adjusted water colors for a natural deep oceanic and tropical aesthetic with high transparency.
 - **Lighting Perfection:** Fixed voxel ray-traced shadow bleeding inside caves, removed cave fog bloom artifacts, and fixed pitch-black glass shadows.
 - **Cloud System Overhaul:** Clouds are now volumetric entities that can be flown above or flown through naturally, eliminating the sky cutoff bug.
 
