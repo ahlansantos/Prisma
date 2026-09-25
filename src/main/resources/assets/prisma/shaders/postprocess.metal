@@ -127,18 +127,31 @@ fragment float4 prisma_postprocess_fs(
   sampler smp [[sampler(0)]],
   constant PostUniforms& u [[buffer(0)]]
 ) {
-                float2 texSize = float2(hdrTex.get_width(), hdrTex.get_height());
-  float2 dx = float2(1.0f / texSize.x, 0.0f);
-  float2 dy = float2(0.0f, 1.0f / texSize.y);
-  float3 cCol = sampleBicubic(hdrTex, smp, in.uv).rgb;
-  float3 nCol = sampleBicubic(hdrTex, smp, in.uv - dy).rgb;
-  float3 sCol = sampleBicubic(hdrTex, smp, in.uv + dy).rgb;
-  float3 wCol = sampleBicubic(hdrTex, smp, in.uv - dx).rgb;
-  float3 eCol = sampleBicubic(hdrTex, smp, in.uv + dx).rgb;
-  float3 sharpCol = cCol + (cCol * 4.0f - nCol - sCol - wCol - eCol) * 0.85f;
-  float3 minCol = min(cCol, min(min(nCol, sCol), min(wCol, eCol)));
-  float3 maxCol = max(cCol, max(max(nCol, sCol), max(wCol, eCol)));
-  float3 color = clamp(sharpCol, minCol, maxCol);
+                  float2 texSize = float2(hdrTex.get_width(), hdrTex.get_height());
+  float2 texel = 1.0f / texSize;
+  
+  // PEU (Prisma Experimental Upscaling) - Edge Adaptive Filter
+  float3 c = hdrTex.sample(smp, in.uv).rgb;
+  float3 nw = hdrTex.sample(smp, in.uv + float2(-texel.x, -texel.y)).rgb;
+  float3 n  = hdrTex.sample(smp, in.uv + float2(0, -texel.y)).rgb;
+  float3 ne = hdrTex.sample(smp, in.uv + float2(texel.x, -texel.y)).rgb;
+  float3 w  = hdrTex.sample(smp, in.uv + float2(-texel.x, 0)).rgb;
+  float3 e  = hdrTex.sample(smp, in.uv + float2(texel.x, 0)).rgb;
+  float3 sw = hdrTex.sample(smp, in.uv + float2(-texel.x, texel.y)).rgb;
+  float3 s  = hdrTex.sample(smp, in.uv + float2(0, texel.y)).rgb;
+  float3 se = hdrTex.sample(smp, in.uv + float2(texel.x, texel.y)).rgb;
+
+  float lC = postLuma(c);
+  float lN = postLuma(n); float lS = postLuma(s); float lW = postLuma(w); float lE = postLuma(e);
+  float minLuma = min(lC, min(min(lN, lS), min(lW, lE)));
+  float maxLuma = max(lC, max(max(lN, lS), max(lW, lE)));
+  float contrast = saturate((maxLuma - minLuma) / max(maxLuma, 0.05f));
+
+  float sharpness = mix(-0.08f, -0.22f, contrast);
+  float3 sharpCol = c + (n + s + w + e) * sharpness + (nw + ne + sw + se) * (sharpness * 0.5f);
+  float weight = 1.0f + 4.0f * sharpness + 4.0f * (sharpness * 0.5f);
+  
+  float3 color = clamp(sharpCol / weight, min(min(n,s), min(w,e)), max(max(n,s), max(w,e)));
 
   float depth = depthTex.sample(smp, in.uv);
   if (depth < 1.0f) {
