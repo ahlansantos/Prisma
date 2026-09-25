@@ -64,7 +64,9 @@ public class GameRendererMixin {
                     target = "Lcom/mojang/renderpearl/api/commands/CommandEncoder;clearDepthTexture(Lcom/mojang/renderpearl/api/textures/GpuTexture;D)V"
             )
     )
-    private void prisma$onBeforeGui(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
+    private void prisma$onBeforeGui(CallbackInfo ci) {
+        boolean renderLevel = true;
+        DeltaTracker deltaTracker = this.minecraft.getDeltaTracker();
         if (this.minecraft.options != null && Boolean.TRUE.equals(this.minecraft.options.entityShadows().get())) {
             this.minecraft.options.entityShadows().set(false);
         }
