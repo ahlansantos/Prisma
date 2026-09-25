@@ -340,7 +340,7 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 76L, playerHeight);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 80L, playerBodyYaw);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 84L, shadowQuality);
-                
+                vUniforms.set(ValueLayout.JAVA_FLOAT, 88L, 1.0f);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 92L, playerShadowEnabled ? 1.0f : 0.0f);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 96L, playerLimbSwing);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 100L, playerLimbAmount);
@@ -348,8 +348,8 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 108L, playerAttackAnim);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 112L, playerHeadYawDelta);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 116L, playerHeadPitch);
-                vUniforms.set(ValueLayout.JAVA_FLOAT, 120L, playerReflectionEnabled ? 1.0f : 0.0f);
-                vUniforms.set(ValueLayout.JAVA_FLOAT, 124L, 0.0f);
+                vUniforms.set(ValueLayout.JAVA_FLOAT, 120L, 0.0f);
+                vUniforms.set(ValueLayout.JAVA_FLOAT, 124L, playerReflectionEnabled ? 1.0f : 0.0f);
                 if (invViewProj != null) {
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 128L, invViewProj.m00());
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 132L, invViewProj.m01());
