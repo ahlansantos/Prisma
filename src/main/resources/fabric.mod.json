@@ -15,7 +15,6 @@
   },
   "license": "MIT",
   "icon": "assets/prisma/icon.png",
-  "accessWidener": "prisma.accesswidener",
   "environment": "*",
   "entrypoints": {
     "main": [
