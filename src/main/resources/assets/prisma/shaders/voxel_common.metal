@@ -314,7 +314,7 @@ static inline float computeSSAO(
     float3 sampleRel = samplePos - camPos;
     float4 clip = viewProj * float4(sampleRel, 1.0f);
     if (clip.w <= 0.0001f) continue;
-    float2 sUv = (clip.xy / clip.w) * 0.5f + 0.5f;
+    float2 sUv = float2(clip.x / clip.w, -(clip.y / clip.w)) * 0.5f + 0.5f;
     if (sUv.x < 0.0f || sUv.x > 1.0f || sUv.y < 0.0f || sUv.y > 1.0f) continue;
 
     uint2 depthGid = uint2(sUv * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));

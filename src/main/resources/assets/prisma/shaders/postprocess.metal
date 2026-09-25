@@ -161,9 +161,10 @@ fragment float4 prisma_postprocess_fs(
       color = clamp(color, min(min(n,s), min(w,e)), max(max(n,s), max(w,e)));
   }
 
-  float depth = depthTex.sample(smp, in.uv);
+  uint2 depthGid = uint2(in.uv * float2(depthTex.get_width(), depthTex.get_height()));
+  float depth = depthTex.read(depthGid);
   if (depth < 1.0f) {
-      float4 clipPos = float4(in.uv.x * 2.0f - 1.0f, in.uv.y * 2.0f - 1.0f, depth, 1.0f);
+      float4 clipPos = float4(in.uv.x * 2.0f - 1.0f, -(in.uv.y * 2.0f - 1.0f), depth, 1.0f);
       float4 worldRel = u.invViewProj * clipPos;
       worldRel /= max(worldRel.w, 0.00001f);
       

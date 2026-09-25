@@ -31,9 +31,10 @@ fragment float4 prisma_spacewarp_fs(
   sampler smp [[sampler(0)]],
   constant SpaceWarpUniforms& u [[buffer(0)]]
 ) {
-  float depth = worldDepthTex.sample(smp, in.uv);
+  uint2 depthGid = uint2(in.uv * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
+  float depth = worldDepthTex.read(depthGid);
   
-  float2 ndc = float2(in.uv.x * 2.0f - 1.0f, in.uv.y * 2.0f - 1.0f);
+  float2 ndc = float2(in.uv.x * 2.0f - 1.0f, -(in.uv.y * 2.0f - 1.0f));
   float4 clipPos = float4(ndc, depth, 1.0f);
   float4 worldRel = u.invViewProj * clipPos;
   worldRel /= max(worldRel.w, 0.00001f);
