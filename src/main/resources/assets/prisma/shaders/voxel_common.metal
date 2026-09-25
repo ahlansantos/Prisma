@@ -387,7 +387,7 @@ struct ShadowRayResult {  float vis;  float3 tint;}; static inline float hash3D(
 static inline float4 computeVolumetricClouds(
     float3 pWorld, float3 rWorld, float gameTime, float3 hazeColor, float sunWeight, float3 sunDir, float3 moonDir, float3 currentSunColor, float3 currentMoonColor, float cloudsEnabled, float cloudSteps, float rainStrength, float maxDist
 ) {
-    if (cloudsEnabled < 0.5f || rWorld.y <= 0.01f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
+    if (cloudsEnabled < 0.5f || abs(rWorld.y) < 0.001f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
     
     float cMin = 650.0f;
     float cMax = 950.0f;
@@ -395,6 +395,7 @@ static inline float4 computeVolumetricClouds(
     float tM = (cMax - pWorld.y) / rWorld.y;
     if (tM <= 0.0f) return float4(0.0f, 0.0f, 0.0f, 1.0f);
     
+    if (tm > tM) { float temp = tm; tm = tM; tM = temp; }
     tm = max(tm, 0.0f);
     tM = min(tM, min(tm + 3500.0f, maxDist));
     if (tM <= tm) return float4(0.0f, 0.0f, 0.0f, 1.0f);

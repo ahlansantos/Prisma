@@ -366,7 +366,7 @@ fragment float4 prisma_deferred_fs(
                                         VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.vxaoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel);
                     
                     float reflDist = vxr.hitDist;
-                    float rawReflFog = saturate(1.0f - exp(-reflDist * reflDist * 0.00028f));
+                    float rawReflFog = saturate(1.0f - exp(-pow(reflDist * 0.003f, 3.5f)));
                     float3 reflFogColor = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
                     
                     float reflY = currentRayOrigin.y + currentRayDir.y * reflDist;
@@ -466,7 +466,7 @@ fragment float4 prisma_deferred_fs(
                 float3 rayDir = normalize(pWorld - uVoxel.camPos.xyz);
                 
                 // Exponential distance fog (thicker to hide chunks better)
-                                float distFog = 1.0f - exp(-distToCam * distToCam * 0.00028f);
+                                float distFog = 1.0f - exp(-pow(distToCam * 0.003f, 3.5f));
                 float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f) * saturate(distToCam * 0.015f);
                 
                 float fogFactor = saturate(distFog + heightFog);
