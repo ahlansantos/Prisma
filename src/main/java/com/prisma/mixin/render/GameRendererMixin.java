@@ -204,7 +204,7 @@ public class GameRendererMixin {
                     boolean sunShadows = PrismaConfig.INSTANCE.sunShadowsEnabled;
                     boolean playerShadow = PrismaConfig.INSTANCE.playerShadowEnabled;
                     boolean playerReflection = PrismaConfig.INSTANCE.playerReflectionEnabled;
-                    float shadowQuality = (float) PrismaConfig.INSTANCE.reflectionBounces;
+                    float shadowQuality = 2.0f;
 
                     
                         float vxaoStrength = PrismaConfig.INSTANCE.vxaoEnabled ? PrismaConfig.INSTANCE.vxaoStrength : 0.0f;

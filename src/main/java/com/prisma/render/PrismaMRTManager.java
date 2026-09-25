@@ -82,7 +82,7 @@ public final class PrismaMRTManager implements AutoCloseable {
         long upscaleFactor = 1;
 
         if (width <= 0 || height <= 0) return;
-        upscaleFactor = com.prisma.config.PrismaConfig.INSTANCE.upscalingMode;
+        upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
         if (upscaleFactor < 1) upscaleFactor = 1;
         if (this.currentWidth != width || this.currentHeight != height || this.currentScale != upscaleFactor || ObjC.isNil(this.normalTexture) || ObjC.isNil(this.lightDataTexture)) {
             this.currentScale = upscaleFactor;
@@ -152,7 +152,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                upscaleFactor = com.prisma.config.PrismaConfig.INSTANCE.upscalingMode;
+                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
                 if (upscaleFactor < 1) upscaleFactor = 1;
                 long hdrW = Math.max(1L, width / upscaleFactor);
                 long hdrH = Math.max(1L, height / upscaleFactor);
@@ -169,7 +169,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                upscaleFactor = com.prisma.config.PrismaConfig.INSTANCE.upscalingMode;
+                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
                 if (upscaleFactor < 1) upscaleFactor = 1;
                 long hdrW = Math.max(1L, width / upscaleFactor);
                 long hdrH = Math.max(1L, height / upscaleFactor);
@@ -529,7 +529,7 @@ public final class PrismaMRTManager implements AutoCloseable {
         if (!doSpaceWarp && !ObjC.isNil(this.previousHdrTexture)) {
             MTLBlitCommandEncoder blit = encoder.commandBuffer().makeBlitCommandEncoder();
             
-            long upscaleFactor = com.prisma.config.PrismaConfig.INSTANCE.upscalingMode;
+            long upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
             if (upscaleFactor < 1) upscaleFactor = 1;
             long hdrW = Math.max(1L, width / upscaleFactor);
             long hdrH = Math.max(1L, height / upscaleFactor);

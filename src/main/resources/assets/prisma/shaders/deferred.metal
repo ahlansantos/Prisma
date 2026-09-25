@@ -452,17 +452,27 @@ fragment float4 prisma_deferred_fs(
                 float fogFactor = saturate(1.0f - exp(-distToCam * distToCam * 0.00018f)) * skyLevel;
                 float3 netherFogColor = float3(0.30f, 0.10f, 0.08f);
                 litRgb = mix(litRgb, netherFogColor, fogFactor);
-              } else if (!isEnd) {
+                            } else if (!isEnd) {
                 float distToCam = length(pWorld - uVoxel.camPos.xyz);
                 float3 rayDir = normalize(pWorld - uVoxel.camPos.xyz);
-                float fogFactor = saturate(1.0f - exp(-distToCam * distToCam * 0.00018f)) * skyLevel;
+                
+                // Exponential distance fog (thicker to hide chunks better)
+                                float distFog = 1.0f - exp(-distToCam * distToCam * 0.00028f);
+                float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f) * saturate(distToCam * 0.015f);
+                
+                float fogFactor = saturate(distFog + heightFog);
                 float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength);
 
-                // Add Mie scattering glare for atmospheric depth (sun shafts bleeding)
+                                                // Darken fog in caves (but keep it bright under trees)
+                float surfaceBoost = saturate((pWorld.y - 50.0f) * 0.05f); 
+                float caveDarkness = saturate(skyLevel * 4.0f + surfaceBoost);
+                fogColor *= mix(0.01f, 1.0f, caveDarkness);
+
                 float cosSunTheta = dot(rayDir, sunDir);
                 float miePhase = (1.0f - 0.78f*0.78f) / pow(max(1.0f + 0.78f*0.78f - 2.0f*0.78f*cosSunTheta, 0.01f), 1.5f);
                 float3 mieGlare = currentSunColor * (miePhase * 0.035f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
                 fogColor += mieGlare;
+                
                 fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
 
                 litRgb = mix(litRgb, fogColor, fogFactor);

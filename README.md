@@ -1,4 +1,4 @@
-# Prisma
+runc# Prisma
 
 > **Notice:** Prisma is fully open-source under the MIT license. However, pre-compiled binaries and official releases are exclusively distributed via our [Discord Server](https://discord.gg/X8u3yJZQbm). 
 
@@ -26,30 +26,24 @@ The engine comes with a flagship built-in shaderpack out of the box. Here are it
 
 ---
 
-## For Developers (Custom Shaderpacks)
+<details>
+<summary><b>For Shader Developers</b></summary>
 
-Starting from v0.2.4, Prisma is designed as a Shader Loader. It is entirely possible to port existing GLSL shaders to MSL (Metal Shading Language) or write your own from scratch.
+Starting in version 0.2.4, Prisma acts as an open standard MSL (Metal Shading Language) Shader Loader.
 
-- **No Official Tutorial Yet:** While the API is fully functional, comprehensive documentation for writing Prisma Shaderpacks is still a work in progress.
-- **Optional Voxel APIs:** Shaders can optionally tap into Prisma's 3D Voxel Grid API. You can use it to create Ray Traced Point Light Shadows, Voxel-based Reflections, or ignore it entirely and write a traditional Screen-Space shader.
-- **MakeUp Ultra Fast - Metal Port:** As a proof of concept, we are developing an official Native Metal port of MakeUp Ultra Fast. Check it out here: [MakeUp-MetalMacos](https://github.com/ahlansantos/MakeUp-MetalMacos)
+- **Dynamic Loading:** Prisma will automatically scan the `shaderpacks/` directory for any folders containing a `shaders/` sub-directory with `.metal` files.
+- **VXR Isolation:** Advanced built-in features like TAAU (Temporal Anti-Aliasing Upscaler) and ASFW (Frame Generation) are strictly isolated to the built-in VXR Default shader. Custom shaders render perfectly at native resolution with no G-Buffer bleeding or distortion.
+- **The Basic Template:** We provide a ready-to-go, heavily commented `Prisma-Template` (located in `shaderpack-template/Prisma-Template`) that features perfect pass-through of the Vanilla Sky, Sun, and Stars, and robust ambient lighting defaults.
+- **Ray Traced Shadows Template:** Looking to build advanced lighting? Join our [Discord Server](https://discord.gg/X8u3yJZQbm) to download an extended Metal shader template that includes built-in voxel ray-traced shadows!
 
-## Requirements
-
-- **OS:** macOS 13 or newer
-- **Hardware:** Apple Silicon (M-Series)
-- **Minecraft:** 26.2 (Java 25+)
-- **Dependencies:** Fabric Loader 0.19.2+, Sodium 0.9.1+
-- **Incompatible:** Iris, OptiFine, or any other rendering mods (Prisma entirely replaces the rendering pipeline).
-
----
+</details>
 
 ## Installation
 
 1. Install Fabric Loader and Sodium.
 2. Download the latest Prisma `.jar` from Discord.
 3. Drop the `.jar` into your `.minecraft/mods` folder.
-4. Configure options under **Video Settings -> Prisma**.
+4. Configure options under **Video Settings -> Shader Packs**.
 
 ---
 

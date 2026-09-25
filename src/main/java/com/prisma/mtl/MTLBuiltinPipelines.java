@@ -275,10 +275,13 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 72L, (float)cfg.maxPointLights);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 76L, cfg.reflectionPointLightShadows ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 80L, cfg.reflectionDirectionalShadows ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.vxaoInReflections ? 1.0f : 0.0f);
+                                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.vxaoInReflections ? 1.0f : 0.0f);
                 
                 uniforms.set(ValueLayout.JAVA_FLOAT, 88L, cfg.volumetricCloudsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 92L, (float)cfg.cloudQualitySteps);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 100L, cfg.cloudsInReflections ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 100L, PrismaConfig.INSTANCE.cloudsInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
@@ -535,7 +538,11 @@ public final class MTLBuiltinPipelines {
             try (MemoryStack stack = MemoryStack.stackPush();){
                 int size = 240;
                 MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, size)).reinterpret((long)size);
-                long srcWidth = MTLTexture.width(sourceHdrTexture);
+                        boolean isVXR = "VXR Default".equals(PrismaConfig.INSTANCE.shaderPack);
+        boolean spaceWarpEnabled = isVXR && PrismaConfig.INSTANCE.spaceWarpEnabled;
+        int upscalingMode = isVXR ? PrismaConfig.INSTANCE.upscalingMode : 0;
+        
+        long srcWidth = MTLTexture.width(sourceHdrTexture);
                 long srcHeight = MTLTexture.height(sourceHdrTexture);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 0L, srcWidth > 0L ? 1.0f / (float)srcWidth : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 4L, srcHeight > 0L ? 1.0f / (float)srcHeight : 0.0f);
@@ -618,7 +625,7 @@ public final class MTLBuiltinPipelines {
         if (cached != null) {
             return cached;
         }
-        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(concat(PrismaShaderLoader.readShaderSource("voxel_common.metal"), PrismaShaderLoader.readShaderSource("deferred.metal")), "prisma_deferred_vs", "prisma_deferred_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(concat(PrismaShaderLoader.readShaderSource("voxel_common.metal") + "\n", PrismaShaderLoader.readShaderSource("deferred.metal")), "prisma_deferred_vs", "prisma_deferred_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         if (!ObjC.isNil(pipeline)) {
             deferredLightingPipelines.put(colorFormat, pipeline);
         }

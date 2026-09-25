@@ -23,6 +23,7 @@ loom {
 }
 
 repositories {
+	maven { url 'https://maven.shedaniel.me' }
 	maven { url "https://api.modrinth.com/maven" }
 }
 
@@ -31,7 +32,9 @@ dependencies {
 	
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "maven.modrinth:sodium:${project.sodium_version}"
-}
+	
+	
+	}
 
 processResources {
 	inputs.property "version", project.version
@@ -79,6 +82,7 @@ publishing {
 
 	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
 	repositories {
+	maven { url 'https://maven.shedaniel.me' }
 		// Add repositories to publish to here.
 		// Notice: This block does NOT have the same function as the block in the top level.
 		// The repositories here will be used for publishing your artifact, not for

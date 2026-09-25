@@ -26,9 +26,7 @@ public final class PrismaConfig {
 
     public volatile boolean playerShadowEnabled = true;
     public volatile boolean playerReflectionEnabled = true;
-    public volatile int shadowQuality = 2;
-        public volatile int reflectionBounces = 2;
-    
+                
 
     public volatile int csmResolution = 2048;
     public volatile int csmCascades = 3;
@@ -51,9 +49,9 @@ public final class PrismaConfig {
             Path configDir = FabricLoader.getInstance().getConfigDir();
             Files.createDirectories(configDir);
             Path configFile = configDir.resolve("prisma.json");
-            Files.writeString(configFile, String.format(java.util.Locale.ROOT,
-                    "{\"debugView\":\"%s\",\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"shadowQuality\":%d,\"reflectionBounces\":%d,\"upscalingMode\":%d,\"spaceWarpEnabled\":%b}",
-                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, shadowQuality, reflectionBounces, upscalingMode, spaceWarpEnabled, motionBlurEnabled));
+                        Files.writeString(configFile, String.format(java.util.Locale.ROOT,
+                    "{\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"upscalingMode\":%d,\"spaceWarpEnabled\":%b,\"motionBlurEnabled\":%b}",
+                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, upscalingMode, spaceWarpEnabled, motionBlurEnabled));
         } catch (Throwable ignored) {
         }
     }
@@ -224,21 +222,7 @@ public final class PrismaConfig {
                     }
                 }
 
-                if (content.contains("\"shadowQuality\":")) {
-                    try {
-                        int idx = content.indexOf("\"shadowQuality\":") + 16;
-                        int end = findJsonEnd(content, idx);
-                        shadowQuality = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 1, 4);
-                    } catch (Throwable ignored) { }
-                }
-                if (content.contains("\"reflectionBounces\":")) {
-                    try {
-                        int idx = content.indexOf("\"reflectionBounces\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        reflectionBounces = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 1, 3);
-                    } catch (Throwable ignored) { }
-                }
-                if (content.contains("\"upscalingMode\":")) {
+                                                if (content.contains("\"upscalingMode\":")) {
                     try {
                         int idx = content.indexOf("\"upscalingMode\":") + 16;
                         int end = findJsonEnd(content, idx);
