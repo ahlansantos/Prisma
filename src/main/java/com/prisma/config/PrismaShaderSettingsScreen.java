@@ -66,6 +66,8 @@ public class PrismaShaderSettingsScreen extends Screen {
             Button b1 = createToggle("Double AO", PrismaConfig.INSTANCE.vxaoEnabled, v -> PrismaConfig.INSTANCE.vxaoEnabled = v);
             ConfigSlider b2 = new ConfigSlider("AO Strength", 0.0, 2.0, PrismaConfig.INSTANCE.vxaoStrength, true, v -> PrismaConfig.INSTANCE.vxaoStrength = v.floatValue());
             this.listWidget.add(new SettingsEntry(b1, b2));
+            ConfigSlider sCave = new ConfigSlider("Cave Lighting", 0.0, 1.0, PrismaConfig.INSTANCE.caveLighting, true, v -> PrismaConfig.INSTANCE.caveLighting = v.floatValue());
+            this.listWidget.add(new SettingsEntry(sCave, null));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Dynamic Lights").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b3 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
