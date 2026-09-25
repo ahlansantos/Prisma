@@ -1,3 +1,26 @@
+# Prisma v0.2.5 Revision 1
+
+## Main Graphics
+- **SDAA (Spatial Denoiser & Anti-Aliaser):** New custom Anti-Aliasing & Denoiser system. Replaces the old FXAA with an edge-adaptive filter that smooths jagged edges without blurring block textures. Added a toggle in the Performance tab.
+- **Ray Traced Contact Hardening Shadows (Penumbra):** 
+  - Shadows are now physically accurate: perfectly sharp at the base and smoothly diffused over distance. Works beautifully with SDAA.
+  - **Point Lights Support:** Torches, lanterns, and other dynamic point lights now feature full Penumbra shadows. When SDAA is enabled, it fires 3 simultaneous multi-tap rays per point light to create a perfectly smooth, realistic fade!
+- **Cave Lighting Slider:** Added a new slider under the Global Illumination tab. You can now freely adjust the minimum ambient light floor (from pitch black to softly illuminated) to improve visibility deep inside caves without raising monitor brightness.
+
+## Misc & Bug Fixes
+- **Player Shadows & Reflections:** Fixed the v0.2.4 bug where these toggles wouldn't work in the UI.
+- **Green Water Artifact:** Fixed a GPU memory uninitialized variable bug that caused water reflections to turn green and corrupted.
+- **Floating Player Shadows:** Fixed OBB intersection precision, solving shadows clipping out near the player's feet.
+- **DDA Distance Limit:** Increased the Raytracing step limit from 24 to 120. Long mountain shadows at sunset no longer abruptly disappear.
+- **PEU Slider:** Resolution scaling is now freely adjustable between 10% and 150%.
+
+## Plans
+- **Next Update Focus:** Starting the massive port to **Minecraft 26.3**. We will migrate to the new `RenderPearl` API to unlock true Frame Generation (fixing the SpaceWarp ghosting) and fix hardware compatibility for M3+ chips.
+
+
+
+---
+
 # Prisma v0.2.4 (The Shader Loader Update)
 
 ## UI & Configuration (The Big Changes!)
