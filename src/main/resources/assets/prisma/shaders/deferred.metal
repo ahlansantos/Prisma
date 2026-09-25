@@ -137,19 +137,7 @@ kernel void prisma_deferred_cs(
               float3 nightSkyLight = float3(0.08f, 0.15f, 0.35f);
               float3 activeSkyLight = mix(nightSkyLight, daySkyLight, sunWeight);
 
-              if (effectiveDepth <= 0.00005f && hDepth <= 0.0001f) {
-                if (isNether || isEnd) {
-                    outTexture.write(float4(albedo.rgb, albedo.a), gid); return; // Let vanilla handle Nether and End skies
-                }
-                float4 nearPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 1.0f, 1.0f);
-                float4 farPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 0.001f, 1.0f);
-                float3 pNear = nearPoint.xyz / max(nearPoint.w, 0.00001f);
-                float3 pFar = farPoint.xyz / max(farPoint.w, 0.00001f);
-                float3 rayDir = normalize(pFar - pNear);
-
-                float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsEnabled, u.cloudSteps, u.rainStrength, 1e6f);
-                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * u.rainStrength; outTexture.write(float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f), gid); return;
-              }
+              
 
 
               if (hDepth > 0.0001f) {
@@ -551,6 +539,22 @@ kernel void prisma_deferred_cs(
                   litRgb = litRgb * cloudData.a + cloudData.rgb;
               }
               
-              outTexture.write(float4(litRgb, albedo.a), gid);
+              
+              if (u.debugMode == 1) {
+                  litRgb = float3(rawDepth * 10.0f); // Show depth
+              } else if (u.debugMode == 2) {
+                  litRgb = float3(isEmptyVoxel ? 1.0f : 0.0f, 0.0f, 0.0f); // Red if empty voxel
+              } else if (u.debugMode == 3) {
+                  litRgb = surfNormal * 0.5f + 0.5f; // Show normals
+              }
+              
+              // DEBUG OVERRIDE:
+              if (rawDepth <= 0.00005f) {
+                  litRgb = float3(1.0f, 0.0f, 0.0f); // RED if depth is 0
+              } else if (rawBlock == 0.0f && rawSky == 0.0f) {
+                  litRgb = float3(0.0f, 0.0f, 1.0f); // BLUE if voxel light is 0
+              }
+
+              outTexture.write(float4(litRgb, 1.0f), gid);
               return;
             }
