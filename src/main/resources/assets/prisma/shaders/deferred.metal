@@ -286,10 +286,10 @@ fragment float4 prisma_deferred_fs(
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
 
-              float celestialShadow = (rawSky > 0.80f && !isEntity) ? 1.0f : 0.0f;
+              float celestialShadow = (rawSky > 0.80f || u.sunShadowsEnabled < 0.5f) ? 1.0f : 0.0f;
               float3 celestialTint = float3(1.0f);
 
-              if (celestialNdotL > 0.0f && celestialDir.y > 0.001f && rawSky > 0.80f && !isEntity) {
+              if (celestialNdotL > 0.0f && celestialDir.y > 0.001f && rawSky > 0.80f && !isEntity && u.sunShadowsEnabled > 0.5f) {
                 float celestialSlopeBias = mix(0.045f, 0.012f, celestialNdotL);
                 float3 rayStart = pWorld + nWorld * celestialSlopeBias;
                 float temporalFrame = fract(u.gameTime * 20.0f) * 64.0f;
@@ -304,7 +304,7 @@ fragment float4 prisma_deferred_fs(
                 hit.hitDist = 1e6f;
                 float3 sDir = normalize(shadowTarget - rayStart);
                 tracePlayerOBB(rayStart, sDir, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                if (hit.hitDist > 0.0f && hit.hitDist < length(shadowTarget - rayStart)) {
+                if (uVoxel.shadowParams.w > 0.5f && hit.hitDist > 0.0f && hit.hitDist < length(shadowTarget - rayStart)) {
                     cRes.vis = 0.0f;
                 }
 

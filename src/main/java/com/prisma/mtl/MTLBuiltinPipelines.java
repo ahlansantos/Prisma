@@ -540,7 +540,7 @@ public final class MTLBuiltinPipelines {
                 MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, size)).reinterpret((long)size);
                         boolean isVXR = "VXR Default".equals(PrismaConfig.INSTANCE.shaderPack);
         boolean spaceWarpEnabled = isVXR && PrismaConfig.INSTANCE.spaceWarpEnabled;
-        int upscalingMode = isVXR ? PrismaConfig.INSTANCE.upscalingMode : 0;
+        float upscalingRatio = isVXR ? PrismaConfig.INSTANCE.upscalingRatio : 1.0f;
         
         long srcWidth = MTLTexture.width(sourceHdrTexture);
                 long srcHeight = MTLTexture.height(sourceHdrTexture);

@@ -26,7 +26,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             private MemorySegment lastDepthTexture = MemorySegment.NULL;
     private long currentWidth = 0;
     private long currentHeight = 0;
-    private long currentScale = 1;
+    private float currentScale = 1.0f;
 
     private MemorySegment savedWorldDepthTexture = MemorySegment.NULL;
     private MemorySegment savedHandDepthTexture = MemorySegment.NULL;
@@ -79,12 +79,12 @@ public final class PrismaMRTManager implements AutoCloseable {
     }
 
     public void ensureMrtTextures(final long width, final long height) {
-        long upscaleFactor = 1;
+        float upscaleFactor = 1.0f;
 
         if (width <= 0 || height <= 0) return;
-        upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
-        if (upscaleFactor < 1) upscaleFactor = 1;
-        if (this.currentWidth != width || this.currentHeight != height || this.currentScale != upscaleFactor || ObjC.isNil(this.normalTexture) || ObjC.isNil(this.lightDataTexture)) {
+        upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
+        if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
+        if (this.currentWidth != width || this.currentHeight != height || Math.abs(this.currentScale - upscaleFactor) > 0.01f || ObjC.isNil(this.normalTexture) || ObjC.isNil(this.lightDataTexture)) {
             this.currentScale = upscaleFactor;
             if (!ObjC.isNil(this.normalTexture)) {
                 device.queueResourceRelease(this.normalTexture);
@@ -152,10 +152,10 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
-                if (upscaleFactor < 1) upscaleFactor = 1;
-                long hdrW = Math.max(1L, width / upscaleFactor);
-                long hdrH = Math.max(1L, height / upscaleFactor);
+                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
+                if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
+                long hdrW = Math.max(1L, (long)(width * upscaleFactor));
+                long hdrH = Math.max(1L, (long)(height * upscaleFactor));
                 
                 desc.width(hdrW);
                 desc.height(hdrH);
@@ -169,10 +169,10 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
-                if (upscaleFactor < 1) upscaleFactor = 1;
-                long hdrW = Math.max(1L, width / upscaleFactor);
-                long hdrH = Math.max(1L, height / upscaleFactor);
+                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
+                if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
+                long hdrW = Math.max(1L, (long)(width * upscaleFactor));
+                long hdrH = Math.max(1L, (long)(height * upscaleFactor));
                 
                 desc.width(hdrW);
                 desc.height(hdrH);
@@ -529,10 +529,10 @@ public final class PrismaMRTManager implements AutoCloseable {
         if (!doSpaceWarp && !ObjC.isNil(this.previousHdrTexture)) {
             MTLBlitCommandEncoder blit = encoder.commandBuffer().makeBlitCommandEncoder();
             
-            long upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingMode : 1);
-            if (upscaleFactor < 1) upscaleFactor = 1;
-            long hdrW = Math.max(1L, width / upscaleFactor);
-            long hdrH = Math.max(1L, height / upscaleFactor);
+            float upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
+            if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
+            long hdrW = Math.max(1L, (long)(width * upscaleFactor));
+            long hdrH = Math.max(1L, (long)(height * upscaleFactor));
             if (encoder.fence() != null) blit.waitForFence(encoder.fence());
             blit.copyFromTextureToTexture(hdrTarget, 0L, 0L, 0L, 0L, hdrW, hdrH, this.previousHdrTexture, 0L, 0L, 0L, 0L);
             if (encoder.fence() != null) blit.updateFence(encoder.fence());

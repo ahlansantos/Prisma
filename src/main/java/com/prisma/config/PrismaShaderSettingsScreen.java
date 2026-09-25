@@ -115,11 +115,7 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(b1, b2));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Upscaling").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b3 = Button.builder(Component.literal("PEU / Exp. Upscaler: " + (PrismaConfig.INSTANCE.upscalingMode == 2 ? "ON" : "OFF")), (b) -> {
-                PrismaConfig.INSTANCE.upscalingMode = PrismaConfig.INSTANCE.upscalingMode == 2 ? 1 : 2;
-                b.setMessage(Component.literal("PEU / Exp. Upscaler: " + (PrismaConfig.INSTANCE.upscalingMode == 2 ? "ON" : "OFF")));
-                PrismaConfig.INSTANCE.save();
-            }).bounds(0, 0, w, h).build();
+            ConfigSlider b3 = new ConfigSlider("PEU Render Scale", 0.1, 1.5, PrismaConfig.INSTANCE.upscalingRatio, true, v -> PrismaConfig.INSTANCE.upscalingRatio = v.floatValue());
             this.listWidget.add(new SettingsEntry(b3, null));
         }
         this.addRenderableWidget(this.listWidget);

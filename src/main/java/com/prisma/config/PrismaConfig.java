@@ -36,7 +36,7 @@ public final class PrismaConfig {
     public volatile float waterAbsorptionStrength = 1.0f;
     public volatile boolean volumetricCloudsEnabled = true;
     public volatile int cloudQualitySteps = 30;
-    public volatile int upscalingMode = 0; // 0=Off, 1=Half, 2=Quarter
+    public volatile float upscalingRatio = 0.50f;
     public volatile boolean spaceWarpEnabled = false;
     public volatile boolean motionBlurEnabled = true;
 
@@ -51,7 +51,7 @@ public final class PrismaConfig {
             Path configFile = configDir.resolve("prisma.json");
                         Files.writeString(configFile, String.format(java.util.Locale.ROOT,
                     "{\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"upscalingMode\":%d,\"spaceWarpEnabled\":%b,\"motionBlurEnabled\":%b}",
-                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, upscalingMode, spaceWarpEnabled, motionBlurEnabled));
+                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, upscalingRatio, spaceWarpEnabled, motionBlurEnabled));
         } catch (Throwable ignored) {
         }
     }
@@ -226,7 +226,7 @@ public final class PrismaConfig {
                     try {
                         int idx = content.indexOf("\"upscalingMode\":") + 16;
                         int end = findJsonEnd(content, idx);
-                        upscalingMode = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 0, 2);
+                        upscalingRatio = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.1f, 1.5f);
                     } catch (Throwable ignored) { }
                 }
                 if (content.contains("\"motionBlurEnabled\":")) {
