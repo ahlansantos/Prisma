@@ -119,9 +119,6 @@ public final class MTLBuiltinPipelines {
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.RGBA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, true);
         MTLBuiltinPipelines.ensureDeferredComputePipeline();
-        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA8Unorm.value);
-        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.BGRA8Unorm.value);
-        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA16Float.value);
         MTLBuiltinPipelines.ensurePostProcessPipeline(MTLPixelFormat.RGBA8Unorm.value);
         MTLBuiltinPipelines.ensurePostProcessPipeline(MTLPixelFormat.BGRA8Unorm.value);
     }
