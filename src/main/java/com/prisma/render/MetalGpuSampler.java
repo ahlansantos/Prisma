@@ -4,9 +4,9 @@ import com.prisma.mtl.MTLSamplerAddressMode;
 import com.prisma.mtl.MTLSamplerDescriptor;
 import com.prisma.mtl.MTLSamplerMinMagFilter;
 import com.prisma.mtl.MTLSamplerMipFilter;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuSampler;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.jspecify.annotations.NonNull;
@@ -15,7 +15,7 @@ import java.lang.foreign.MemorySegment;
 import java.util.OptionalDouble;
 
 @Environment(EnvType.CLIENT)
-final class MetalGpuSampler extends GpuSampler {
+final class MetalGpuSampler implements GpuSampler {
     private final MetalDevice device;
     private final MemorySegment nativeHandle;
     private final AddressMode addressModeU;
@@ -95,7 +95,8 @@ final class MetalGpuSampler extends GpuSampler {
         this.device.queueResourceRelease(this.nativeHandle);
     }
 
-    boolean isClosed() {
+    @Override
+    public boolean isClosed() {
         return this.closed;
     }
 

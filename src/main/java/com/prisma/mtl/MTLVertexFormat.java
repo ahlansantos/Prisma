@@ -66,7 +66,7 @@ public enum MTLVertexFormat {
         this.value = value;
     }
 
-    public static MTLVertexFormat from(final com.mojang.blaze3d.GpuFormat format) {
+    public static MTLVertexFormat from(final com.mojang.renderpearl.api.GpuFormat format) {
         return switch (format) {
             case R32_FLOAT -> Float;
             case RG32_FLOAT -> Float2;

@@ -18,9 +18,6 @@ if (isFinal) {
 
 group = project.maven_group
 
-loom {
-	accessWidenerPath = file("src/main/resources/prisma.accesswidener")
-}
 
 repositories {
 	maven { url 'https://maven.shedaniel.me' }

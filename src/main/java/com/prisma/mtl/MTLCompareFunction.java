@@ -20,7 +20,7 @@ public enum MTLCompareFunction {
         this.value = value;
     }
 
-    public static MTLCompareFunction from(final com.mojang.blaze3d.platform.CompareOp op) {
+    public static MTLCompareFunction from(final com.mojang.renderpearl.api.pipeline.CompareOp op) {
         return switch (op) {
             case NEVER_PASS -> Never;
             case LESS_THAN -> Less;

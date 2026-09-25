@@ -365,8 +365,8 @@ public final class PrismaMRTManager implements AutoCloseable {
 
     public void applyDeferredLightingPass(
             final MetalCommandEncoder encoder,
-            final com.mojang.blaze3d.textures.GpuTexture colorGpuTex,
-            final com.mojang.blaze3d.textures.GpuTexture currentDepthGpuTex,
+            final com.mojang.renderpearl.api.textures.GpuTexture colorGpuTex,
+            final com.mojang.renderpearl.api.textures.GpuTexture currentDepthGpuTex,
             final float aspect,
             final float fovScale,
             final float sunAngle,

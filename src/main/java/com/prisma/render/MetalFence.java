@@ -1,6 +1,6 @@
 package com.prisma.render;
 
-import com.mojang.blaze3d.buffers.GpuFence;
+import com.mojang.renderpearl.api.commands.GpuFence;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 

@@ -1,0 +1,23 @@
+diff a/src/main/java/com/prisma/render/MetalCompiledRenderPipeline.java b/src/main/java/com/prisma/render/MetalCompiledRenderPipeline.java	(rejected hunks)
+@@ -3,14 +3,13 @@
+ import com.prisma.Prisma;
+ import com.prisma.mtl.*;
+ import com.prisma.objc.ObjC;
+-import com.mojang.blaze3d.GpuFormat;
+-import com.mojang.blaze3d.pipeline.BlendFunction;
+-import com.mojang.blaze3d.pipeline.ColorTargetState;
+-import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
+-import com.mojang.blaze3d.pipeline.RenderPipeline;
+-import com.mojang.blaze3d.platform.PolygonMode;
+-import com.mojang.blaze3d.vertex.VertexFormat;
+-import com.mojang.blaze3d.vertex.VertexFormatElement;
++import com.mojang.renderpearl.api.GpuFormat;
++import com.mojang.renderpearl.api.pipeline.BlendFunction;
++import com.mojang.renderpearl.api.pipeline.ColorTargetState;
++import com.mojang.renderpearl.api.pipeline.CompareOp;
++import com.mojang.renderpearl.api.pipeline.DepthStencilState;
++import com.mojang.renderpearl.api.pipeline.PolygonMode;
++import com.mojang.renderpearl.backend.api.BackendRenderPipeline;
+ import net.fabricmc.api.EnvType;
+ import net.fabricmc.api.Environment;
+ import org.jspecify.annotations.Nullable;

@@ -54,6 +54,10 @@ public class EntityTriangleCollector implements VertexConsumer {
     }
 
     @Override
+    public VertexConsumer setUv3(float u, float v) {
+        return this;
+    }
+
     public VertexConsumer setUv2(int u, int v) {
         return this;
     }

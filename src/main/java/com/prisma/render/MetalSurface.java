@@ -1,11 +1,12 @@
 package com.prisma.render;
 
+import com.prisma.Prisma;
 import com.prisma.mtl.CAMetalLayer;
-import com.mojang.blaze3d.systems.CommandEncoderBackend;
-import com.mojang.blaze3d.systems.GpuSurface;
-import com.mojang.blaze3d.systems.GpuSurfaceBackend;
-import com.mojang.blaze3d.systems.SurfaceException;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.api.CommandEncoderBackend;
+import com.mojang.renderpearl.api.device.GpuSurface;
+import com.mojang.renderpearl.backend.api.GpuSurfaceBackend;
+import com.mojang.renderpearl.api.device.SurfaceException;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.jspecify.annotations.NonNull;
@@ -13,10 +14,12 @@ import org.jspecify.annotations.NonNull;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Environment(EnvType.CLIENT)
 final class MetalSurface implements GpuSurfaceBackend {
     private static final Set<GpuSurface.PresentMode> SUPPORTED_PRESENT_MODES = EnumSet.of(GpuSurface.PresentMode.FIFO, GpuSurface.PresentMode.MAILBOX);
+    private static final AtomicBoolean LOGGED_FIRST_CONFIG = new AtomicBoolean();
     private final MetalDevice device;
     private final CAMetalLayer metalLayer;
     private GpuSurface.Configuration configuration;
@@ -38,6 +41,10 @@ final class MetalSurface implements GpuSurfaceBackend {
                 config.height(),
                 config.presentMode() == GpuSurface.PresentMode.MAILBOX
         );
+
+        if (LOGGED_FIRST_CONFIG.compareAndSet(false, true)) {
+            Prisma.LOGGER.info("Metal: surface configured {}x{} ({})", config.width(), config.height(), config.presentMode());
+        }
 
         this.configuration = config;
     }

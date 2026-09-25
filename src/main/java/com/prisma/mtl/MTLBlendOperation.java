@@ -17,7 +17,7 @@ public enum MTLBlendOperation {
         this.value = value;
     }
 
-    public static MTLBlendOperation from(final com.mojang.blaze3d.platform.BlendOp op) {
+    public static MTLBlendOperation from(final com.mojang.renderpearl.api.pipeline.BlendOp op) {
         return switch (op) {
             case ADD -> Add;
             case SUBTRACT -> Subtract;

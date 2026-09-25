@@ -1,6 +1,6 @@
 package com.prisma.mtl;
 
-import com.mojang.blaze3d.IndexType;
+import com.mojang.renderpearl.api.pipeline.IndexType;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 

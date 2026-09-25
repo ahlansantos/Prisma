@@ -1,0 +1,9 @@
+diff a/src/main/resources/prisma.mixins.json b/src/main/resources/prisma.mixins.json	(rejected hunks)
+@@ -8,7 +8,6 @@
+   "client": [
+     "render.PreferredGraphicsApiMixin",
+     "sodium.DrawBackendMixin",
+-    "sodium.DrawContextMixin",
+     "sodium.SodiumPreferredGraphicsApiMixin"
+   ],
+   "injectors": {

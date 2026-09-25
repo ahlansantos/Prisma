@@ -3,12 +3,17 @@ package com.prisma.render;
 import com.prisma.mtl.*;
 import com.prisma.objc.ObjC;
 import com.prisma.objc.ObjCBlock;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.buffers.GpuFence;
-import com.mojang.blaze3d.systems.*;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.buffers.TransientMemory;
+import com.mojang.renderpearl.api.commands.GpuFence;
+import com.mojang.renderpearl.api.commands.GpuQueryPool;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.commands.RenderPassDescriptor;
+import com.mojang.renderpearl.backend.api.CommandEncoderBackend;
+import com.mojang.renderpearl.backend.api.RenderPassBackend;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -243,8 +248,7 @@ final class MetalCommandEncoder implements CommandEncoderBackend {
             metalDepth.markContentsDirty();
         }
 
-        assert descriptor.renderArea != null;
-        RenderPass.RenderArea renderArea = descriptor.renderArea;
+        RenderPass.RenderArea renderArea = descriptor.renderArea();
         MetalRenderPass renderPass = new MetalRenderPass(
                 device,
                 this,
@@ -306,12 +310,13 @@ final class MetalCommandEncoder implements CommandEncoderBackend {
             final int regionX,
             final int regionY,
             final int regionWidth,
-            final int regionHeight
+            final int regionHeight,
+            final int mipLevel
     ) {
         MetalGpuTexture color = (MetalGpuTexture) colorTexture;
         MetalGpuTexture depth = (MetalGpuTexture) depthTexture;
         Vector4fc clearColorCopy = new Vector4f(clearColor);
-        if (isFullTextureRegion(color, depth, regionX, regionY, regionWidth, regionHeight)) {
+        if (mipLevel == 0 && isFullTextureRegion(color, depth, regionX, regionY, regionWidth, regionHeight)) {
             pendingColorClears.put(color, clearColorCopy);
             pendingDepthClears.put(depth, clearDepth);
             return;
@@ -320,17 +325,38 @@ final class MetalCommandEncoder implements CommandEncoderBackend {
         depth.markContentsDirty();
         submitRenderPass();
         endEncoder();
-        commandBuffer().clearColorDepthTexturesRegion(
-                color.nativeHandle(),
-                clearColorCopy,
-                depth.nativeHandle(),
-                clearDepth,
-                regionX,
-                regionY,
-                regionWidth,
-                regionHeight,
-                fence
-        );
+
+        MetalGpuTextureView colorView = null;
+        MetalGpuTextureView depthView = null;
+        MemorySegment colorHandle = color.nativeHandle();
+        MemorySegment depthHandle = depth.nativeHandle();
+        if (mipLevel != 0) {
+            colorView = new MetalGpuTextureView(color, mipLevel, 1);
+            depthView = new MetalGpuTextureView(depth, mipLevel, 1);
+            colorHandle = colorView.nativeHandle();
+            depthHandle = depthView.nativeHandle();
+        }
+
+        try {
+            commandBuffer().clearColorDepthTexturesRegion(
+                    colorHandle,
+                    clearColorCopy,
+                    depthHandle,
+                    clearDepth,
+                    regionX,
+                    regionY,
+                    regionWidth,
+                    regionHeight,
+                    fence
+            );
+        } finally {
+            if (colorView != null) {
+                colorView.close();
+            }
+            if (depthView != null) {
+                depthView.close();
+            }
+        }
     }
 
     @Override

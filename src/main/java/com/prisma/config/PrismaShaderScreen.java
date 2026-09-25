@@ -47,7 +47,7 @@ public class PrismaShaderScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.literal("Open Folder"), (button) -> {
             File packDir = new File(this.minecraft.gameDirectory, "shaderpacks");
             packDir.mkdirs();
-            Util.getPlatform().openUri(packDir.toURI());
+            // Util.getPlatform().openUri(packDir.toURI());
         }).bounds(this.width / 2 - btnWidth - spacing/2, bottomY - 30, btnWidth, 20).build());
 
         // Shader Settings Button

@@ -1,9 +1,9 @@
 package com.prisma.mixin.render;
 
 import com.prisma.render.MetalBackend;
-import com.mojang.blaze3d.opengl.GlBackend;
-import com.mojang.blaze3d.systems.GpuBackend;
-import com.mojang.blaze3d.vulkan.VulkanBackend;
+import com.mojang.renderpearl.backend.opengl.GlBackend;
+import com.mojang.renderpearl.api.device.GpuBackend;
+import com.mojang.renderpearl.backend.vulkan.VulkanBackend;
 import net.minecraft.client.PreferredGraphicsApi;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;

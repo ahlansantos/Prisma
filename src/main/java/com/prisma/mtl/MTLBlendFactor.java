@@ -32,7 +32,7 @@ public enum MTLBlendFactor {
         this.value = value;
     }
 
-    public static MTLBlendFactor from(final com.mojang.blaze3d.platform.BlendFactor factor) {
+    public static MTLBlendFactor from(final com.mojang.renderpearl.api.pipeline.BlendFactor factor) {
         return switch (factor) {
             case ZERO -> Zero;
             case ONE -> One;

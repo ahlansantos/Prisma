@@ -1,6 +1,6 @@
 package com.prisma.mtl;
 
-import com.mojang.blaze3d.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.AddressMode;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 

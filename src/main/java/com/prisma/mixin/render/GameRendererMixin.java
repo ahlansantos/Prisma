@@ -100,12 +100,12 @@ public class GameRendererMixin {
                     if (this.gameRenderState != null && this.gameRenderState.levelRenderState != null) {
                         var skyState = this.gameRenderState.levelRenderState.skyRenderState;
                         if (skyState != null) {
-                            int skyCol = skyState.skyColor;
+                            int skyCol = ((int)(skyState.skyColor.x() * 255.0f) << 16) | ((int)(skyState.skyColor.y() * 255.0f) << 8) | ((int)(skyState.skyColor.z() * 255.0f));
                             skyR = ((skyCol >> 16) & 0xFF) / 255.0f;
                             skyG = ((skyCol >> 8) & 0xFF) / 255.0f;
                             skyB = (skyCol & 0xFF) / 255.0f;
 
-                            int sunCol = skyState.sunriseAndSunsetColor;
+                            int sunCol = skyState.sunriseAndSunsetColor != null ? (((int)(skyState.sunriseAndSunsetColor.x() * 255.0f) << 16) | ((int)(skyState.sunriseAndSunsetColor.y() * 255.0f) << 8) | ((int)(skyState.sunriseAndSunsetColor.z() * 255.0f))) : 0;
                             if (sunCol != 0) {
                                 sunriseAlpha = ((sunCol >> 24) & 0xFF) / 255.0f;
                                 sunriseR = ((sunCol >> 16) & 0xFF) / 255.0f;
@@ -173,7 +173,7 @@ public class GameRendererMixin {
                         playerIsCrouch = player.isCrouching() ? 1.0f : 0.0f;
                         playerHeadYawDelta = (float) Math.toRadians(pHeadDeg - pBodyDeg);
                         playerHeadPitch = (float) Math.toRadians(net.minecraft.util.Mth.lerp(partialTick, player.xRotO, player.getXRot()));
-                        playerAttackAnim = player.getAttackAnim(partialTick);
+                        playerAttackAnim = 0.0f;
                     } else {
                         playerX = (float) camX;
                         playerY = (float) (camY - 1.62f);
