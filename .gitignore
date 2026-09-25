@@ -16,3 +16,6 @@ run.log
 scratch.metal
 
 shaderpack-template/
+*.java
+*.diff
+*.patch

@@ -111,7 +111,9 @@ kernel void prisma_deferred_cs(
               float wDepth = worldDepthTex.sample(smp, uv);
               float hDepth = handDepthTex.sample(smp, uv);
               float rawDepth = wDepth;
+              
               float effectiveDepth = rawDepth;
+              
 
               float sunTheta = u.sunAngle;
               float3 sunDir = normalize(float3(-sin(sunTheta), cos(sunTheta), 0.0f));
@@ -156,6 +158,7 @@ kernel void prisma_deferred_cs(
 
               float3 pWorld = reconstructWorldPos(uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
 
+              
               float2 texel = 1.0f / float2(outTexture.get_width(), outTexture.get_height());
               float depthX = worldDepthTex.sample(smp, uv + float2(texel.x, 0.0f));
               float depthY = worldDepthTex.sample(smp, uv + float2(0.0f, texel.y));
@@ -163,22 +166,102 @@ kernel void prisma_deferred_cs(
               float3 pY = reconstructWorldPos(uv + float2(0.0f, texel.y), depthY, uVoxel.camPos.xyz, uVoxel.invViewProj);
               float3 dX = pX - pWorld;
               float3 dY = pY - pWorld;
-              float3 reconstructedNormal = normalize(cross(dY, dX));
-              float3 surfNormal = reconstructedNormal;
+              float3 nWorld = normalize(cross(dY, dX));
 
-              int3 blockPos = int3(floor(pWorld));
-              uint2 vox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, blockPos);
-              bool isEmptyVoxel = (vox.x == 0 && vox.y == 0);
-              
-              // Move sample point slightly towards camera to prevent reading neighbor blocks on faces
               float3 safePWorld = pWorld - normalize(pWorld - uVoxel.camPos.xyz) * 0.05f;
               uint2 safeVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(safePWorld)));
-              bool isEntity = (safeVox.x == 0 && safeVox.y == 0) && (uVoxel.shadowParams.z > 0.0f); // Fallback entity heuristic
+              bool isEntity = (safeVox.x == 0 && safeVox.y == 0); // Fallback entity heuristic
+
+
+              int3 voxInside = int3(floor(pWorld - nWorld * 0.06f));
+              uint2 insideVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxInside);
+              int3 voxAt = int3(floor(pWorld + nWorld * 0.15f));
+              uint2 atVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxAt);
+
+              int3 camVoxel = int3(floor(uVoxel.camPos.xyz));
+              uint2 camVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, camVoxel);
+              bool isCameraInFluid = ((camVox.x & 4) != 0);
+              if (isCameraInFluid) {
+                uint2 aboveCamVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, camVoxel + int3(0, 1, 0));
+                if ((aboveCamVox.x & 4) == 0) {
+                  float surfaceY = float(camVoxel.y) + 0.88f;
+                  if (uVoxel.camPos.y > surfaceY) {
+                    isCameraInFluid = false;
+                  }
+                }
+              }
+              bool isCameraInLava = isCameraInFluid && ((camVox.x & 8) != 0);
+              bool isCameraUnderwater = isCameraInFluid && !isCameraInLava;
+
+              bool isWater = false;
+              bool isMetal = false;
+              bool isGlass = false;
+              float3 pSurfaceRel = pWorld - uVoxel.camPos.xyz;
+              float distToSurface = length(pSurfaceRel);
+              float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
+
+              if (!isEntity && !isCameraInFluid) {
+                if ((insideVox.x & 4) != 0) {
+                  if ((insideVox.x & 8) == 0) {
+                    isWater = true;
+                  }
+                }
+                uint reflectType = (insideVox.x >> 12) & 0x0F;
+                if (reflectType == 2u) {
+                  isMetal = true;
+                }
+                if (reflectType == 1u) {
+                  isGlass = true;
+                } else if (nWorld.y > 0.40f && viewDir.y < -1e-4f) {
+
+
+                  int3 voxDirectlyAbove = int3(floor(pWorld.x), floor(pWorld.y) + 1.0f, floor(pWorld.z));
+                  uint2 aboveVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxDirectlyAbove);
+                  if ((aboveVox.x & 4) != 0) {
+                    int topY = voxDirectlyAbove.y;
+                    for (int step = 0; step < 16; step++) {
+                      uint2 testVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(voxDirectlyAbove.x, topY + 1, voxDirectlyAbove.z));
+                      if ((testVox.x & 4) == 0) break;
+                      topY++;
+                    }
+                    float waterTop = float(topY) + 0.88f;
+                    if (uVoxel.camPos.y > waterTop) {
+                      float tW = (waterTop - uVoxel.camPos.y) / viewDir.y;
+                      if (tW > 0.0f && tW < distToSurface) {
+                        float3 pWater = uVoxel.camPos.xyz + viewDir * tW;
+                        int3 checkVox = int3(floor(pWater.x), float(topY), floor(pWater.z));
+                        uint2 cVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkVox);
+                        if ((cVox.x & 4) != 0) {
+                          isWater = true;
+                          pWorld = pWater;
+                          pSurfaceRel = pWorld - uVoxel.camPos.xyz;
+                          nWorld = float3(0.0f, 1.0f, 0.0f);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              float3 surfNormal = nWorld;
+              if (isWater) {
+                float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
+                if (abs(nWorld.y) > 0.65f) {
+                  surfNormal = normalize(float3(waveNorm.x, nWorld.y > 0.0f ? waveNorm.y : -waveNorm.y, waveNorm.z));
+                }
+              }
+
+
+
+              float vxaoStrength = uVoxel.camPos.w;
+              float vxao = (!isEntity && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
+              float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
               
               float2 voxelLight = unpackVoxelLight(safeVox);
               float rawSky = voxelLight.y;
               float rawBlock = voxelLight.x;
               if (isEntity) {
+
                   int3 localPos = int3(floor(pWorld - float3(uVoxel.gridOrigin.xyz)));
                   for (int yOffset = 0; yOffset <= 3; yOffset++) {
                       uint2 entVox = readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, localPos - int3(0, yOffset, 0));
