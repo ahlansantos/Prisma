@@ -50,7 +50,8 @@ static inline float3 reconstructWorldPos(
   float4x4 invViewProj
 ) {
   float2 ndc = float2(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f);
-  float4 clipPos = float4(ndc, rawDepth, 1.0f);
+  float forwardDepth = 1.0f - rawDepth;
+  float4 clipPos = float4(ndc, forwardDepth, 1.0f);
   float4 worldRel = invViewProj * clipPos;
   return camPos + (worldRel.xyz / max(worldRel.w, 0.00001f));
 }
