@@ -265,8 +265,8 @@ kernel void prisma_deferred_cs(
               float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
               
               float2 voxelLight = unpackVoxelLight(safeVox);
-              float rawSky = voxelLight.y;
-              float rawBlock = voxelLight.x;
+              float rawSky = 1.0f; // voxelLight.y;
+              float rawBlock = 1.0f; // voxelLight.x;
               if (isEntity) {
 
                   int3 localPos = int3(floor(pWorld - float3(uVoxel.gridOrigin.xyz)));
