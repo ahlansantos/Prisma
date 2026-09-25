@@ -296,21 +296,35 @@ fragment float4 prisma_deferred_fs(
                 float2 wPos2 = floor(pWorld.zx * 32.0f - pWorld.yy * 32.0f);
                 float ditherX = fract(52.9829189f * fract(dot(wPos1, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
                 float ditherZ = fract(52.9829189f * fract(dot(wPos2, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
-                float3 jitter = float3(ditherX, 0.0f, ditherZ) * uVoxel.shadowParams.z * 0.65f;
-                float3 shadowTarget = rayStart + normalize(celestialDir * 40.0f + jitter) * 40.0f;
-
-                ShadowRayResult cRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, shadowTarget, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                 
-                PlayerHit hit;
-                hit.hitDist = 1e6f;
-                float3 sDir = normalize(shadowTarget - rayStart);
-                tracePlayerOBB(rayStart, sDir, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                if (uVoxel.shadowParams.w > 0.5f && hit.hitDist > 0.0f && hit.hitDist < length(shadowTarget - rayStart)) {
-                    cRes.vis = 0.0f;
+                float3 j1 = float3(ditherX, 0.0f, ditherZ) * uVoxel.shadowParams.z * 0.75f;
+                float3 j2 = float3(-ditherZ, 0.0f, ditherX) * uVoxel.shadowParams.z * 0.75f;
+                float3 j3 = float3(-ditherX, 0.0f, -ditherZ) * uVoxel.shadowParams.z * 0.75f;
+                
+                float3 t1 = rayStart + normalize(celestialDir * 40.0f + j1) * 40.0f;
+                float3 t2 = rayStart + normalize(celestialDir * 40.0f + j2) * 40.0f;
+                float3 t3 = rayStart + normalize(celestialDir * 40.0f + j3) * 40.0f;
+                
+                ShadowRayResult cRes1 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                ShadowRayResult cRes2 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t2, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                ShadowRayResult cRes3 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t3, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                
+                if (uVoxel.shadowParams.w > 0.5f) {
+                    PlayerHit hit; hit.hitDist = 1e6f;
+                    tracePlayerOBB(rayStart, normalize(t1 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                    if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
+                    
+                    hit.hitDist = 1e6f;
+                    tracePlayerOBB(rayStart, normalize(t2 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                    if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes2.vis = 0.0f;
+                    
+                    hit.hitDist = 1e6f;
+                    tracePlayerOBB(rayStart, normalize(t3 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                    if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes3.vis = 0.0f;
                 }
 
-                celestialShadow = cRes.vis;
-                celestialTint = cRes.tint;
+                celestialShadow = (cRes1.vis + cRes2.vis + cRes3.vis) * 0.333f;
+                celestialTint = (cRes1.tint + cRes2.tint + cRes3.tint) * 0.333f;
                 celestialShadow = mix(celestialShadow, 1.0f, u.rainStrength * 0.85f);
               }
 
