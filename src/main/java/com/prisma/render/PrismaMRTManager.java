@@ -50,7 +50,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             desc.width(1);
             desc.height(1);
             desc.mipmapLevelCount(1);
-            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
             desc.storageMode(MTLStorageMode.Private);
             this.fallbackNormalTexture = device.metalDevice().newTexture(desc);
         }
@@ -61,7 +61,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             desc.width(1);
             desc.height(1);
             desc.mipmapLevelCount(1);
-            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
             desc.storageMode(MTLStorageMode.Private);
             this.fallbackDepthTexture = device.metalDevice().newTexture(desc);
         }
@@ -72,7 +72,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             desc.width(1);
             desc.height(1);
             desc.mipmapLevelCount(1);
-            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
             desc.storageMode(MTLStorageMode.Private);
             this.fallbackLightDataTexture = device.metalDevice().newTexture(desc);
         }
@@ -113,7 +113,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
             }
             try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -122,7 +122,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                 this.normalTexture = device.metalDevice().newTexture(desc);
             }
@@ -133,7 +133,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                 this.lightDataTexture = device.metalDevice().newTexture(desc);
             }
@@ -145,7 +145,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
             }
             try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -160,7 +160,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(hdrW);
                 desc.height(hdrH);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                 this.hdrColorTexture = device.metalDevice().newTexture(desc);
             }
@@ -177,7 +177,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(hdrW);
                 desc.height(hdrH);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                 this.previousHdrTexture = device.metalDevice().newTexture(desc);
             }
@@ -188,7 +188,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                                             }
             try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -197,7 +197,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
             }
 
@@ -259,7 +259,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                 this.savedWorldDepthTexture = device.metalDevice().newTexture(desc);
                 this.savedHandDepthTexture = device.metalDevice().newTexture(desc);
@@ -271,7 +271,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.width(width);
                 desc.height(height);
                 desc.mipmapLevelCount(1);
-                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
                 this.savedWorldColorTexture = device.metalDevice().newTexture(desc);
             }
@@ -438,9 +438,14 @@ public final class PrismaMRTManager implements AutoCloseable {
         MemorySegment worldDepth = (!ObjC.isNil(this.savedWorldDepthTexture) && this.hasWorldDepthSnapshot)
                 ? this.savedWorldDepthTexture
                 : (!ObjC.isNil(currentDepth) ? currentDepth : this.fallbackDepthTexture);
-        MemorySegment handDepth = (!ObjC.isNil(this.savedHandDepthTexture) && this.hasHandDepthSnapshot)
-                ? this.savedHandDepthTexture
-                : (!ObjC.isNil(currentDepth) ? currentDepth : worldDepth);
+                MemorySegment handDepth;
+        if (this.depthSnapshotCount >= 1) {
+            handDepth = (!ObjC.isNil(this.savedHandDepthTexture) && this.hasHandDepthSnapshot)
+                    ? this.savedHandDepthTexture
+                    : (!ObjC.isNil(currentDepth) ? currentDepth : this.fallbackDepthTexture);
+        } else {
+            handDepth = this.fallbackDepthTexture;
+        }
         MemorySegment albedo = worldColorTexture(targetColor);
         MemorySegment normal = normalTexture();
         MemorySegment lightData = lightDataTexture();
