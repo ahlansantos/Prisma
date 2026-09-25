@@ -34,38 +34,40 @@
               float rainStrength;
             };
 
-            static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
+                        static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
               if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
 
-              float2 wavePos = pWorldXZ * 1.5f;
-              float angle = 0.0f;
+              float2 wavePos = pWorldXZ * 0.8f;
+              float angle = 0.5f;
               float frequency = 1.0f;
-              float wSpeed = 1.2f * speed;
+              float wSpeed = 1.5f * speed;
               float weight = 1.0f;
               float waveSum = 0.0f;
-              float modTime = time * 0.65f;
+              float modTime = time * 0.85f;
               float2 dx = float2(0.0f);
 
               const float GOLDEN_ANGLE = 2.39996f;
 
-              for (int i = 0; i < 5; i++) {
+              for (int i = 0; i < 7; i++) {
                 float2 dir = float2(cos(angle), sin(angle));
                 float x = dot(dir, wavePos) * frequency + modTime * wSpeed;
+                x += cos(wavePos.y * 0.5f - modTime * 0.2f) * 0.5f;
                 float wave = exp(sin(x) - 1.0f);
                 float result = wave * cos(x);
                 float2 force = result * weight * dir;
 
                 dx += force;
-                wavePos -= force * 0.03f;
+                wavePos -= force * 0.05f;
                 angle += GOLDEN_ANGLE;
                 waveSum += weight;
-                weight *= 0.62f;
-                frequency *= 1.55f;
-                wSpeed *= 1.12f;
+                weight *= 0.55f;
+                frequency *= 1.65f;
+                wSpeed *= 1.15f;
               }
 
               float2 waveSlope = -dx / max(waveSum, 0.001f);
-              float normalMult = 0.06f * strength;
+              float normalMult = 0.08f * strength;
+
               return normalize(float3(waveSlope.x * normalMult, 1.0f, waveSlope.y * normalMult));
             }
 
@@ -414,14 +416,14 @@ fragment float4 prisma_deferred_fs(
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
                 float3 underWaterColor = albedo.rgb;
-                float3 shallowColor = float3(0.02f, 0.55f, 0.75f);
-                float3 deepColor = float3(0.005f, 0.03f, 0.15f);
+                float3 shallowColor = float3(0.05f, 0.58f, 0.55f);
+                float3 deepColor = float3(0.01f, 0.12f, 0.25f);
                 float3 toSurf = uVoxel.camPos.xyz - pWorld;
                 float vertDist = max(abs(toSurf.y), 0.5f);
                 float horizDist = length(toSurf.xz);
                 float depthAngle = saturate(vertDist / (vertDist + horizDist * 0.5f));
-                float3 waterVol = mix(deepColor, shallowColor, depthAngle);
-                float3 cleanWaterTint = isWater ? mix(underWaterColor, waterVol, 0.35f * u.waterAbsorption) : underWaterColor;
+                float3 waterVol = mix(deepColor, shallowColor, pow(depthAngle, 0.6f));
+                float3 cleanWaterTint = isWater ? mix(underWaterColor, waterVol, saturate(0.75f * u.waterAbsorption)) : underWaterColor;
                 albedo.rgb = cleanWaterTint;
                 
                 if (isMetal) {
