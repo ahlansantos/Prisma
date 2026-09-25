@@ -74,6 +74,7 @@ public final class MTLBuiltinPipelines {
     private static final Map<Long, MemorySegment> clearPipelines;
     private static final Map<Long, MemorySegment> depthStencilStates;
     private static final Map<Long, MemorySegment> debugPipelines;
+    private static MemorySegment deferredComputePipeline;
     private static final Map<Long, MemorySegment> deferredLightingPipelines;
     private static final Map<Long, MemorySegment> postProcessPipelines;
 
@@ -95,6 +96,11 @@ public final class MTLBuiltinPipelines {
         for (MemorySegment p : deferredLightingPipelines.values()) ObjC.release(p);
         deferredLightingPipelines.clear();
         
+        if (deferredComputePipeline != null && !ObjC.isNil(deferredComputePipeline)) {
+            ObjC.release(deferredComputePipeline);
+            deferredComputePipeline = null;
+        }
+
         for (MemorySegment p : postProcessPipelines.values()) ObjC.release(p);
         postProcessPipelines.clear();
         
@@ -112,7 +118,8 @@ public final class MTLBuiltinPipelines {
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.RGBA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, true);
-                        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA8Unorm.value);
+        MTLBuiltinPipelines.ensureDeferredComputePipeline();
+        MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA8Unorm.value);
         MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.BGRA8Unorm.value);
         MTLBuiltinPipelines.ensureDeferredLightingPipeline(MTLPixelFormat.RGBA16Float.value);
         MTLBuiltinPipelines.ensurePostProcessPipeline(MTLPixelFormat.RGBA8Unorm.value);
@@ -131,6 +138,10 @@ public final class MTLBuiltinPipelines {
         if (!ObjC.isNil(presentNearestSampler)) {
             ObjC.release(presentNearestSampler);
             presentNearestSampler = MemorySegment.NULL;
+        }
+        if (!ObjC.isNil(deferredComputePipeline)) {
+            ObjC.release(deferredComputePipeline);
+            deferredComputePipeline = MemorySegment.NULL;
         }
         clearPipelines.values().forEach(ObjC::release);
         clearPipelines.clear();
@@ -217,7 +228,7 @@ public final class MTLBuiltinPipelines {
 
     public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
-            MTLRenderCommandEncoder encoder;
+            MTLComputeCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(albedoTexture)) {
                 return;
             }
@@ -226,29 +237,25 @@ public final class MTLBuiltinPipelines {
             if (width <= 0L || height <= 0L) {
                 return;
             }
-            long colorFormat = MTLTexture.pixelFormat(targetColorTexture);
-            MemorySegment pipeline = MTLBuiltinPipelines.ensureDeferredLightingPipeline(colorFormat);
+            MemorySegment pipeline = MTLBuiltinPipelines.ensureDeferredComputePipeline();
             if (ObjC.isNil(pipeline)) {
                 return;
             }
-            try (MTLRenderPassDescriptor renderPass = new MTLRenderPassDescriptor();){
-                renderPass.colorAttachment(0L, targetColorTexture, 0L, 1L, null);
-                encoder = commandBuffer.makeRenderCommandEncoder(renderPass);
-            }
+            encoder = commandBuffer.makeComputeCommandEncoder();
             if (globalFence != null) {
-                encoder.waitForFence(globalFence, MTLRenderStages.Fragment);
+                encoder.waitForFence(globalFence);
             }
-            encoder.setViewport(0.0, 0.0, width, height, 0.0, 1.0);
-            encoder.setRenderPipelineState(pipeline);
-            encoder.setFragmentTexture(albedoTexture, 0L);
-            encoder.setFragmentTexture(normalTexture, 1L);
-            encoder.setFragmentTexture(lightDataTexture, 2L);
-            encoder.setFragmentTexture(worldDepthTexture, 3L);
-            encoder.setFragmentTexture(handDepthTexture, 4L);
-            encoder.setFragmentTexture(blockAtlasTexture, 5L);
-            encoder.setFragmentTexture(playerSkinTexture, 6L);
             
-            encoder.setFragmentSamplerState(presentLinearSampler, 0L);
+            encoder.setComputePipelineState(pipeline);
+            encoder.setTexture(albedoTexture, 0L);
+            encoder.setTexture(normalTexture, 1L);
+            encoder.setTexture(lightDataTexture, 2L);
+            encoder.setTexture(worldDepthTexture, 3L);
+            encoder.setTexture(handDepthTexture, 4L);
+            encoder.setTexture(blockAtlasTexture, 5L);
+            encoder.setTexture(playerSkinTexture, 6L);
+            encoder.setTexture(targetColorTexture, 10L);
+            
             MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, vxaoStrength, pointLightsEnabled);
             try (MemoryStack stack = MemoryStack.stackPush();){
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
@@ -285,33 +292,36 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 100L, PrismaConfig.INSTANCE.cloudsInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
-                encoder.setFragmentBytes(uniforms, 108L, 0L);
+                encoder.setBytes(uniforms, 108L, 0L);
             }
-            encoder.drawPrimitives(MTLPrimitiveType.Triangle, 0, 3, 1, 0);
+            long tgWidth = (width + 15) / 16;
+            long tgHeight = (height + 15) / 16;
+            encoder.dispatchThreadgroups(tgWidth, tgHeight, 1, 16, 16, 1);
             if (globalFence != null) {
-                encoder.updateFence(globalFence, MTLRenderStages.Fragment);
+                encoder.updateFence(globalFence);
             }
+            
             encoder.endEncoding();
         }
     }
 
-    private static void bindVoxelUniformsForDeferred(MTLRenderCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled) {
+    private static void bindVoxelUniformsForDeferred(MTLComputeCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled) {
         VoxelGridManager.GridState gridState = voxelManager != null ? voxelManager.activeState() : null;
         VoxelGridManager.GridState gridState2 = gridState;
         if (gridState != null && gridState.buffer() != null) {
-            encoder.setFragmentBuffer(gridState.buffer(), 0L, 1L);
+            encoder.setBuffer(gridState.buffer(), 0L, 1L);
         } else {
-            encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 1L);
+            encoder.setBuffer(MemorySegment.NULL, 0L, 1L);
         }
         if (voxelManager != null && voxelManager.blockUvBuffer() != null) {
-            encoder.setFragmentBuffer(voxelManager.blockUvBuffer().handle(), 0L, 3L);
+            encoder.setBuffer(voxelManager.blockUvBuffer().handle(), 0L, 3L);
         } else {
-            encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 3L);
+            encoder.setBuffer(MemorySegment.NULL, 0L, 3L);
         }
         if (voxelManager != null && voxelManager.blockBitmaskBuffer() != null) {
-            encoder.setFragmentBuffer(voxelManager.blockBitmaskBuffer().handle(), 0L, 4L);
+            encoder.setBuffer(voxelManager.blockBitmaskBuffer().handle(), 0L, 4L);
         } else {
-            encoder.setFragmentBuffer(MemorySegment.NULL, 0L, 4L);
+            encoder.setBuffer(MemorySegment.NULL, 0L, 4L);
         }
         try (MemoryStack stack = MemoryStack.stackPush();){
             MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37136)).reinterpret(37136L);
@@ -416,7 +426,7 @@ public final class MTLBuiltinPipelines {
             }
             MTLBuffer buf = device.newBuffer(37136L, 0L);
             MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37136L), 0L, 37136L);
-            encoder.setFragmentBuffer(buf.handle(), 0L, 2L);
+            encoder.setBuffer(buf.handle(), 0L, 2L);
             ObjC.release(buf.handle());
         }
     }
@@ -630,6 +640,19 @@ public final class MTLBuiltinPipelines {
             deferredLightingPipelines.put(colorFormat, pipeline);
         }
         return pipeline;
+    }
+
+    private static MemorySegment ensureDeferredComputePipeline() {
+        if (!ObjC.isNil(deferredComputePipeline)) {
+            return deferredComputePipeline;
+        }
+        MemorySegment function = device.newFunction(concat(PrismaShaderLoader.readShaderSource("voxel_common.metal") + "\n", PrismaShaderLoader.readShaderSource("deferred.metal")), "prisma_deferred_cs");
+        if (ObjC.isNil(function)) {
+            return MemorySegment.NULL;
+        }
+        deferredComputePipeline = device.newComputePipelineState(function);
+        ObjC.release(function);
+        return deferredComputePipeline;
     }
 
     private static MemorySegment ensureDepthStencilState(MTLCompareFunction compareOp, boolean writeDepth) {

@@ -88,8 +88,9 @@
               return out;
             }
 
-fragment float4 prisma_deferred_fs(
-              DeferredVertexOut in [[stage_in]],
+kernel void prisma_deferred_cs(
+              uint2 gid [[thread_position_in_grid]],
+              texture2d<float, access::write> outTexture [[texture(10)]],
               texture2d<float> albedoTex [[texture(0)]],
               texture2d<float> normalTex [[texture(1)]],
               texture2d<float> lightDataTex [[texture(2)]],
@@ -104,11 +105,13 @@ fragment float4 prisma_deferred_fs(
               constant float4* blockUvTable [[buffer(3)]],
               constant ulong* bitmaskTable [[buffer(4)]]
             ) {
-              float4 albedo = albedoTex.sample(smp, in.uv);
-              float wDepth = worldDepthTex.sample(smp, in.uv);
-              float hDepth = handDepthTex.sample(smp, in.uv);
+    if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) return;
+    float2 uv = (float2(gid) + 0.5f) / float2(outTexture.get_width(), outTexture.get_height());
+              float4 albedo = albedoTex.sample(smp, uv);
+              float wDepth = worldDepthTex.sample(smp, uv);
+              float hDepth = handDepthTex.sample(smp, uv);
               float rawDepth = wDepth;
-              float4 lightData = lightDataTex.sample(smp, in.uv);
+              float4 lightData = lightDataTex.sample(smp, uv);
               float effectiveDepth = rawDepth;
               if (effectiveDepth <= 0.00005f && lightData.z > 0.5f && lightData.w > 0.00005f) {
                 effectiveDepth = lightData.w;
@@ -140,8 +143,8 @@ fragment float4 prisma_deferred_fs(
                 if (isNether || isEnd) {
                     return float4(albedo.rgb, albedo.a); // Let vanilla handle Nether and End skies
                 }
-                float4 nearPoint = uVoxel.invViewProj * float4(in.uv * 2.0f - 1.0f, 1.0f, 1.0f);
-                float4 farPoint = uVoxel.invViewProj * float4(in.uv * 2.0f - 1.0f, 0.001f, 1.0f);
+                float4 nearPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 1.0f, 1.0f);
+                float4 farPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 0.001f, 1.0f);
                 float3 pNear = nearPoint.xyz / max(nearPoint.w, 0.00001f);
                 float3 pFar = farPoint.xyz / max(farPoint.w, 0.00001f);
                 float3 rayDir = normalize(pFar - pNear);
@@ -155,9 +158,9 @@ fragment float4 prisma_deferred_fs(
                 return float4(albedo.rgb, albedo.a);
               }
 
-              float3 pWorld = reconstructWorldPos(in.uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
+              float3 pWorld = reconstructWorldPos(uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
 
-              float4 nSample = normalTex.sample(smp, in.uv);
+              float4 nSample = normalTex.sample(smp, uv);
 
               bool isEntity = lightData.z < 0.5f;
               float3 nWorld = isEntity ? normalize(nSample.xyz) : normalize(nSample.xyz);
@@ -244,7 +247,7 @@ fragment float4 prisma_deferred_fs(
 
               float vxaoStrength = uVoxel.camPos.w;
               float vxao = (!isEntity && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, in.position.xy) * vxaoStrength : 0.0f;
-              float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, in.uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, in.position.xy) * vxaoStrength : 0.0f;
+              float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, in.position.xy) * vxaoStrength : 0.0f;
               float rawSky = lightData.g;
               float rawBlock = lightData.r;
               if (lightData.z <= 0.5f) {
@@ -384,7 +387,7 @@ fragment float4 prisma_deferred_fs(
               float reflectFactor = 0.0f;
 
               if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
-                float4 nearPoint = uVoxel.invViewProj * float4(in.uv * 2.0f - 1.0f, 1.0f, 1.0f);
+                float4 nearPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 1.0f, 1.0f);
                 float3 pNear = nearPoint.xyz / max(nearPoint.w, 0.00001f);
                 float3 viewDir = normalize((uVoxel.camPos.xyz + pNear) - pWorld);
                 float NdotV = saturate(dot(surfNormal, viewDir));
@@ -537,5 +540,6 @@ fragment float4 prisma_deferred_fs(
                   litRgb = litRgb * cloudData.a + cloudData.rgb;
               }
               
-              return float4(litRgb, albedo.a);
+              outTexture.write(float4(litRgb, albedo.a), gid);
+              return;
             }

@@ -30,6 +30,7 @@ public record MTLDevice(MemorySegment handle) {
     private static final Msg NEW_LIBRARY_WITH_SOURCE = Msg.of("newLibraryWithSource:options:error:", true, ADDRESS, ADDRESS, ADDRESS, ADDRESS);
     private static final Msg NEW_FUNCTION_WITH_NAME = Msg.of("newFunctionWithName:", true, ADDRESS, ADDRESS);
     private static final Msg NEW_RENDER_PIPELINE_STATE = Msg.of("newRenderPipelineStateWithDescriptor:error:", true, ADDRESS, ADDRESS, ADDRESS);
+    private static final Msg NEW_COMPUTE_PIPELINE_STATE = Msg.of("newComputePipelineStateWithFunction:error:", true, ADDRESS, ADDRESS, ADDRESS);
     private static final Msg LOCALIZED_DESCRIPTION = Msg.of("localizedDescription", ADDRESS);
     private static final Msg MINIMUM_TEXTURE_BUFFER_ALIGNMENT = Msg.of("minimumTextureBufferAlignmentForPixelFormat:", JAVA_LONG, JAVA_LONG);
     private static final Msg NAME = Msg.of("name", ADDRESS);
@@ -146,6 +147,18 @@ public record MTLDevice(MemorySegment handle) {
             MemorySegment pipeline = NEW_RENDER_PIPELINE_STATE.sendPtr(handle, descriptor.handle(), errorOut);
             if (ObjC.isNil(pipeline)) {
                 Prisma.LOGGER.error("[prisma] Failed to create render pipeline state: {}", errorDescription(errorOut));
+                return MemorySegment.NULL;
+            }
+            return pipeline;
+        }
+    }
+
+    public MemorySegment newComputePipelineState(final MemorySegment function) {
+        try (AutoreleasePool _ = AutoreleasePool.push(); Arena arena = Arena.ofConfined()) {
+            MemorySegment errorOut = arena.allocate(ADDRESS);
+            MemorySegment pipeline = NEW_COMPUTE_PIPELINE_STATE.sendPtr(handle, function, errorOut);
+            if (ObjC.isNil(pipeline)) {
+                Prisma.LOGGER.error("[prisma] Failed to create compute pipeline state: {}", errorDescription(errorOut));
                 return MemorySegment.NULL;
             }
             return pipeline;
