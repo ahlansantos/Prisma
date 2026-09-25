@@ -292,10 +292,11 @@ fragment float4 prisma_deferred_fs(
               if (celestialNdotL > 0.0f && celestialDir.y > 0.001f && rawSky > 0.80f && !isEntity && u.sunShadowsEnabled > 0.5f) {
                 float celestialSlopeBias = mix(0.045f, 0.012f, celestialNdotL);
                 float3 rayStart = pWorld + nWorld * celestialSlopeBias;
-                float temporalFrame = fract(u.gameTime * 20.0f) * 64.0f;
-                float ditherX = fract(52.9829189f * fract(dot(in.position.xy + float2(temporalFrame, temporalFrame * 1.618f), float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
-                float ditherZ = fract(52.9829189f * fract(dot(in.position.xy + float2(13.0f - temporalFrame, 17.0f + temporalFrame), float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
-                float3 jitter = float3(ditherX, 0.0f, ditherZ) * uVoxel.shadowParams.z * 1.8f;
+                float2 wPos1 = floor(pWorld.xz * 32.0f + pWorld.yy * 32.0f);
+                float2 wPos2 = floor(pWorld.zx * 32.0f - pWorld.yy * 32.0f);
+                float ditherX = fract(52.9829189f * fract(dot(wPos1, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
+                float ditherZ = fract(52.9829189f * fract(dot(wPos2, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
+                float3 jitter = float3(ditherX, 0.0f, ditherZ) * uVoxel.shadowParams.z * 0.65f;
                 float3 shadowTarget = rayStart + normalize(celestialDir * 40.0f + jitter) * 40.0f;
 
                 ShadowRayResult cRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, shadowTarget, blockAtlasTex, smp, blockUvTable, bitmaskTable);
