@@ -108,8 +108,8 @@ kernel void prisma_deferred_cs(
     if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) return;
     float2 uv = (float2(gid) + 0.5f) / float2(outTexture.get_width(), outTexture.get_height());
               float4 albedo = albedoTex.sample(smp, uv);
-              float wDepth = worldDepthTex.sample(smp, uv);
-              float hDepth = handDepthTex.sample(smp, uv);
+              float wDepth = worldDepthTex.read(gid).x;
+              float hDepth = handDepthTex.read(gid).x;
               float rawDepth = wDepth;
               
               float effectiveDepth = rawDepth;
@@ -160,8 +160,8 @@ kernel void prisma_deferred_cs(
 
               
               float2 texel = 1.0f / float2(outTexture.get_width(), outTexture.get_height());
-              float depthX = worldDepthTex.sample(smp, uv + float2(texel.x, 0.0f));
-              float depthY = worldDepthTex.sample(smp, uv + float2(0.0f, texel.y));
+              float depthX = worldDepthTex.read(uint2(min(gid.x + 1, outTexture.get_width() - 1), gid.y)).x;
+              float depthY = worldDepthTex.read(uint2(gid.x, min(gid.y + 1, outTexture.get_height() - 1))).x;
               float3 pX = reconstructWorldPos(uv + float2(texel.x, 0.0f), depthX, uVoxel.camPos.xyz, uVoxel.invViewProj);
               float3 pY = reconstructWorldPos(uv + float2(0.0f, texel.y), depthY, uVoxel.camPos.xyz, uVoxel.invViewProj);
               float3 dX = pX - pWorld;
