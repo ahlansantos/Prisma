@@ -111,8 +111,9 @@ kernel void prisma_deferred_cs(
               float4 albedo = albedoTex.sample(smp, uv);
               float wDepth = worldDepthTex.read(depthGid);
               float hDepth = handDepthTex.read(depthGid);
-              float rawDepth = wDepth;
-              
+              // In Reverse-Z: larger value = closer. Use the closer depth (larger value).
+              float rawDepth = max(wDepth, hDepth);
+              bool isHandPixel = (hDepth > wDepth + 0.0001f && hDepth > 0.0001f);
               float effectiveDepth = rawDepth;
               
 
@@ -153,13 +154,20 @@ kernel void prisma_deferred_cs(
               }
 
 
-              if (hDepth > 0.00005f && hDepth < 0.99995f) {
+              if (isHandPixel) {
                 outTexture.write(float4(albedo.rgb, albedo.a), gid); return;
               }
 
               float3 pWorld = reconstructWorldPos(uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
 
-              
+              // Sanity: if pWorld is more than 1000 blocks away, reconstruction failed -> pass-through
+              {
+                float3 delta = pWorld - uVoxel.camPos.xyz;
+                if (dot(delta, delta) > 1000.0f * 1000.0f) {
+                  outTexture.write(float4(albedo.rgb, albedo.a), gid); return;
+                }
+              }
+
               float2 texel = 1.0f / float2(outTexture.get_width(), outTexture.get_height());
               uint2 depthGidX = uint2(clamp(uv + float2(texel.x, 0.0f), 0.0f, 1.0f) * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
               uint2 depthGidY = uint2(clamp(uv + float2(0.0f, texel.y), 0.0f, 1.0f) * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
