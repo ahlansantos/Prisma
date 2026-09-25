@@ -298,36 +298,30 @@ fragment float4 prisma_deferred_fs(
                 float ditherZ = fract(52.9829189f * fract(dot(wPos2, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
                 
                 float sdaaMode = uVoxel.shadowParams.z;
-                float radius = abs(sdaaMode) * 0.75f;
+                float radius = abs(sdaaMode) * 1.5f;
                 float3 j1 = float3(ditherX, 0.0f, ditherZ) * radius;
-                float3 jDir1 = j1 - nWorld * dot(j1, nWorld);
-                float3 rStart1 = rayStart + jDir1 * 0.3f;
-                float3 t1 = rStart1 + normalize(celestialDir * 40.0f + j1) * 40.0f;
-                ShadowRayResult cRes1 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rStart1, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                float3 t1 = rayStart + normalize(celestialDir * 40.0f + j1) * 40.0f;
+                ShadowRayResult cRes1 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                 
                 if (sdaaMode > 0.0f) {
                     float3 j2 = float3(-ditherZ, 0.0f, ditherX) * radius;
                     float3 j3 = float3(-ditherX, 0.0f, -ditherZ) * radius;
-                    float3 jDir2 = j2 - nWorld * dot(j2, nWorld);
-                    float3 jDir3 = j3 - nWorld * dot(j3, nWorld);
-                    float3 rStart2 = rayStart + jDir2 * 0.3f;
-                    float3 rStart3 = rayStart + jDir3 * 0.3f;
-                    float3 t2 = rStart2 + normalize(celestialDir * 40.0f + j2) * 40.0f;
-                    float3 t3 = rStart3 + normalize(celestialDir * 40.0f + j3) * 40.0f;
-                    ShadowRayResult cRes2 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rStart2, t2, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                    ShadowRayResult cRes3 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rStart3, t3, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                    float3 t2 = rayStart + normalize(celestialDir * 40.0f + j2) * 40.0f;
+                    float3 t3 = rayStart + normalize(celestialDir * 40.0f + j3) * 40.0f;
+                    ShadowRayResult cRes2 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t2, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                    ShadowRayResult cRes3 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t3, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                     
                     if (uVoxel.shadowParams.w > 0.5f) {
                         PlayerHit hit; hit.hitDist = 1e6f;
-                        tracePlayerOBB(rStart1, normalize(t1 - rStart1), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        tracePlayerOBB(rayStart, normalize(t1 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
                         if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
                         
                         hit.hitDist = 1e6f;
-                        tracePlayerOBB(rStart2, normalize(t2 - rStart2), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        tracePlayerOBB(rayStart, normalize(t2 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
                         if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes2.vis = 0.0f;
                         
                         hit.hitDist = 1e6f;
-                        tracePlayerOBB(rStart3, normalize(t3 - rStart3), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        tracePlayerOBB(rayStart, normalize(t3 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
                         if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes3.vis = 0.0f;
                     }
                     celestialShadow = (cRes1.vis + cRes2.vis + cRes3.vis) * 0.333f;
@@ -335,7 +329,7 @@ fragment float4 prisma_deferred_fs(
                 } else {
                     if (uVoxel.shadowParams.w > 0.5f) {
                         PlayerHit hit; hit.hitDist = 1e6f;
-                        tracePlayerOBB(rStart1, normalize(t1 - rStart1), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        tracePlayerOBB(rayStart, normalize(t1 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
                         if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
                     }
                     celestialShadow = cRes1.vis;
