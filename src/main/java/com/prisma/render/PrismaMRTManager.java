@@ -435,6 +435,8 @@ public final class PrismaMRTManager implements AutoCloseable {
 
         MemorySegment targetColor = colorTex.nativeHandle();
         MemorySegment currentDepth = currentDepthGpuTex instanceof MetalGpuTexture depthTex ? depthTex.nativeHandle() : MemorySegment.NULL;
+        System.out.println("[PRISMA DEBUG] currentDepthGpuTex class: " + (currentDepthGpuTex != null ? currentDepthGpuTex.getClass().getName() : "NULL"));
+        System.out.println("[PRISMA DEBUG] currentDepth handle: " + currentDepth);
                 MemorySegment worldDepth = !ObjC.isNil(currentDepth) ? currentDepth : this.fallbackDepthTexture;
         MemorySegment handDepth = this.fallbackDepthTexture;
         MemorySegment albedo = worldColorTexture(targetColor);
