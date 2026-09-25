@@ -252,6 +252,7 @@ public final class MTLBuiltinPipelines {
             encoder.setTexture(blockAtlasTexture, 5L);
             encoder.setTexture(playerSkinTexture, 6L);
             encoder.setTexture(targetColorTexture, 10L);
+            encoder.setSamplerState(presentLinearSampler, 0L);
             
             MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, vxaoStrength, pointLightsEnabled);
             try (MemoryStack stack = MemoryStack.stackPush();){
