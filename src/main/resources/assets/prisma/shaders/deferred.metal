@@ -146,7 +146,7 @@ fragment float4 prisma_deferred_fs(
                 float3 pFar = farPoint.xyz / max(farPoint.w, 0.00001f);
                 float3 rayDir = normalize(pFar - pNear);
 
-                float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsEnabled, u.cloudSteps, u.rainStrength);
+                float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsEnabled, u.cloudSteps, u.rainStrength, 1e6f);
                 float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * u.rainStrength; return float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f);
               }
 
@@ -344,7 +344,7 @@ fragment float4 prisma_deferred_fs(
               float3 reflectionCol = float3(0.0f);
               float reflectFactor = 0.0f;
 
-              if ((isWater || isMetal || isPuddle) && u.reflectionsEnabled > 0.5f) {
+              if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
                 float4 nearPoint = uVoxel.invViewProj * float4(in.uv * 2.0f - 1.0f, 1.0f, 1.0f);
                 float3 pNear = nearPoint.xyz / max(nearPoint.w, 0.00001f);
                 float3 viewDir = normalize((uVoxel.camPos.xyz + pNear) - pWorld);
@@ -363,7 +363,17 @@ fragment float4 prisma_deferred_fs(
                     float cloudsRefl = (b == 0) ? u.cloudsInReflections : 0.0f;
                     float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, cloudsRefl, u.cloudSteps, u.rainStrength) * skyLevel;
                     
-                    VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.vxaoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel);
+                                        VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.vxaoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel);
+                    
+                    float reflDist = vxr.hitDist;
+                    float rawReflFog = saturate(1.0f - exp(-(reflDist * u.fogDensity) * (reflDist * u.fogDensity)));
+                    float3 reflFogColor = mix(nightFog, dayFog, sunWeight);
+                    reflFogColor = mix(reflFogColor, rainFog, u.rainStrength);
+                    
+                    float reflY = currentRayOrigin.y + currentRayDir.y * reflDist;
+                    float reflSkyLvl = saturate((reflY - 24.0f) / 64.0f);
+                    float3 attenuatedReflFog = mix(reflFogColor * 0.05f, reflFogColor, reflSkyLvl);
+                    vxr.color = mix(vxr.color, attenuatedReflFog, rawReflFog * vxr.alpha);
                     
                     float3 bounceColor = mix(skyReflection, vxr.color, vxr.alpha);
                     
@@ -434,7 +444,7 @@ fragment float4 prisma_deferred_fs(
 
               float3 baseLit = albedo.rgb * baseLighting;
               float3 litRgb = baseLit;
-              if ((isWater || isMetal || isPuddle) && u.reflectionsEnabled > 0.5f) {
+              if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
                 litRgb = mix(baseLit, reflectionCol, reflectFactor);
               }
 
@@ -461,7 +471,7 @@ fragment float4 prisma_deferred_fs(
                 float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f) * saturate(distToCam * 0.015f);
                 
                 float fogFactor = saturate(distFog + heightFog);
-                float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength);
+                float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
 
                                                 // Darken fog in caves (but keep it bright under trees)
                 float surfaceBoost = saturate((pWorld.y - 50.0f) * 0.05f); 
@@ -478,5 +488,16 @@ fragment float4 prisma_deferred_fs(
                 litRgb = mix(litRgb, fogColor, fogFactor);
               }
 
+              
+              if (u.cloudsEnabled > 0.5f) {
+                  float distToCam = length(pWorld - uVoxel.camPos.xyz);
+                  float3 rayDir = normalize(pWorld - uVoxel.camPos.xyz);
+                  float3 hazeColor = mix(float3(0.48f, 0.58f, 0.66f), sunriseTint * 1.15f, clampedSunrise);
+                  if (sunWeight < 0.35f) hazeColor = mix(float3(0.12f, 0.16f, 0.26f), hazeColor, sunWeight * 2.85f);
+                  
+                  float4 cloudData = computeVolumetricClouds(uVoxel.camPos.xyz, rayDir, u.gameTime, hazeColor, sunWeight, sunDir, moonDir, currentSunColor, currentMoonColor, u.cloudsEnabled, u.cloudSteps, u.rainStrength, distToCam);
+                  litRgb = litRgb * cloudData.a + cloudData.rgb;
+              }
+              
               return float4(litRgb, albedo.a);
             }
