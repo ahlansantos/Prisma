@@ -14,7 +14,13 @@ public final class PrismaMRTManager implements AutoCloseable {
     private MemorySegment fallbackNormalTexture = MemorySegment.NULL;
     private MemorySegment fallbackDepthTexture = MemorySegment.NULL;
     private MemorySegment lightDataTexture = MemorySegment.NULL;
+    private MemorySegment currentReservoirTexture = MemorySegment.NULL;
+    private MemorySegment previousReservoirTexture = MemorySegment.NULL;
+    private MemorySegment velocityTexture = MemorySegment.NULL;
+    private MemorySegment metalFxColorTexture = MemorySegment.NULL;
     private MemorySegment fallbackLightDataTexture = MemorySegment.NULL;
+    private MemorySegment fallbackReservoirTexture = MemorySegment.NULL;
+    private MemorySegment fallbackVelocityTexture = MemorySegment.NULL;
     private MemorySegment hdrColorTexture = MemorySegment.NULL;
 
     private MemorySegment previousHdrTexture = MemorySegment.NULL;
@@ -76,6 +82,26 @@ public final class PrismaMRTManager implements AutoCloseable {
             desc.storageMode(MTLStorageMode.Private);
             this.fallbackLightDataTexture = device.metalDevice().newTexture(desc);
         }
+        try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+            desc.textureType(MTLTextureType.Type2D);
+            desc.pixelFormat(MTLPixelFormat.RGBA32Uint);
+            desc.width(1);
+            desc.height(1);
+            desc.mipmapLevelCount(1);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+            desc.storageMode(MTLStorageMode.Private);
+            this.fallbackReservoirTexture = device.metalDevice().newTexture(desc);
+        }
+        try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+            desc.textureType(MTLTextureType.Type2D);
+            desc.pixelFormat(MTLPixelFormat.RG16Float);
+            desc.width(1);
+            desc.height(1);
+            desc.mipmapLevelCount(1);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+            desc.storageMode(MTLStorageMode.Private);
+            this.fallbackVelocityTexture = device.metalDevice().newTexture(desc);
+        }
     }
 
     public void ensureMrtTextures(final long width, final long height) {
@@ -93,6 +119,22 @@ public final class PrismaMRTManager implements AutoCloseable {
             if (!ObjC.isNil(this.lightDataTexture)) {
                 device.queueResourceRelease(this.lightDataTexture);
                 this.lightDataTexture = MemorySegment.NULL;
+            }
+            if (!ObjC.isNil(this.currentReservoirTexture)) {
+                device.queueResourceRelease(this.currentReservoirTexture);
+                this.currentReservoirTexture = MemorySegment.NULL;
+            }
+            if (!ObjC.isNil(this.previousReservoirTexture)) {
+                device.queueResourceRelease(this.previousReservoirTexture);
+                this.previousReservoirTexture = MemorySegment.NULL;
+            }
+            if (!ObjC.isNil(this.velocityTexture)) {
+                device.queueResourceRelease(this.velocityTexture);
+                this.velocityTexture = MemorySegment.NULL;
+            }
+            if (!ObjC.isNil(this.metalFxColorTexture)) {
+                device.queueResourceRelease(this.metalFxColorTexture);
+                this.metalFxColorTexture = MemorySegment.NULL;
             }
 
         if (!ObjC.isNil(this.hdrColorTexture)) {
@@ -137,6 +179,41 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.storageMode(MTLStorageMode.Private);
                 this.lightDataTexture = device.metalDevice().newTexture(desc);
             }
+
+            try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+                desc.textureType(MTLTextureType.Type2D);
+                desc.pixelFormat(MTLPixelFormat.RGBA32Uint);
+                desc.width(width);
+                desc.height(height);
+                desc.mipmapLevelCount(1);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+                desc.storageMode(MTLStorageMode.Private);
+                this.currentReservoirTexture = device.metalDevice().newTexture(desc);
+                this.previousReservoirTexture = device.metalDevice().newTexture(desc);
+            }
+            
+            try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+                desc.textureType(MTLTextureType.Type2D);
+                desc.pixelFormat(MTLPixelFormat.RG16Float);
+                desc.width(width);
+                desc.height(height);
+                desc.mipmapLevelCount(1);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+                desc.storageMode(MTLStorageMode.Private);
+                this.velocityTexture = device.metalDevice().newTexture(desc);
+            }
+            
+            try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+                desc.textureType(MTLTextureType.Type2D);
+                desc.pixelFormat(MTLPixelFormat.RGBA16Float);
+                desc.width(width);
+                desc.height(height);
+                desc.mipmapLevelCount(1);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+                desc.storageMode(MTLStorageMode.Private);
+                this.metalFxColorTexture = device.metalDevice().newTexture(desc);
+            }
+
 
 
             try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -218,6 +295,25 @@ public final class PrismaMRTManager implements AutoCloseable {
     public MemorySegment ensureLightDataTexture(final long width, final long height) {
         ensureMrtTextures(width, height);
         return lightDataTexture();
+    }
+
+
+    public MemorySegment currentReservoirTexture() {
+        return ObjC.isNil(this.currentReservoirTexture) ? this.fallbackReservoirTexture : this.currentReservoirTexture;
+    }
+    public MemorySegment previousReservoirTexture() {
+        return ObjC.isNil(this.previousReservoirTexture) ? this.fallbackReservoirTexture : this.previousReservoirTexture;
+    }
+    public MemorySegment velocityTexture() {
+        return ObjC.isNil(this.velocityTexture) ? this.fallbackVelocityTexture : this.velocityTexture;
+    }
+    public MemorySegment metalFxColorTexture() {
+        return ObjC.isNil(this.metalFxColorTexture) ? this.hdrColorTexture : this.metalFxColorTexture;
+    }
+    public void swapReservoirs() {
+        MemorySegment temp = this.currentReservoirTexture;
+        this.currentReservoirTexture = this.previousReservoirTexture;
+        this.previousReservoirTexture = temp;
     }
 
     public MemorySegment lightDataTexture() {
@@ -444,22 +540,7 @@ public final class PrismaMRTManager implements AutoCloseable {
 
         
         this.frameIndex++;
-        boolean doSpaceWarp = com.prisma.config.PrismaConfig.INSTANCE.spaceWarpEnabled && (this.frameIndex % 2 != 0);
-        
-        if (doSpaceWarp && !ObjC.isNil(this.previousHdrTexture)) {
-            MTLBuiltinPipelines.encodeSpaceWarpPass(
-                encoder.commandBuffer(),
-                hdrTarget,
-                this.previousHdrTexture,
-                worldDepth,
-                viewProj,
-                this.prevViewProj,
-                invViewProj,
-                camPosX, camPosY, camPosZ,
-                this.prevCamPos.x, this.prevCamPos.y, this.prevCamPos.z,
-                encoder.fence()
-            );
-        } else {
+
             MTLBuiltinPipelines.encodeDeferredLightingPass(
                     encoder.commandBuffer(),
                     hdrTarget,
@@ -516,21 +597,9 @@ public final class PrismaMRTManager implements AutoCloseable {
                 voxelManager,
                 encoder.fence()
         );
-        }
 
                 
-        if (com.prisma.config.PrismaConfig.INSTANCE.spaceWarpEnabled && !doSpaceWarp && !ObjC.isNil(this.previousHdrTexture)) {
-            MTLBlitCommandEncoder blit = encoder.commandBuffer().makeBlitCommandEncoder();
-            
-            float upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
-            if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
-            long hdrW = Math.max(1L, (long)(width * upscaleFactor));
-            long hdrH = Math.max(1L, (long)(height * upscaleFactor));
-            if (encoder.fence() != null) blit.waitForFence(encoder.fence());
-            blit.copyFromTextureToTexture(hdrTarget, 0L, 0L, 0L, 0L, hdrW, hdrH, this.previousHdrTexture, 0L, 0L, 0L, 0L);
-            if (encoder.fence() != null) blit.updateFence(encoder.fence());
-            blit.endEncoding();
-        }
+
         this.prevViewProj.set(viewProj);
         this.prevInvViewProj.set(invViewProj);
         this.prevCamPos.set(camPosX, camPosY, camPosZ);
@@ -550,6 +619,8 @@ public final class PrismaMRTManager implements AutoCloseable {
                 this.prevCamPos.x, this.prevCamPos.y, this.prevCamPos.z,
                 encoder.fence()
         );
+        
+        swapReservoirs();
     }
 
     public void resetFrame() {
