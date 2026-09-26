@@ -364,10 +364,6 @@ kernel void prisma_deferred_cs(
               minAmbient = max(minAmbient, uVoxel.playerHead.z);
               float3 ambientSky = max(activeSkyLight * (skyLevel * 0.68f), float3(0.03f, 0.025f, 0.02f));
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
-              if (isFoliage) {
-                // Two-sided transmission / wrap lighting for leaves
-                celestialNdotL = max(celestialNdotL, saturate(-dot(surfNormal, celestialDir)) * 0.65f);
-              }
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
 
               float outsideShadow = 1.0f;
