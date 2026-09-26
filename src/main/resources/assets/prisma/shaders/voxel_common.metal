@@ -26,6 +26,7 @@ struct VoxelUniforms {
   float4 playerHead;
   float4x4 invViewProj;
   float4x4 viewProj;
+  float4x4 prevViewProj;
   PointLightData lights[1024];
   int4 mobCounts;
   MobData mobs[64];

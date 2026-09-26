@@ -598,6 +598,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 (float) com.prisma.config.PrismaConfig.INSTANCE.cloudQualitySteps,
                 rainStrength,
                 voxelManager,
+                this.prevViewProj,
                 encoder.fence()
         );
 

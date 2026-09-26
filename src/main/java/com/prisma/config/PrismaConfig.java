@@ -38,7 +38,6 @@ public final class PrismaConfig {
     public volatile boolean volumetricCloudsEnabled = true;
     public volatile int cloudQualitySteps = 30;
     public volatile float upscalingRatio = 1.0f;
-    public volatile boolean spaceWarpEnabled = false;
     public volatile boolean motionBlurEnabled = true;
     public volatile boolean sdaaEnabled = true;
     public volatile boolean volPointLightsEnabled = false;
@@ -76,7 +75,6 @@ public final class PrismaConfig {
             sb.append("\"volumetricCloudsEnabled\":").append(volumetricCloudsEnabled).append(",");
             sb.append("\"cloudQualitySteps\":").append(cloudQualitySteps).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"upscalingRatio\":%.2f,", upscalingRatio));
-            sb.append("\"spaceWarpEnabled\":").append(spaceWarpEnabled).append(",");
             sb.append("\"motionBlurEnabled\":").append(motionBlurEnabled).append(",");
             sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
             sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
@@ -178,9 +176,7 @@ public final class PrismaConfig {
                 if ((val = getJsonValue(content, "motionBlurEnabled")) != null) {
                     try { motionBlurEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "spaceWarpEnabled")) != null) {
-                    try { spaceWarpEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
+
             }
         } catch (Throwable ignored) {
         }

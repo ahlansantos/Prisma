@@ -216,11 +216,11 @@ public final class MTLBuiltinPipelines {
         }
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, MTLFence globalFence) {
-        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, globalFence);
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
+        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, prevViewProj, globalFence);
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, MTLFence globalFence) {
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLComputeCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(albedoTexture)) {
@@ -254,7 +254,7 @@ public final class MTLBuiltinPipelines {
             encoder.setTexture(targetColorTexture, 10L);
             encoder.setSamplerState(presentLinearSampler, 0L);
             
-            MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, vxaoStrength, pointLightsEnabled);
+            MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, vxaoStrength, pointLightsEnabled, prevViewProj);
             try (MemoryStack stack = MemoryStack.stackPush();){
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
                 MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 108)).reinterpret(108L);
@@ -306,7 +306,7 @@ public final class MTLBuiltinPipelines {
         }
     }
 
-    private static void bindVoxelUniformsForDeferred(MTLComputeCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled) {
+    private static void bindVoxelUniformsForDeferred(MTLComputeCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, org.joml.Matrix4fc prevViewProj) {
         VoxelGridManager.GridState gridState = voxelManager != null ? voxelManager.activeState() : null;
         VoxelGridManager.GridState gridState2 = gridState;
         if (gridState != null && gridState.buffer() != null) {
@@ -325,7 +325,7 @@ public final class MTLBuiltinPipelines {
             encoder.setBuffer(MemorySegment.NULL, 0L, 4L);
         }
         try (MemoryStack stack = MemoryStack.stackPush();){
-            MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37136)).reinterpret(37136L);
+            MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37200)).reinterpret(37200L);
             vUniforms.fill((byte)0);
             if (gridState != null) {
                 vUniforms.set(ValueLayout.JAVA_INT, 0L, gridState.originX());
@@ -397,10 +397,28 @@ public final class MTLBuiltinPipelines {
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 248L, viewProj.m32());
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 252L, viewProj.m33());
                 }
+                if (prevViewProj != null) {
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 256L, prevViewProj.m00());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 260L, prevViewProj.m01());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 264L, prevViewProj.m02());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 268L, prevViewProj.m03());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 272L, prevViewProj.m10());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 276L, prevViewProj.m11());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 280L, prevViewProj.m12());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 284L, prevViewProj.m13());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 288L, prevViewProj.m20());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 292L, prevViewProj.m21());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 296L, prevViewProj.m22());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 300L, prevViewProj.m23());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 304L, prevViewProj.m30());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 308L, prevViewProj.m31());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 312L, prevViewProj.m32());
+                    vUniforms.set(ValueLayout.JAVA_FLOAT, 316L, prevViewProj.m33());
+                }
                 int maxL = Math.min(lights.size(), 64);
                 for (int i = 0; i < maxL; ++i) {
                     PointLight pl = lights.get(i);
-                    long offset = 256L + (long)i * 32L;
+                    long offset = 320L + (long)i * 32L;
                     vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 0L, pl.x());
                     vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 4L, pl.y());
                     vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 8L, pl.z());
@@ -410,23 +428,23 @@ public final class MTLBuiltinPipelines {
                     vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 24L, pl.b());
                     vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 28L, pl.intensity());
                 }
-                vUniforms.set(ValueLayout.JAVA_INT, 33024L, Math.min(activeMobCount, 64));
-                vUniforms.set(ValueLayout.JAVA_INT, 33028L, 0);
-                vUniforms.set(ValueLayout.JAVA_INT, 33032L, 0);
-                vUniforms.set(ValueLayout.JAVA_INT, 33036L, 0);
+                vUniforms.set(ValueLayout.JAVA_INT, 33088L, Math.min(activeMobCount, 64));
+                vUniforms.set(ValueLayout.JAVA_INT, 33092L, 0);
+                vUniforms.set(ValueLayout.JAVA_INT, 33096L, 0);
+                vUniforms.set(ValueLayout.JAVA_INT, 33100L, 0);
                 if (mobData != null && activeMobCount > 0) {
                     int maxMobs = Math.min(activeMobCount, 64);
                     for (int i = 0; i < maxMobs; ++i) {
                         int mobBase = i * 16;
-                        long dstBase = 33040L + (long)i * 64L;
+                        long dstBase = 33104L + (long)i * 64L;
                         for (int f = 0; f < 16; ++f) {
                             vUniforms.set(ValueLayout.JAVA_FLOAT, dstBase + (long)f * 4L, mobData[mobBase + f]);
                         }
                     }
                 }
             }
-            MTLBuffer buf = device.newBuffer(37136L, 0L);
-            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37136L), 0L, 37136L);
+            MTLBuffer buf = device.newBuffer(37200L, 0L);
+            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37200L), 0L, 37200L);
             encoder.setBuffer(buf.handle(), 0L, 2L);
             ObjC.release(buf.handle());
         }

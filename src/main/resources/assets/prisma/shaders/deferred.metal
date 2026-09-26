@@ -402,7 +402,13 @@ kernel void prisma_deferred_cs(
               
               // Write to buffer
               currReservoirTex.write(uint4(r.lightPacked, r.targetPdf, r.weightSum, r.numSamples), gid);
-              velocityTex.write(float4(0.0f), gid);
+              // --- Velocity Buffer Generation ---
+              float4 currentClip = uVoxel.viewProj * float4(pWorld, 1.0f);
+              float4 prevClip = uVoxel.prevViewProj * float4(pWorld, 1.0f);
+              float2 currentUv = (currentClip.xy / max(currentClip.w, 0.0001f)) * 0.5f + 0.5f;
+              float2 prevUv = (prevClip.xy / max(prevClip.w, 0.0001f)) * 0.5f + 0.5f;
+              float2 velocity = currentUv - prevUv;
+              velocityTex.write(float4(velocity, 0.0f, 0.0f), gid);
 
               
               // Instead of computePointLights, use the chosen reservoir light!

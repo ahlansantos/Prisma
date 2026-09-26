@@ -7,7 +7,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 def isFinal = gradle.startParameter.taskNames.contains("buildFinal")
-version = "${project.mod_base_version}" 
+
+version = "${project.mod_base_version}"
 
 group = project.maven_group
 
