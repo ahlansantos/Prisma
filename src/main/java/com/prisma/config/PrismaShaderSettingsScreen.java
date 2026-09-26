@@ -70,12 +70,17 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(sCave, null));
 
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Dynamic Lights").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            this.listWidget.add(new SettingsEntry(Component.literal("ReSTIR & Point Lights").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
-            Button bRestir = createToggle("ReSTIR Shadows", PrismaConfig.INSTANCE.restirShadowsEnabled, v -> PrismaConfig.INSTANCE.restirShadowsEnabled = v);
-            this.listWidget.add(new SettingsEntry(b4, bRestir));
-            ConfigSlider bMaxL = new ConfigSlider("Max Lights", 0.0, 128.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> PrismaConfig.INSTANCE.maxPointLights = v.intValue());
-            this.listWidget.add(new SettingsEntry(bMaxL, null));
+            Button bTemp = createToggle("Temporal Reuse", PrismaConfig.INSTANCE.restirTemporal, v -> PrismaConfig.INSTANCE.restirTemporal = v);
+            this.listWidget.add(new SettingsEntry(b4, bTemp));
+            
+            Button bSpat = createToggle("Spatial Reuse", PrismaConfig.INSTANCE.restirSpatial, v -> PrismaConfig.INSTANCE.restirSpatial = v);
+            ConfigSlider sHist = new ConfigSlider("Temporal History", 1.0, 40.0, PrismaConfig.INSTANCE.restirHistoryLimit, false, v -> PrismaConfig.INSTANCE.restirHistoryLimit = v.intValue());
+            this.listWidget.add(new SettingsEntry(bSpat, sHist));
+            
+            ConfigSlider sRad = new ConfigSlider("Spatial Radius", 5.0, 100.0, PrismaConfig.INSTANCE.restirSpatialRadius, true, v -> PrismaConfig.INSTANCE.restirSpatialRadius = v.floatValue());
+            this.listWidget.add(new SettingsEntry(sRad, null));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Shadows").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b5 = createToggle("Sun Shadows", PrismaConfig.INSTANCE.sunShadowsEnabled, v -> PrismaConfig.INSTANCE.sunShadowsEnabled = v);
