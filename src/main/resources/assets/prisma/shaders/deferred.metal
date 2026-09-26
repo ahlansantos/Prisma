@@ -451,7 +451,7 @@ kernel void prisma_deferred_cs(
                       float visibility = 1.0f;
                       float3 rayOrigin = pWorld + surfNormal * 0.05f;
                       float3 targetPos = rayOrigin + L * distL;
-                      ShadowRayResult shadowRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                      ShadowRayResult shadowRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                       visibility = shadowRes.vis;
                       
                       float finalW = as_type<float>(r.weightSum);
