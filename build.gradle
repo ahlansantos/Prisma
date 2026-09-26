@@ -7,14 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 def isFinal = gradle.startParameter.taskNames.contains("buildFinal")
-
-if (isFinal) {
-    version = "${project.mod_base_version}"
-} else {
-    def dateFormat = new SimpleDateFormat("ddMMyyyy_HHmm")
-    def currentDate = dateFormat.format(new Date())
-    version = "${project.mod_base_version}-${currentDate}-rev.2"
-}
+version = "${project.mod_base_version}" 
 
 group = project.maven_group
 
