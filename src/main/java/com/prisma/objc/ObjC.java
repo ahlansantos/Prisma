@@ -58,11 +58,11 @@ public final class ObjC {
         }
     }
 
-    static MethodHandle msgSend(FunctionDescriptor descriptor) {
+    public static MethodHandle msgSend(FunctionDescriptor descriptor) {
         return LINKER.downcallHandle(MSG_SEND, descriptor);
     }
 
-    static MethodHandle msgSendCritical(FunctionDescriptor descriptor) {
+    public static MethodHandle msgSendCritical(FunctionDescriptor descriptor) {
         return LINKER.downcallHandle(MSG_SEND, descriptor, Linker.Option.critical(false));
     }
 

@@ -257,7 +257,7 @@ public final class MTLBuiltinPipelines {
             MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, vxaoStrength, pointLightsEnabled, prevViewProj);
             try (MemoryStack stack = MemoryStack.stackPush();){
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
-                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 108)).reinterpret(108L);
+                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 128)).reinterpret(128L);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 0L, aspect);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 4L, fovScale);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 8L, sunAngle);
@@ -293,7 +293,11 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 100L, cfg.cloudsInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
-                encoder.setBytes(uniforms, 108L, 0L);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 108L, cfg.restirTemporal ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 112L, cfg.restirSpatial ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 116L, cfg.restirSpatialRadius);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 120L, (float)cfg.restirHistoryLimit);
+                encoder.setBytes(uniforms, 128L, 0L);
             }
             long tgWidth = (width + 15) / 16;
             long tgHeight = (height + 15) / 16;

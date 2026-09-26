@@ -18,6 +18,8 @@ public final class PrismaMRTManager implements AutoCloseable {
     private MemorySegment previousReservoirTexture = MemorySegment.NULL;
     private MemorySegment velocityTexture = MemorySegment.NULL;
     private MemorySegment metalFxColorTexture = MemorySegment.NULL;
+    public MemorySegment upscaledColorTexture = MemorySegment.NULL;
+    private final MTLFXManager mtlfxManager = new MTLFXManager();
     private MemorySegment fallbackLightDataTexture = MemorySegment.NULL;
     private MemorySegment fallbackReservoirTexture = MemorySegment.NULL;
     private MemorySegment fallbackVelocityTexture = MemorySegment.NULL;
@@ -140,6 +142,10 @@ public final class PrismaMRTManager implements AutoCloseable {
                 device.queueResourceRelease(this.metalFxColorTexture);
                 this.metalFxColorTexture = MemorySegment.NULL;
             }
+            if (!ObjC.isNil(this.upscaledColorTexture)) {
+                device.queueResourceRelease(this.upscaledColorTexture);
+                this.upscaledColorTexture = MemorySegment.NULL;
+            }
 
         if (!ObjC.isNil(this.hdrColorTexture)) {
                 device.queueResourceRelease(this.hdrColorTexture);
@@ -152,6 +158,17 @@ public final class PrismaMRTManager implements AutoCloseable {
         }
 
 
+
+            try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+                desc.textureType(MTLTextureType.Type2D);
+                desc.pixelFormat(MTLPixelFormat.RGBA16Float);
+                desc.width(width);
+                desc.height(height);
+                desc.mipmapLevelCount(1);
+                desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+                desc.storageMode(MTLStorageMode.Private);
+                this.upscaledColorTexture = device.metalDevice().newTexture(desc);
+            }
 
             try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
                 desc.textureType(MTLTextureType.Type2D);
@@ -233,10 +250,14 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
-                if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
-                long hdrW = Math.max(1L, (long)(width * upscaleFactor));
-                long hdrH = Math.max(1L, (long)(height * upscaleFactor));
+                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled) {
+                    int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
+                    upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+                } else {
+                    upscaleFactor = 1.0f;
+                }
+                long hdrW = Math.max(1L, (long)(width / upscaleFactor));
+                long hdrH = Math.max(1L, (long)(height / upscaleFactor));
                 
                 desc.width(hdrW);
                 desc.height(hdrH);
@@ -250,10 +271,14 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
-                if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
-                long hdrW = Math.max(1L, (long)(width * upscaleFactor));
-                long hdrH = Math.max(1L, (long)(height * upscaleFactor));
+                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled) {
+                    int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
+                    upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+                } else {
+                    upscaleFactor = 1.0f;
+                }
+                long hdrW = Math.max(1L, (long)(width / upscaleFactor));
+                long hdrH = Math.max(1L, (long)(height / upscaleFactor));
                 
                 desc.width(hdrW);
                 desc.height(hdrH);
@@ -612,10 +637,26 @@ public final class PrismaMRTManager implements AutoCloseable {
         this.prevInvViewProj.set(invViewProj);
         this.prevCamPos.set(camPosX, camPosY, camPosZ);
         
-        MTLBuiltinPipelines.encodePostProcessPass(
+        MemorySegment postProcessInput = hdrTarget;
+        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
+            long renderWidth = colorTex.getWidth(0);
+            long renderHeight = colorTex.getHeight(0);
+            float upscaleFactor = 1.0f;
+            int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
+            upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+            
+            long scaledWidth = (long)(renderWidth / upscaleFactor);
+            long scaledHeight = (long)(renderHeight / upscaleFactor);
+            
+            this.mtlfxManager.ensureScaler(this.device, scaledWidth, scaledHeight, renderWidth, renderHeight);
+            this.mtlfxManager.encode(encoder.commandBuffer().handle(), hdrTarget, worldDepth, velocityTexture(), this.upscaledColorTexture, 0.0f, 0.0f);
+            postProcessInput = this.upscaledColorTexture;
+        }
+
+        com.prisma.mtl.MTLBuiltinPipelines.encodePostProcessPass(
                 encoder.commandBuffer(),
                 targetColor,
-                hdrTarget,
+                postProcessInput,
                 worldDepth,
                 false,
                 com.prisma.config.PrismaConfig.INSTANCE.motionBlurEnabled,
