@@ -357,7 +357,7 @@ kernel void prisma_deferred_cs(
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
               float3 totalBlockLight = smoothPointLights;
 
-              float minAmbient = mix(0.055f, 0.10f, sunWeight);
+              float minAmbient = mix(0.03f, 0.04f, sunWeight);
               if (isNether) {
                 minAmbient = max(minAmbient, 0.11f);
               }
@@ -446,7 +446,7 @@ kernel void prisma_deferred_cs(
               float3 celestialTint = mix(float3(1.0f), computedTint, gridWeight);
 
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
-              float shadowAmbientFactor = mix(mix(1.0f, 0.50f, skyLevel), 1.0f, celestialShadow);
+              float shadowAmbientFactor = mix(mix(1.0f, 0.15f, skyLevel), 1.0f, celestialShadow);
               float3 baseAmbient = ambientSky * shadowAmbientFactor;
 
 
