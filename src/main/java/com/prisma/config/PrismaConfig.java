@@ -40,6 +40,8 @@ public final class PrismaConfig {
     public volatile float upscalingRatio = 1.0f;
     public volatile boolean motionBlurEnabled = true;
     public volatile boolean sdaaEnabled = true;
+    public volatile boolean restirShadowsEnabled = true;
+    public volatile boolean metalFxUpscalingEnabled = false;
     public volatile boolean volPointLightsEnabled = false;
     public volatile float volPointLightIntensity = 1.0f;
     public volatile int volPointLightQuality = 15;
@@ -79,6 +81,8 @@ public final class PrismaConfig {
             sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
             sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
             sb.append("\"sdaaEnabled\":").append(sdaaEnabled).append(",");
+            sb.append("\"restirShadowsEnabled\":").append(restirShadowsEnabled).append(",");
+            sb.append("\"metalFxUpscalingEnabled\":").append(metalFxUpscalingEnabled).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f", caveLighting));
             sb.append("}");
             Files.writeString(configFile, sb.toString());
@@ -168,6 +172,12 @@ public final class PrismaConfig {
                 }
                 if ((val = getJsonValue(content, "sdaaEnabled")) != null) {
                     try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "restirShadowsEnabled")) != null) {
+                    try { restirShadowsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "metalFxUpscalingEnabled")) != null) {
+                    try { metalFxUpscalingEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
 
                 if ((val = getJsonValue(content, "caveLighting")) != null) {

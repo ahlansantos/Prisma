@@ -71,9 +71,11 @@ public class PrismaShaderSettingsScreen extends Screen {
 
 
             this.listWidget.add(new SettingsEntry(Component.literal("Dynamic Lights").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b3 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
-            ConfigSlider b4 = new ConfigSlider("Max Lights", 0.0, 128.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> PrismaConfig.INSTANCE.maxPointLights = v.intValue());
-            this.listWidget.add(new SettingsEntry(b3, b4));
+            Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
+            Button bRestir = createToggle("ReSTIR Shadows", PrismaConfig.INSTANCE.restirShadowsEnabled, v -> PrismaConfig.INSTANCE.restirShadowsEnabled = v);
+            this.listWidget.add(new SettingsEntry(b4, bRestir));
+            ConfigSlider bMaxL = new ConfigSlider("Max Lights", 0.0, 128.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> PrismaConfig.INSTANCE.maxPointLights = v.intValue());
+            this.listWidget.add(new SettingsEntry(bMaxL, null));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Shadows").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b5 = createToggle("Sun Shadows", PrismaConfig.INSTANCE.sunShadowsEnabled, v -> PrismaConfig.INSTANCE.sunShadowsEnabled = v);
@@ -122,8 +124,9 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(b1, null));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Upscaling").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button bMetalFX = createToggle("MetalFX Temporal", PrismaConfig.INSTANCE.metalFxUpscalingEnabled, v -> PrismaConfig.INSTANCE.metalFxUpscalingEnabled = v);
             ConfigSlider b3 = new ConfigSlider("PEU Render Scale", 0.1, 1.5, PrismaConfig.INSTANCE.upscalingRatio, true, v -> PrismaConfig.INSTANCE.upscalingRatio = v.floatValue());
-            this.listWidget.add(new SettingsEntry(b3, null));
+            this.listWidget.add(new SettingsEntry(bMetalFX, b3));
             
 
         }
