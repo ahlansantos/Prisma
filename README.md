@@ -17,7 +17,6 @@ Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, whic
 - **SDAA (Spatial Denoiser & Anti-Aliaser):** Mathematically stable anti-aliasing replacing PEU, eliminating halo artifacts and screen tearing.
 - **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces, now with **Penumbra Soft Shadows**.
 - **Volumetric Clouds:** Raymarched volumetric clouds with dynamic lighting and continuous boundaries.
-- **Volumetric Point Lights:** Raymarched fog halos around torches and emissives with DDA shadows.
 - **Dynamic Weather System:** Includes fog, rain puddles, and ripples on the ground.
 - **Double AO:** Unified Voxel Ambient Occlusion (VXAO) and Screen-Space Ambient Occlusion (SSAO).
 - **VPLS (Voxel Point Light Shadows):** Dynamic shadows for held and placed light sources.
