@@ -248,9 +248,9 @@ kernel void prisma_deferred_cs(
               uint2 voxIn1  = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(insideVoxPos1 - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
               uint2 voxIn2  = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(insideVoxPos2 - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
 
-              bool isCurrBlock = ((voxCurr.x & 1) != 0) || ((voxCurr.x & 4) != 0);
-              bool isIn1Block  = ((voxIn1.x & 1) != 0)  || ((voxIn1.x & 4) != 0);
-              bool isIn2Block  = ((voxIn2.x & 1) != 0)  || ((voxIn2.x & 4) != 0);
+              bool isCurrBlock = ((voxCurr.x & 7) != 0);
+              bool isIn1Block  = ((voxIn1.x & 7) != 0);
+              bool isIn2Block  = ((voxIn2.x & 7) != 0);
 
               bool isEntity = (gridWeight > 0.1f) && !isCurrBlock && !isIn1Block && !isIn2Block;
               
