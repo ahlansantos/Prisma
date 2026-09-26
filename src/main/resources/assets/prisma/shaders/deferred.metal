@@ -34,7 +34,29 @@
               float rainStrength;
             };
 
-                        static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
+                        
+// --- ReSTIR ---
+static inline float randFloat(thread uint& seed) {
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return float(seed) * 2.3283064365386963e-10f;
+}
+
+static inline void updateReservoir(thread ReSTIRReservoir& r, uint newLight, float weight, float pdf, float randomValue) {
+    r.weightSum += weight;
+    r.numSamples += 1;
+    if (randomValue * r.weightSum <= weight) {
+        r.lightPacked = newLight;
+        r.targetPdf = as_type<uint>(pdf);
+    }
+}
+
+static inline void combineReservoirs(thread ReSTIRReservoir& r, ReSTIRReservoir newRes, float randomValue) {
+    updateReservoir(r, newRes.lightPacked, as_type<float>(newRes.targetPdf) * as_type<float>(newRes.weightSum) * newRes.numSamples, as_type<float>(newRes.targetPdf), randomValue);
+}
+
+static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
               if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
 
               float2 wavePos = pWorldXZ * 1.5f;
@@ -98,6 +120,9 @@ kernel void prisma_deferred_cs(
               depth2d<float> handDepthTex [[texture(4)]],
               texture2d<float> blockAtlasTex [[texture(5)]],
               texture2d<float> playerSkinTex [[texture(6)]],
+              texture2d<uint, access::read> prevReservoirTex [[texture(7)]],
+              texture2d<uint, access::write> currReservoirTex [[texture(8)]],
+              texture2d<float, access::write> velocityTex [[texture(9)]],
               sampler smp [[sampler(0)]],
               constant DeferredUniforms& u [[buffer(0)]],
               device const uint2* voxelGrid [[buffer(1)]],
@@ -347,6 +372,41 @@ kernel void prisma_deferred_cs(
 
 
 
+
+              // --- ReSTIR Initial Spawning ---
+              uint seed = (gid.x * 1973 + gid.y * 9277 + uint(u.gameTime * 100000.0f)) | 1;
+              ReSTIRReservoir r;
+              r.lightPacked = 0;
+              r.targetPdf = 0;
+              r.weightSum = 0;
+              r.numSamples = 0;
+              
+              int lightCount = int(uVoxel.gridSize.w);
+              if (lightCount > 0) {
+                  int randomLightIdx = min(int(randFloat(seed) * lightCount), lightCount - 1);
+                  float3 lPos = uVoxel.lights[randomLightIdx].posAndRadius.xyz;
+                  float3 toL = lPos - pWorld;
+                  float distL = length(toL);
+                  float lRad = uVoxel.lights[randomLightIdx].posAndRadius.w;
+                  
+                  if (distL < lRad && distL > 0.05f) {
+                      float NdotL = saturate(dot(surfNormal, toL / distL));
+                      float atten = saturate(1.0f - distL / lRad);
+                      float pdf = NdotL * (atten * atten) * uVoxel.lights[randomLightIdx].colorAndIntensity.w;
+                      
+                      // 1 / prob is just lightCount for uniform sampling
+                      float w = pdf * float(lightCount);
+                      updateReservoir(r, randomLightIdx, w, pdf, randFloat(seed));
+                  }
+              }
+              
+              // Write to buffer
+              currReservoirTex.write(uint4(r.lightPacked, r.targetPdf, r.weightSum, r.numSamples), gid);
+              velocityTex.write(float4(0.0f), gid);
+
+              
+              // Instead of computePointLights, use the chosen reservoir light!
+              // For now, fall back to computePointLights just so we don't break existing lighting while testing ReSTIR temporal reuse later.
               bool isFirstPerson = (length(uVoxel.camPos.xyz - (uVoxel.playerPos.xyz + float3(0.0f, 1.5f, 0.0f))) < 0.60f);
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
               PointLightResult ptRes = uVoxel.camRight.w > 0.5f ? computePointLights(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, surfNormal, uVoxel.gridSize.w, uVoxel.lights, uVoxel.playerPos, uVoxel.shadowParams, uVoxel.playerAnim, uVoxel.playerHead, uVoxel.mobCounts.x, uVoxel.mobs, (float2(gid) + 0.5f), blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface, isFirstPerson) : PointLightResult{float3(0.0f), 0.0f, 0.0f};

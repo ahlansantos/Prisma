@@ -104,10 +104,7 @@ public final class MTLBuiltinPipelines {
         for (MemorySegment p : postProcessPipelines.values()) ObjC.release(p);
         postProcessPipelines.clear();
         
-        if (spaceWarpPipeline != null) {
-            ObjC.release(spaceWarpPipeline);
-            spaceWarpPipeline = null;
-        }
+
     }
 
     public static void init(MTLDevice mtlDevice) {
@@ -219,11 +216,11 @@ public final class MTLBuiltinPipelines {
         }
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, MTLFence globalFence) {
-        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, globalFence);
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, MTLFence globalFence) {
+        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, globalFence);
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, MTLFence globalFence) {
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, Matrix4fc invViewProj, Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLComputeCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(albedoTexture)) {
@@ -251,6 +248,9 @@ public final class MTLBuiltinPipelines {
             encoder.setTexture(handDepthTexture, 4L);
             encoder.setTexture(blockAtlasTexture, 5L);
             encoder.setTexture(playerSkinTexture, 6L);
+            encoder.setTexture(prevReservoirTex, 7L);
+            encoder.setTexture(currReservoirTex, 8L);
+            encoder.setTexture(velocityTex, 9L);
             encoder.setTexture(targetColorTexture, 10L);
             encoder.setSamplerState(presentLinearSampler, 0L);
             
@@ -465,58 +465,7 @@ public final class MTLBuiltinPipelines {
 
     
     
-    private static MemorySegment spaceWarpPipeline = MemorySegment.NULL;
-    public static MemorySegment ensureSpaceWarpPipeline(long colorFormat) {
-        if (!ObjC.isNil(spaceWarpPipeline)) return spaceWarpPipeline;
-        spaceWarpPipeline = buildPipeline(PrismaShaderLoader.readShaderSource("spacewarp.metal"), "prisma_spacewarp_vs", "prisma_spacewarp_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
-        return spaceWarpPipeline;
-    }
 
-    public static void encodeSpaceWarpPass(
-            MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment previousHdrTexture, MemorySegment worldDepthTexture,
-            org.joml.Matrix4fc viewProj, org.joml.Matrix4fc prevViewProj, org.joml.Matrix4fc invViewProj, 
-            float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ,
-            MTLFence globalFence
-    ) {
-        try (com.prisma.objc.AutoreleasePool pool = com.prisma.objc.AutoreleasePool.push()) {
-            MTLRenderCommandEncoder encoder;
-            long colorFormat = MTLTexture.pixelFormat(targetColorTexture);
-            MemorySegment pipeline = ensureSpaceWarpPipeline(colorFormat);
-            if (ObjC.isNil(pipeline)) return;
-            try (MTLRenderPassDescriptor renderPass = new MTLRenderPassDescriptor()) {
-                renderPass.colorAttachment(0L, targetColorTexture, 0L, 1L, null);
-                encoder = commandBuffer.makeRenderCommandEncoder(renderPass);
-            }
-            if (globalFence != null) encoder.waitForFence(globalFence, MTLRenderStages.Fragment);
-            
-            encoder.setRenderPipelineState(pipeline);
-            encoder.setFragmentTexture(previousHdrTexture, 0L);
-            encoder.setFragmentTexture(worldDepthTexture, 1L);
-            encoder.setFragmentSamplerState(presentLinearSampler, 0L);
-            encoder.setFragmentSamplerState(presentNearestSampler, 1L);
-            
-            try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
-                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(224, 16)).reinterpret(224L);
-                java.nio.ByteBuffer bb = uniforms.asByteBuffer().order(java.nio.ByteOrder.nativeOrder());
-                viewProj.get(0, bb);
-                prevViewProj.get(64, bb);
-                invViewProj.get(128, bb);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 192L, camPosX);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 196L, camPosY);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 200L, camPosZ);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 204L, 0.0f);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 208L, prevCamPosX);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 212L, prevCamPosY);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 216L, prevCamPosZ);
-                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 220L, 0.0f);
-                encoder.setFragmentBytes(uniforms, 224L, 0L);
-            }
-            
-            encoder.drawPrimitives(MTLPrimitiveType.Triangle, 0, 3, 1, 0);
-            if (globalFence != null) encoder.updateFence(globalFence, MTLRenderStages.Fragment);
-            encoder.endEncoding();
-        }
-    }
 
     public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, MemorySegment depthTexture, boolean fxaaEnabled, boolean motionBlurEnabled, float sunAngle, Matrix4fc viewProj, Matrix4fc prevViewProj, Matrix4fc invViewProj, float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
@@ -550,7 +499,7 @@ public final class MTLBuiltinPipelines {
                 int size = 240;
                 MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, size)).reinterpret((long)size);
                         boolean isVXR = "VXR Default".equals(PrismaConfig.INSTANCE.shaderPack);
-        boolean spaceWarpEnabled = isVXR && PrismaConfig.INSTANCE.spaceWarpEnabled;
+
         float upscalingRatio = isVXR ? PrismaConfig.INSTANCE.upscalingRatio : 1.0f;
         
         long srcWidth = MTLTexture.width(sourceHdrTexture);
