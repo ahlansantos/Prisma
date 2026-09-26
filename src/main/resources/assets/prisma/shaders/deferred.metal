@@ -450,8 +450,9 @@ kernel void prisma_deferred_cs(
                       // Calculate visibility (raytrace shadow)
                       float visibility = 1.0f;
                       float3 rayOrigin = pWorld + surfNormal * 0.05f;
-                      VoxelShadowResult shadowRes = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, rayOrigin, L, distL, blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface);
-                      visibility = shadowRes.visibility;
+                      float3 targetPos = rayOrigin + L * distL;
+                      ShadowRayResult shadowRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                      visibility = shadowRes.vis;
                       
                       float finalW = as_type<float>(r.weightSum);
                       // Since targetPdf already includes NdotL and smoothAtten, finalW will divide them out,
