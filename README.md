@@ -13,7 +13,6 @@ Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, whic
 <details>
 <summary><b>Built-in Shader: Prisma's VXR Default Features</b></summary>
 
-- **ASFW (Async Space Frame Warp):** Native Frame Generation interpolation that artificially multiplies framerates by projecting previous frames based on camera velocity.
 - **SDAA (Spatial Denoiser & Anti-Aliaser):** Mathematically stable anti-aliasing replacing PEU, eliminating halo artifacts and screen tearing.
 - **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces, now with **Penumbra Soft Shadows**.
 - **Volumetric Clouds:** Raymarched volumetric clouds with dynamic lighting and continuous boundaries.
@@ -33,7 +32,7 @@ Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, whic
 Prisma acts as an open standard MSL (Metal Shading Language) Shader Loader.
 
 - **Dynamic Loading:** Prisma automatically scans the `shaderpacks/` directory for any folders containing a `shaders/` sub-directory with `.metal` files.
-- **VXR Isolation:** Advanced built-in features like ASFW (Frame Generation) are strictly isolated to the built-in VXR Default shader. Custom shaders render perfectly at native resolution with no G-Buffer bleeding or distortion.
+- **VXR Isolation:** Custom shaders render perfectly at native resolution with no G-Buffer bleeding or distortion.
 - **Ray Traced Shadows Template:** Looking to build advanced lighting? Join our [Discord Server](https://discord.gg/X8u3yJZQbm) to download an extended Metal shader template that includes built-in voxel ray-traced shadows!
 
 </details>
@@ -51,7 +50,6 @@ Prisma acts as an open standard MSL (Metal Shading Language) Shader Loader.
 <summary><b>Known Limitations (Prisma's VXR Default)</b></summary>
 
 - **Voxel Grid Radius:** Terrain beyond the active voxel chunk radius reflects sky and ambient light rather than discrete geometry.
-- **ASFW Hardware Compatibility:** FrameWarp (ASFW) currently ONLY works on M1 and M2 architectures. It **does NOT support M3 chips and above** due to Apple's Dynamic Caching memory barrier changes.
 - **Lighting Bleeding:** Minor shadow bleeding can occur inside caves.
 
 </details>
