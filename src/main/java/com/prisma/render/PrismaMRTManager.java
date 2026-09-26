@@ -108,8 +108,12 @@ public final class PrismaMRTManager implements AutoCloseable {
         float upscaleFactor = 1.0f;
 
         if (width <= 0 || height <= 0) return;
-        upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
-        if (upscaleFactor <= 0.0f) upscaleFactor = 1.0f;
+        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled) {
+            int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
+            upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+        } else {
+            upscaleFactor = 1.0f;
+        }
         if (this.currentWidth != width || this.currentHeight != height || Math.abs(this.currentScale - upscaleFactor) > 0.01f || ObjC.isNil(this.normalTexture) || ObjC.isNil(this.lightDataTexture)) {
             this.currentScale = upscaleFactor;
             if (!ObjC.isNil(this.normalTexture)) {

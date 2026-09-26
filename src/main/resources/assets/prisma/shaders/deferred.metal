@@ -35,6 +35,13 @@
             };
 
                         
+struct ReSTIRReservoir {
+    uint lightPacked;
+    uint targetPdf;
+    uint weightSum;
+    uint numSamples;
+};
+
 // --- ReSTIR ---
 static inline float randFloat(thread uint& seed) {
     seed ^= seed << 13;

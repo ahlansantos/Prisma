@@ -123,10 +123,17 @@ public class PrismaShaderSettingsScreen extends Screen {
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
             this.listWidget.add(new SettingsEntry(b1, null));
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Upscaling").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button bMetalFX = createToggle("MetalFX Temporal", PrismaConfig.INSTANCE.metalFxUpscalingEnabled, v -> PrismaConfig.INSTANCE.metalFxUpscalingEnabled = v);
-            ConfigSlider b3 = new ConfigSlider("PEU Render Scale", 0.1, 1.5, PrismaConfig.INSTANCE.upscalingRatio, true, v -> PrismaConfig.INSTANCE.upscalingRatio = v.floatValue());
-            this.listWidget.add(new SettingsEntry(bMetalFX, b3));
+            this.listWidget.add(new SettingsEntry(Component.literal("MetalFX Upscaling").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button bMetalFX = createToggle("MetalFX Enabled", PrismaConfig.INSTANCE.metalFxUpscalingEnabled, v -> PrismaConfig.INSTANCE.metalFxUpscalingEnabled = v);
+            
+            String[] mfxModes = new String[]{"Performance", "Balanced", "Quality"};
+            Button bMfxQ = Button.builder(net.minecraft.network.chat.Component.literal("Mode: " + mfxModes[PrismaConfig.INSTANCE.metalFxQuality]), (b) -> {
+                PrismaConfig.INSTANCE.metalFxQuality = (PrismaConfig.INSTANCE.metalFxQuality + 1) % 3;
+                b.setMessage(net.minecraft.network.chat.Component.literal("Mode: " + mfxModes[PrismaConfig.INSTANCE.metalFxQuality]));
+                PrismaConfig.INSTANCE.save();
+            }).bounds(0, 0, 150, 20).build();
+
+            this.listWidget.add(new SettingsEntry(bMetalFX, bMfxQ));
             
 
         }
