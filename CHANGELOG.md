@@ -1,4 +1,4 @@
-# Prisma v0.3.0 (The Compute Rendering Update)
+# Prisma 26.3 Revision 1 (The Compute Rendering Update)
 
 ## Rendering Architecture (The Big Changes!)
 - **Deferred Compute Pipelines:** Lighting, shadows, and post-processing have been entirely migrated to a new and powerful Deferred Compute Shaders architecture, allowing for much more precise calculations and preparing the engine for massive future scalability and performance.
