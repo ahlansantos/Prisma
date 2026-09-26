@@ -32,6 +32,10 @@
               float reflectionsEnabled;
               float cloudsInReflections;
               float rainStrength;
+              float restirTemporal;
+              float restirSpatial;
+              float restirSpatialRadius;
+              float restirHistoryLimit;
             };
 
                         
@@ -51,16 +55,21 @@ static inline float randFloat(thread uint& seed) {
 }
 
 static inline void updateReservoir(thread ReSTIRReservoir& r, uint newLight, float weight, float pdf, float randomValue) {
-    r.weightSum += weight;
+    float currentWeightSum = as_type<float>(r.weightSum);
+    currentWeightSum += weight;
+    r.weightSum = as_type<uint>(currentWeightSum);
     r.numSamples += 1;
-    if (randomValue * r.weightSum <= weight) {
+    if (randomValue * currentWeightSum <= weight) {
         r.lightPacked = newLight;
         r.targetPdf = as_type<uint>(pdf);
     }
 }
 
 static inline void combineReservoirs(thread ReSTIRReservoir& r, ReSTIRReservoir newRes, float randomValue) {
-    updateReservoir(r, newRes.lightPacked, as_type<float>(newRes.targetPdf) * as_type<float>(newRes.weightSum) * newRes.numSamples, as_type<float>(newRes.targetPdf), randomValue);
+    float newPdf = as_type<float>(newRes.targetPdf);
+    float newW = as_type<float>(newRes.weightSum);
+    float weight = newPdf * newW * float(newRes.numSamples);
+    updateReservoir(r, newRes.lightPacked, weight, newPdf, randomValue);
 }
 
 static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
@@ -380,6 +389,14 @@ kernel void prisma_deferred_cs(
 
 
 
+              
+              float4 currentClip = uVoxel.viewProj * float4(pWorld, 1.0f);
+              float4 prevClip = uVoxel.prevViewProj * float4(pWorld, 1.0f);
+              float2 currentUv = (currentClip.xy / max(currentClip.w, 0.0001f)) * 0.5f + 0.5f;
+              float2 prevUv = (prevClip.xy / max(prevClip.w, 0.0001f)) * 0.5f + 0.5f;
+              float2 velocity = currentUv - prevUv;
+              velocityTex.write(float4(velocity, 0.0f, 0.0f), gid);
+
               // --- ReSTIR Initial Spawning ---
               uint seed = (gid.x * 1973 + gid.y * 9277 + uint(u.gameTime * 100000.0f)) | 1;
               ReSTIRReservoir r;
@@ -409,20 +426,39 @@ kernel void prisma_deferred_cs(
               
               // Write to buffer
               currReservoirTex.write(uint4(r.lightPacked, r.targetPdf, r.weightSum, r.numSamples), gid);
-              // --- Velocity Buffer Generation ---
-              float4 currentClip = uVoxel.viewProj * float4(pWorld, 1.0f);
-              float4 prevClip = uVoxel.prevViewProj * float4(pWorld, 1.0f);
-              float2 currentUv = (currentClip.xy / max(currentClip.w, 0.0001f)) * 0.5f + 0.5f;
-              float2 prevUv = (prevClip.xy / max(prevClip.w, 0.0001f)) * 0.5f + 0.5f;
-              float2 velocity = currentUv - prevUv;
-              velocityTex.write(float4(velocity, 0.0f, 0.0f), gid);
+
 
               
-              // Instead of computePointLights, use the chosen reservoir light!
-              // For now, fall back to computePointLights just so we don't break existing lighting while testing ReSTIR temporal reuse later.
               bool isFirstPerson = (length(uVoxel.camPos.xyz - (uVoxel.playerPos.xyz + float3(0.0f, 1.5f, 0.0f))) < 0.60f);
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
-              PointLightResult ptRes = uVoxel.camRight.w > 0.5f ? computePointLights(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, surfNormal, uVoxel.gridSize.w, uVoxel.lights, uVoxel.playerPos, uVoxel.shadowParams, uVoxel.playerAnim, uVoxel.playerHead, uVoxel.mobCounts.x, uVoxel.mobs, (float2(gid) + 0.5f), blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface, isFirstPerson) : PointLightResult{float3(0.0f), 0.0f, 0.0f};
+              
+              PointLightResult ptRes = PointLightResult{float3(0.0f), 0.0f, 0.0f};
+              if (uVoxel.camRight.w > 0.5f && r.numSamples > 0 && as_type<float>(r.weightSum) > 0.0001f && as_type<float>(r.targetPdf) > 0.0001f) {
+                  uint chosenIdx = r.lightPacked;
+                  float3 lPos = uVoxel.lights[chosenIdx].posAndRadius.xyz;
+                  float3 toL = lPos - pWorld;
+                  float distL = length(toL);
+                  float lRad = uVoxel.lights[chosenIdx].posAndRadius.w;
+                  
+                  if (distL < lRad && distL > 0.05f) {
+                      float3 L = toL / distL;
+                      float NdotL = saturate(dot(surfNormal, L));
+                      float atten = saturate(1.0f - distL / lRad);
+                      float smoothAtten = atten * atten;
+                      float3 lColor = uVoxel.lights[chosenIdx].colorAndIntensity.xyz * uVoxel.lights[chosenIdx].colorAndIntensity.w;
+                      
+                      // Calculate visibility (raytrace shadow)
+                      float visibility = 1.0f;
+                      float3 rayOrigin = pWorld + surfNormal * 0.05f;
+                      VoxelShadowResult shadowRes = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, rayOrigin, L, distL, blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface);
+                      visibility = shadowRes.visibility;
+                      
+                      float finalW = as_type<float>(r.weightSum);
+                      // Since targetPdf already includes NdotL and smoothAtten, finalW will divide them out,
+                      // so we multiply by them here to get the proper physical light intensity.
+                      ptRes.color = lColor * NdotL * smoothAtten * visibility * finalW;
+                  }
+              }
               float3 pointLights = ptRes.color;
 
               float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
