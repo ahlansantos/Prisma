@@ -21,7 +21,7 @@ public final class PrismaConfig {
     public volatile boolean reflectionPointLightShadows = true;
     public volatile boolean reflectionDirectionalShadows = true;
     public volatile boolean vxaoInReflections = true;
-    public volatile boolean sunShadowsEnabled = false;
+    public volatile boolean sunShadowsEnabled = true;
 
 
 
@@ -37,7 +37,7 @@ public final class PrismaConfig {
     public volatile float waterAbsorptionStrength = 1.0f;
     public volatile boolean volumetricCloudsEnabled = true;
     public volatile int cloudQualitySteps = 30;
-    public volatile float upscalingRatio = 0.75f;
+    public volatile float upscalingRatio = 1.0f;
     public volatile boolean spaceWarpEnabled = false;
     public volatile boolean motionBlurEnabled = true;
     public volatile boolean sdaaEnabled = true;
@@ -51,9 +51,36 @@ public final class PrismaConfig {
             Path configDir = FabricLoader.getInstance().getConfigDir();
             Files.createDirectories(configDir);
             Path configFile = configDir.resolve("prisma.json");
-                        Files.writeString(configFile, String.format(java.util.Locale.ROOT,
-                    "{\"voxelRadius\":%d,\"vxaoEnabled\":%b,\"vxaoStrength\":%.2f,\"pointLightsEnabled\":%b,\"reflectionsEnabled\":%b,\"cloudsInReflections\":%b,\"maxPointLights\":%d,\"reflectionPointLightShadows\":%b,\"reflectionDirectionalShadows\":%b,\"vxaoInReflections\":%b,\"sunShadowsEnabled\":%b,\"csmResolution\":%d,\"csmCascades\":%d,\"waterWavesEnabled\":%b,\"waterWaveStrength\":%.2f,\"waterWaveSpeed\":%.2f,\"waterAbsorptionStrength\":%.2f,\"volumetricCloudsEnabled\":%b,\"cloudQualitySteps\":%d,\"upscalingRatio\":%.2f,\"spaceWarpEnabled\":%b,\"motionBlurEnabled\":%b,\"playerShadowEnabled\":%b,\"playerReflectionEnabled\":%b}",
-                    voxelRadius, vxaoEnabled, vxaoStrength, pointLightsEnabled, reflectionsEnabled, cloudsInReflections, maxPointLights, reflectionPointLightShadows, reflectionDirectionalShadows, vxaoInReflections, sunShadowsEnabled, csmResolution, csmCascades, waterWavesEnabled, waterWaveStrength, waterWaveSpeed, waterAbsorptionStrength, volumetricCloudsEnabled, cloudQualitySteps, upscalingRatio, spaceWarpEnabled, motionBlurEnabled, playerShadowEnabled, playerReflectionEnabled, sdaaEnabled, caveLighting));
+            StringBuilder sb = new StringBuilder("{");
+            sb.append("\"shaderPack\":\"").append(shaderPack != null ? shaderPack : "").append("\",");
+            sb.append("\"voxelRadius\":").append(voxelRadius).append(",");
+            sb.append("\"vxaoEnabled\":").append(vxaoEnabled).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"vxaoStrength\":%.2f,", vxaoStrength));
+            sb.append("\"pointLightsEnabled\":").append(pointLightsEnabled).append(",");
+            sb.append("\"reflectionsEnabled\":").append(reflectionsEnabled).append(",");
+            sb.append("\"cloudsInReflections\":").append(cloudsInReflections).append(",");
+            sb.append("\"maxPointLights\":").append(maxPointLights).append(",");
+            sb.append("\"reflectionPointLightShadows\":").append(reflectionPointLightShadows).append(",");
+            sb.append("\"reflectionDirectionalShadows\":").append(reflectionDirectionalShadows).append(",");
+            sb.append("\"vxaoInReflections\":").append(vxaoInReflections).append(",");
+            sb.append("\"sunShadowsEnabled\":").append(sunShadowsEnabled).append(",");
+            sb.append("\"csmResolution\":").append(csmResolution).append(",");
+            sb.append("\"csmCascades\":").append(csmCascades).append(",");
+            sb.append("\"waterWavesEnabled\":").append(waterWavesEnabled).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"waterWaveStrength\":%.2f,", waterWaveStrength));
+            sb.append(String.format(java.util.Locale.ROOT, "\"waterWaveSpeed\":%.2f,", waterWaveSpeed));
+            sb.append(String.format(java.util.Locale.ROOT, "\"waterAbsorptionStrength\":%.2f,", waterAbsorptionStrength));
+            sb.append("\"volumetricCloudsEnabled\":").append(volumetricCloudsEnabled).append(",");
+            sb.append("\"cloudQualitySteps\":").append(cloudQualitySteps).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"upscalingRatio\":%.2f,", upscalingRatio));
+            sb.append("\"spaceWarpEnabled\":").append(spaceWarpEnabled).append(",");
+            sb.append("\"motionBlurEnabled\":").append(motionBlurEnabled).append(",");
+            sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
+            sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
+            sb.append("\"sdaaEnabled\":").append(sdaaEnabled).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f", caveLighting));
+            sb.append("}");
+            Files.writeString(configFile, sb.toString());
         } catch (Throwable ignored) {
         }
     }
@@ -64,224 +91,104 @@ public final class PrismaConfig {
             Path configFile = configDir.resolve("prisma.json");
             if (Files.exists(configFile)) {
                 String content = Files.readString(configFile);
-                                if (content.contains("\"shaderPack\":")) {
+                if (content.contains("\"shaderPack\":")) {
                     try {
-                        int idx = content.indexOf("\"shaderPack\":") + 14;
-                        int endIdx = content.indexOf("\"", idx);
-                        shaderPack = content.substring(idx, endIdx);
+                        int idx = content.indexOf("\"shaderPack\":") + 13;
+                        int firstQuote = content.indexOf("\"", idx);
+                        if (firstQuote >= 0) {
+                            int secondQuote = content.indexOf("\"", firstQuote + 1);
+                            if (secondQuote >= 0) {
+                                shaderPack = content.substring(firstQuote + 1, secondQuote);
+                            }
+                        }
                     } catch (Exception ignored) {}
                 }
 
-                if (content.contains("\"voxelRadius\":")) {
-                    try {
-                        int idx = content.indexOf("\"voxelRadius\":") + 14;
-                        int end = findJsonEnd(content, idx);
-                        voxelRadius = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 2, 16);
-                    } catch (Throwable ignored) {
-                    }
+                String val;
+                if ((val = getJsonValue(content, "voxelRadius")) != null) {
+                    try { voxelRadius = Math.clamp(Integer.parseInt(val), 2, 16); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"vxaoEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"vxaoEnabled\":") + 14;
-                        int end = findJsonEnd(content, idx);
-                        vxaoEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "vxaoEnabled")) != null) {
+                    try { vxaoEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"vxaoStrength\":")) {
-                    try {
-                        int idx = content.indexOf("\"vxaoStrength\":") + 15;
-                        int end = findJsonEnd(content, idx);
-                        vxaoStrength = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.5f, 2.5f);
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "vxaoStrength")) != null) {
+                    try { vxaoStrength = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
                 }
-
-                
-                if (content.contains("\"vxaoInReflections\":")) {
-                    try {
-                        int idx = content.indexOf("\"vxaoInReflections\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        vxaoInReflections = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "vxaoInReflections")) != null) {
+                    try { vxaoInReflections = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                
-                if (content.contains("\"maxPointLights\":")) {
-                    try {
-                        int idx = content.indexOf("\"maxPointLights\":") + 17;
-                        int end = findJsonEnd(content, idx);
-                        maxPointLights = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 0, 1024);
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "maxPointLights")) != null) {
+                    try { maxPointLights = Math.clamp(Integer.parseInt(val), 0, 1024); } catch (Throwable ignored) {}
                 }
-                
-                if (content.contains("\"reflectionPointLightShadows\":")) {
-                    try {
-                        int idx = content.indexOf("\"reflectionPointLightShadows\":") + 30;
-                        int end = findJsonEnd(content, idx);
-                        reflectionPointLightShadows = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "reflectionPointLightShadows")) != null) {
+                    try { reflectionPointLightShadows = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                
-                if (content.contains("\"reflectionDirectionalShadows\":")) {
-                    try {
-                        int idx = content.indexOf("\"reflectionDirectionalShadows\":") + 31;
-                        int end = findJsonEnd(content, idx);
-                        reflectionDirectionalShadows = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "reflectionDirectionalShadows")) != null) {
+                    try { reflectionDirectionalShadows = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"reflectionsEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"reflectionsEnabled\":") + 21;
-                        int end = findJsonEnd(content, idx);
-                        reflectionsEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "reflectionsEnabled")) != null) {
+                    try { reflectionsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"cloudsInReflections\":")) {
-                    try {
-                        int idx = content.indexOf("\"cloudsInReflections\":") + 22;
-                        int end = findJsonEnd(content, idx);
-                        cloudsInReflections = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "cloudsInReflections")) != null) {
+                    try { cloudsInReflections = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"pointLightsEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"pointLightsEnabled\":") + 21;
-                        int end = findJsonEnd(content, idx);
-                        pointLightsEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "pointLightsEnabled")) != null) {
+                    try { pointLightsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"sunShadowsEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"sunShadowsEnabled\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        sunShadowsEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "sunShadowsEnabled")) != null) {
+                    try { sunShadowsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-
-
-                if (content.contains("\"waterWavesEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"waterWavesEnabled\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        waterWavesEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "waterWavesEnabled")) != null) {
+                    try { waterWavesEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"waterWaveStrength\":")) {
-                    try {
-                        int idx = content.indexOf("\"waterWaveStrength\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        waterWaveStrength = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.5f, 2.5f);
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "waterWaveStrength")) != null) {
+                    try { waterWaveStrength = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"waterWaveSpeed\":")) {
-                    try {
-                        int idx = content.indexOf("\"waterWaveSpeed\":") + 17;
-                        int end = findJsonEnd(content, idx);
-                        waterWaveSpeed = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.5f, 2.5f);
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "waterWaveSpeed")) != null) {
+                    try { waterWaveSpeed = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"waterAbsorptionStrength\":")) {
-                    try {
-                        int idx = content.indexOf("\"waterAbsorptionStrength\":") + 26;
-                        int end = findJsonEnd(content, idx);
-                        waterAbsorptionStrength = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.5f, 2.5f);
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "waterAbsorptionStrength")) != null) {
+                    try { waterAbsorptionStrength = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"volumetricCloudsEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"volumetricCloudsEnabled\":") + 26;
-                        int end = findJsonEnd(content, idx);
-                        volumetricCloudsEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "volumetricCloudsEnabled")) != null) {
+                    try { volumetricCloudsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"cloudQualitySteps\":")) {
-                    try {
-                        int idx = content.indexOf("\"cloudQualitySteps\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        cloudQualitySteps = Math.clamp(Integer.parseInt(content.substring(idx, end).trim()), 10, 80);
-                    } catch (Throwable ignored) {
-                    }
+                if ((val = getJsonValue(content, "cloudQualitySteps")) != null) {
+                    try { cloudQualitySteps = Math.clamp(Integer.parseInt(val), 10, 80); } catch (Throwable ignored) {}
                 }
-
-                                                if (content.contains("\"upscalingRatio\":")) {
-                    try {
-                        int idx = content.indexOf("\"upscalingRatio\":") + 17;
-                        int end = findJsonEnd(content, idx);
-                        upscalingRatio = Math.clamp(Float.parseFloat(content.substring(idx, end).trim()), 0.1f, 1.5f);
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "upscalingRatio")) != null) {
+                    try { upscalingRatio = Math.clamp(Float.parseFloat(val), 0.1f, 1.5f); } catch (Throwable ignored) {}
                 }
-                
-                if (content.contains("\"playerShadowEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"playerShadowEnabled\":") + 21;
-                        int end = findJsonEnd(content, idx);
-                        playerShadowEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "playerShadowEnabled")) != null) {
+                    try { playerShadowEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if (content.contains("\"playerReflectionEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"playerReflectionEnabled\":") + 25;
-                        int end = findJsonEnd(content, idx);
-                        playerReflectionEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "playerReflectionEnabled")) != null) {
+                    try { playerReflectionEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                
-                if (content.contains("\"sdaaEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"sdaaEnabled\":") + 15;
-                        int end = findJsonEnd(content, idx);
-                        sdaaEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "sdaaEnabled")) != null) {
+                    try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-
-                
-                if (content.contains("\"caveLighting\":")) {
-                    try {
-                        int idx = content.indexOf("\"caveLighting\":") + 16;
-                        int end = findJsonEnd(content, idx);
-                        caveLighting = Float.parseFloat(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "caveLighting")) != null) {
+                    try { caveLighting = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
-
-                if (content.contains("\"motionBlurEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"motionBlurEnabled\":") + 20;
-                        int end = findJsonEnd(content, idx);
-                        motionBlurEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "motionBlurEnabled")) != null) {
+                    try { motionBlurEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if (content.contains("\"spaceWarpEnabled\":")) {
-                    try {
-                        int idx = content.indexOf("\"spaceWarpEnabled\":") + 19;
-                        int end = findJsonEnd(content, idx);
-                        spaceWarpEnabled = Boolean.parseBoolean(content.substring(idx, end).trim());
-                    } catch (Throwable ignored) { }
+                if ((val = getJsonValue(content, "spaceWarpEnabled")) != null) {
+                    try { spaceWarpEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
             }
         } catch (Throwable ignored) {
         }
+    }
+
+    private static String getJsonValue(String json, String key) {
+        String search = "\"" + key + "\":";
+        int idx = json.indexOf(search);
+        if (idx < 0) return null;
+        int start = idx + search.length();
+        int end = findJsonEnd(json, start);
+        return json.substring(start, end).trim();
     }
 
     private static int findJsonEnd(String text, int start) {

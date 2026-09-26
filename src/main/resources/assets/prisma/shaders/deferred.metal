@@ -143,8 +143,9 @@ kernel void prisma_deferred_cs(
                 if (isNether || isEnd) {
                     outTexture.write(float4(albedo.rgb, albedo.a), gid); return; // Let vanilla handle Nether and End skies
                 }
-                float4 nearPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 1.0f, 1.0f);
-                float4 farPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 0.001f, 1.0f);
+                float2 skyNdc = float2(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f);
+                float4 nearPoint = uVoxel.invViewProj * float4(skyNdc, 1.0f, 1.0f);
+                float4 farPoint = uVoxel.invViewProj * float4(skyNdc, 0.001f, 1.0f);
                 float3 pNear = nearPoint.xyz / max(nearPoint.w, 0.00001f);
                 float3 pFar = farPoint.xyz / max(farPoint.w, 0.00001f);
                 float3 rayDir = normalize(pFar - pNear);
@@ -158,7 +159,13 @@ kernel void prisma_deferred_cs(
                 outTexture.write(float4(albedo.rgb, albedo.a), gid); return;
               }
 
-              float3 pWorld = reconstructWorldPos(uv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
+              float2 depthTexSize = float2(worldDepthTex.get_width(), worldDepthTex.get_height());
+              float2 depthTexel = 1.0f / depthTexSize;
+              uint2 maxDepthGid = uint2(worldDepthTex.get_width() - 1, worldDepthTex.get_height() - 1);
+              depthGid = min(depthGid, maxDepthGid);
+
+              float2 depthUv = (float2(depthGid) + 0.5f) * depthTexel;
+              float3 pWorld = reconstructWorldPos(depthUv, effectiveDepth, uVoxel.camPos.xyz, uVoxel.invViewProj);
 
               // Sanity: if pWorld is more than 1000 blocks away, reconstruction failed -> pass-through
               {
@@ -168,33 +175,89 @@ kernel void prisma_deferred_cs(
                 }
               }
 
-              float2 texel = 1.0f / float2(outTexture.get_width(), outTexture.get_height());
-              uint2 depthGidX = uint2(clamp(uv + float2(texel.x, 0.0f), 0.0f, 1.0f) * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
-              uint2 depthGidY = uint2(clamp(uv + float2(0.0f, texel.y), 0.0f, 1.0f) * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
-              float depthX = worldDepthTex.read(depthGidX);
-              float depthY = worldDepthTex.read(depthGidY);
-              float3 pX = reconstructWorldPos(uv + float2(texel.x, 0.0f), depthX, uVoxel.camPos.xyz, uVoxel.invViewProj);
-              float3 pY = reconstructWorldPos(uv + float2(0.0f, texel.y), depthY, uVoxel.camPos.xyz, uVoxel.invViewProj);
-              float3 dX = pX - pWorld;
-              float3 dY = pY - pWorld;
+              float depthL = worldDepthTex.read(uint2(max(int(depthGid.x) - 1, 0), depthGid.y));
+              float depthR = worldDepthTex.read(uint2(min(depthGid.x + 1, maxDepthGid.x), depthGid.y));
+              float depthU = worldDepthTex.read(uint2(depthGid.x, max(int(depthGid.y) - 1, 0)));
+              float depthD = worldDepthTex.read(uint2(depthGid.x, min(depthGid.y + 1, maxDepthGid.y)));
+
+              float diffL = (depthL > 0.00005f) ? abs(effectiveDepth - depthL) : 1e6f;
+              float diffR = (depthR > 0.00005f) ? abs(effectiveDepth - depthR) : 1e6f;
+              float diffU = (depthU > 0.00005f) ? abs(effectiveDepth - depthU) : 1e6f;
+              float diffD = (depthD > 0.00005f) ? abs(effectiveDepth - depthD) : 1e6f;
+
+              float3 pL = reconstructWorldPos(depthUv - float2(depthTexel.x, 0.0f), depthL, uVoxel.camPos.xyz, uVoxel.invViewProj);
+              float3 pR = reconstructWorldPos(depthUv + float2(depthTexel.x, 0.0f), depthR, uVoxel.camPos.xyz, uVoxel.invViewProj);
+              float3 pU = reconstructWorldPos(depthUv - float2(0.0f, depthTexel.y), depthU, uVoxel.camPos.xyz, uVoxel.invViewProj);
+              float3 pD = reconstructWorldPos(depthUv + float2(0.0f, depthTexel.y), depthD, uVoxel.camPos.xyz, uVoxel.invViewProj);
+
+              float3 dX = (diffL < diffR) ? (pWorld - pL) : (pR - pWorld);
+              float3 dY = (diffU < diffD) ? (pWorld - pU) : (pD - pWorld);
               float3 crossDir = cross(dY, dX);
               float crossLen = dot(crossDir, crossDir);
-              float3 nWorld = crossLen > 1e-12f ? normalize(crossDir) : float3(0.0f, 1.0f, 0.0f);
 
-              float3 toCam = pWorld - uVoxel.camPos.xyz;
-              float distToCamSq = dot(toCam, toCam);
-              float3 safePWorld = pWorld;
-              if (distToCamSq > 0.0001f) {
-                  safePWorld -= toCam * (0.05f / sqrt(distToCamSq));
+              float3 pLocal = pWorld - floor(pWorld);
+              float3 distMin = pLocal;
+              float3 distMax = 1.0f - pLocal;
+              float3 blockNormal = float3(0.0f, 1.0f, 0.0f);
+              float minDist = 1000.0f;
+              if (distMin.x < minDist) { minDist = distMin.x; blockNormal = float3(-1.0f, 0.0f, 0.0f); }
+              if (distMax.x < minDist) { minDist = distMax.x; blockNormal = float3(1.0f, 0.0f, 0.0f); }
+              if (distMin.y < minDist) { minDist = distMin.y; blockNormal = float3(0.0f, -1.0f, 0.0f); }
+              if (distMax.y < minDist) { minDist = distMax.y; blockNormal = float3(0.0f, 1.0f, 0.0f); }
+              if (distMin.z < minDist) { minDist = distMin.z; blockNormal = float3(0.0f, 0.0f, -1.0f); }
+              if (distMax.z < minDist) { minDist = distMax.z; blockNormal = float3(0.0f, 0.0f, 1.0f); }
+
+              float2 ndcTrue = float2(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f);
+              float4 nearP = uVoxel.invViewProj * float4(ndcTrue, 1.0f, 1.0f);
+              float4 farP = uVoxel.invViewProj * float4(ndcTrue, 0.0f, 1.0f);
+              float3 trueRayDir = normalize(farP.xyz / max(farP.w, 1e-5f) - nearP.xyz / max(nearP.w, 1e-5f));
+              float3 viewDirCam = -trueRayDir;
+
+              bool badDerivative = dot(dX, dX) > 0.25f || dot(dY, dY) > 0.25f;
+              float3 geomNormal = (crossLen > 1e-20f && !badDerivative) ? normalize(crossDir) : blockNormal;
+              if (dot(geomNormal, pWorld - uVoxel.camPos.xyz) > 0.0f) {
+                  geomNormal = -geomNormal;
               }
-              uint2 safeVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(safePWorld)));
-              bool isEntity = (safeVox.x == 0 && safeVox.y == 0); // Fallback entity heuristic
 
+              float3 nWorld = geomNormal;
+              float3 absN = abs(geomNormal);
+              if (absN.y >= absN.x && absN.y >= absN.z) {
+                  nWorld = float3(0.0f, sign(geomNormal.y), 0.0f);
+              } else if (absN.x >= absN.z) {
+                  nWorld = float3(sign(geomNormal.x), 0.0f, 0.0f);
+              } else {
+                  nWorld = float3(0.0f, 0.0f, sign(geomNormal.z));
+              }
 
-              int3 voxInside = int3(floor(pWorld - nWorld * 0.06f));
-              uint2 insideVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxInside);
-              int3 voxAt = int3(floor(pWorld + nWorld * 0.15f));
-              uint2 atVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxAt);
+              float3 gridMin = float3(uVoxel.gridOrigin.xyz);
+              float3 gridMax = gridMin + float3(uVoxel.gridSize.xyz);
+              float distToGridEdge = min(
+                  min(pWorld.x - gridMin.x, gridMax.x - pWorld.x),
+                  min(min(pWorld.y - gridMin.y, gridMax.y - pWorld.y),
+                      min(pWorld.z - gridMin.z, gridMax.z - pWorld.z))
+              );
+              bool insideGrid = (distToGridEdge >= 0.0f);
+              float gridWeight = saturate((distToGridEdge + 1.5f) / 3.0f);
+
+              int3 currVoxPos = int3(floor(pWorld));
+              float3 viewDirToBlock = normalize(pWorld - uVoxel.camPos.xyz);
+              int3 insideVoxPos1 = int3(floor(pWorld - nWorld * 0.15f));
+              int3 insideVoxPos2 = int3(floor(pWorld + viewDirToBlock * 0.12f));
+
+              uint2 voxCurr = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(currVoxPos - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
+              uint2 voxIn1  = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(insideVoxPos1 - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
+              uint2 voxIn2  = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(insideVoxPos2 - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
+
+              bool isCurrBlock = ((voxCurr.x & 1) != 0) || ((voxCurr.x & 4) != 0);
+              bool isIn1Block  = ((voxIn1.x & 1) != 0)  || ((voxIn1.x & 4) != 0);
+              bool isIn2Block  = ((voxIn2.x & 1) != 0)  || ((voxIn2.x & 4) != 0);
+
+              bool isEntity = (gridWeight > 0.1f) && !isCurrBlock && !isIn1Block && !isIn2Block;
+              
+              uint2 insideVox = isIn1Block ? voxIn1 : (isIn2Block ? voxIn2 : voxCurr);
+              uint2 currVox = voxCurr;
+
+              bool isFoliage = (gridWeight > 0.1f) && (((insideVox.x & 2) != 0) || (((insideVox.y >> 24) & 0xFF) == 12) || ((currVox.x & 2) != 0) || (((currVox.y >> 24) & 0xFF) == 12));
 
               int3 camVoxel = int3(floor(uVoxel.camPos.xyz));
               uint2 camVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, camVoxel);
@@ -219,10 +282,9 @@ kernel void prisma_deferred_cs(
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
 
               if (!isEntity && !isCameraInFluid) {
-                if ((insideVox.x & 4) != 0) {
-                  if ((insideVox.x & 8) == 0) {
-                    isWater = true;
-                  }
+                // Check if this surface block is water
+                if (((insideVox.x & 4) != 0 && (insideVox.x & 8) == 0) || ((currVox.x & 4) != 0 && (currVox.x & 8) == 0)) {
+                  isWater = true;
                 }
                 uint reflectType = (insideVox.x >> 12) & 0x0F;
                 if (reflectType == 2u) {
@@ -230,54 +292,35 @@ kernel void prisma_deferred_cs(
                 }
                 if (reflectType == 1u) {
                   isGlass = true;
-                } else if (nWorld.y > 0.40f && viewDir.y < -1e-4f) {
-
-
-                  int3 voxDirectlyAbove = int3(floor(pWorld.x), floor(pWorld.y) + 1.0f, floor(pWorld.z));
-                  uint2 aboveVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxDirectlyAbove);
-                  if ((aboveVox.x & 4) != 0) {
-                    int topY = voxDirectlyAbove.y;
-                    for (int step = 0; step < 16; step++) {
-                      uint2 testVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(voxDirectlyAbove.x, topY + 1, voxDirectlyAbove.z));
-                      if ((testVox.x & 4) == 0) break;
-                      topY++;
-                    }
-                    float waterTop = float(topY) + 0.88f;
-                    if (uVoxel.camPos.y > waterTop) {
-                      float tW = (waterTop - uVoxel.camPos.y) / viewDir.y;
-                      if (tW > 0.0f && tW < distToSurface) {
-                        float3 pWater = uVoxel.camPos.xyz + viewDir * tW;
-                        int3 checkVox = int3(floor(pWater.x), float(topY), floor(pWater.z));
-                        uint2 cVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkVox);
-                        if ((cVox.x & 4) != 0) {
-                          isWater = true;
-                          pWorld = pWater;
-                          pSurfaceRel = pWorld - uVoxel.camPos.xyz;
-                          nWorld = float3(0.0f, 1.0f, 0.0f);
-                        }
-                      }
-                    }
-                  }
                 }
               }
 
-              float3 surfNormal = nWorld;
+              float3 surfNormal = isEntity ? geomNormal : normalize(mix(geomNormal, nWorld, 0.70f));
               if (isWater) {
+                float baseWaterY = (uVoxel.camPos.y >= pWorld.y) ? 1.0f : -1.0f;
                 float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
+                surfNormal = normalize(float3(waveNorm.x, baseWaterY * waveNorm.y, waveNorm.z));
+                nWorld = float3(0.0f, baseWaterY, 0.0f);
+              }
+              if (isGlass || isMetal) {
                 if (abs(nWorld.y) > 0.65f) {
-                  surfNormal = normalize(float3(waveNorm.x, nWorld.y > 0.0f ? waveNorm.y : -waveNorm.y, waveNorm.z));
+                  surfNormal = float3(0.0f, sign(nWorld.y), 0.0f);
+                } else if (abs(nWorld.x) > 0.65f) {
+                  surfNormal = float3(sign(nWorld.x), 0.0f, 0.0f);
+                } else if (abs(nWorld.z) > 0.65f) {
+                  surfNormal = float3(0.0f, 0.0f, sign(nWorld.z));
                 }
               }
-
-
 
               float vxaoStrength = uVoxel.camPos.w;
-              float vxao = (!isEntity && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
+              float vxao = (!isEntity && gridWeight > 0.05f && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * vxaoStrength * gridWeight : 0.0f;
               float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
               
-              float2 voxelLight = unpackVoxelLight(safeVox);
-              float rawSky = voxelLight.y;
-              float rawBlock = voxelLight.x;
+              float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld);
+              float outsideSky = (surfNormal.y > -0.2f ? 1.0f : 0.5f);
+              float outsideBlock = 0.0f;
+              float rawSky = mix(outsideSky, smoothVoxLight.y, gridWeight);
+              float rawBlock = mix(outsideBlock, smoothVoxLight.x, gridWeight);
               if (isEntity) {
 
                   int3 localPos = int3(floor(pWorld - float3(uVoxel.gridOrigin.xyz)));
@@ -296,13 +339,17 @@ kernel void prisma_deferred_cs(
               float blockLevel = get_vanilla_brightness(rawBlock);
 
               float combinedAo = saturate(max(vxao, ssao) * 0.80f) * saturate(1.0f - blockLevel * blockLevel);
+              if (isFoliage) {
+                combinedAo *= 0.40f; // Soften AO for tree leaves and vegetation
+              }
               float ao = saturate(1.0f - combinedAo);
               float volumetricAo = mix(0.22f, 1.0f, pow(ao, 1.25f));
 
 
 
+              bool isFirstPerson = (length(uVoxel.camPos.xyz - (uVoxel.playerPos.xyz + float3(0.0f, 1.5f, 0.0f))) < 0.60f);
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
-              PointLightResult ptRes = uVoxel.camRight.w > 0.5f ? computePointLights(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, surfNormal, uVoxel.gridSize.w, uVoxel.lights, uVoxel.playerPos, uVoxel.shadowParams, uVoxel.playerAnim, uVoxel.playerHead, uVoxel.mobCounts.x, uVoxel.mobs, (float2(gid) + 0.5f), blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface) : PointLightResult{float3(0.0f), 0.0f, 0.0f};
+              PointLightResult ptRes = uVoxel.camRight.w > 0.5f ? computePointLights(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, surfNormal, uVoxel.gridSize.w, uVoxel.lights, uVoxel.playerPos, uVoxel.shadowParams, uVoxel.playerAnim, uVoxel.playerHead, uVoxel.mobCounts.x, uVoxel.mobs, (float2(gid) + 0.5f), blockAtlasTex, smp, blockUvTable, bitmaskTable, isGlassSurface, isFirstPerson) : PointLightResult{float3(0.0f), 0.0f, 0.0f};
               float3 pointLights = ptRes.color;
 
               float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
@@ -317,59 +364,86 @@ kernel void prisma_deferred_cs(
               minAmbient = max(minAmbient, uVoxel.playerHead.z);
               float3 ambientSky = max(activeSkyLight * (skyLevel * 0.68f), float3(0.03f, 0.025f, 0.02f));
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
+              if (isFoliage) {
+                // Two-sided transmission / wrap lighting for leaves
+                celestialNdotL = max(celestialNdotL, saturate(-dot(surfNormal, celestialDir)) * 0.65f);
+              }
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
 
-              float celestialShadow = (rawSky > 0.80f || u.sunShadowsEnabled < 0.5f) ? 1.0f : 0.0f;
-              float3 celestialTint = float3(1.0f);
+              float outsideShadow = 1.0f;
+              float computedShadow = (u.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) ? 0.0f : 1.0f;
+              float3 computedTint = float3(1.0f);
 
-              if (celestialNdotL > 0.0f && celestialDir.y > 0.001f && rawSky > 0.80f && !isEntity && u.sunShadowsEnabled > 0.5f) {
-                float celestialSlopeBias = mix(0.045f, 0.012f, celestialNdotL);
-                float3 rayStart = pWorld + nWorld * celestialSlopeBias;
-                float2 wPos1 = floor(pWorld.xz * 32.0f + pWorld.yy * 32.0f);
-                float2 wPos2 = floor(pWorld.zx * 32.0f - pWorld.yy * 32.0f);
-                float ditherX = fract(52.9829189f * fract(dot(wPos1, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
-                float ditherZ = fract(52.9829189f * fract(dot(wPos2, float2(0.06711056f, 0.00583715f)))) * 2.0f - 1.0f;
-                
-                float sdaaMode = uVoxel.shadowParams.z;
-                float radius = abs(sdaaMode) * 1.5f;
-                float3 j1 = float3(ditherX, 0.0f, ditherZ) * radius;
-                float3 t1 = rayStart + normalize(celestialDir * 40.0f + j1) * 40.0f;
+              if (u.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) {
+                if (celestialNdotL > 0.01f && celestialDir.y > 0.001f && rawSky > 0.05f) {
+                  float celestialSlopeBias = max(0.04f, 0.06f * (1.0f - celestialNdotL));
+                  float3 rayStart = pWorld + nWorld * celestialSlopeBias;
+
+                  float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
+                  float dAngle = ign * 6.2831853f;
+                  float ditherX = cos(dAngle);
+                  float ditherZ = sin(dAngle);
+                  
+                  float sdaaMode = uVoxel.shadowParams.z;
+                  float radius = 0.0f; // Removed jitter to fix noisy penumbras
+                  float3 j1 = float3(ditherX, 0.0f, ditherZ) * radius;
+                float3 rDir1 = normalize(celestialDir * 40.0f + j1);
+                if (dot(rDir1, nWorld) < 0.02f) {
+                    rDir1 = normalize(rDir1 + nWorld * (0.02f - dot(rDir1, nWorld)));
+                }
+                float3 t1 = rayStart + rDir1 * 40.0f;
                 ShadowRayResult cRes1 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                 
+                bool canCastPlayerShadow = (uVoxel.shadowParams.w > 0.5f && length(rayStart.xz - uVoxel.playerPos.xz) < 12.0f);
+                if (isFirstPerson) {
+                    canCastPlayerShadow = canCastPlayerShadow && (nWorld.y > 0.55f && rayStart.y <= uVoxel.playerPos.y + 0.6f);
+                }
                 if (sdaaMode > 0.0f) {
                     float3 j2 = float3(-ditherZ, 0.0f, ditherX) * radius;
                     float3 j3 = float3(-ditherX, 0.0f, -ditherZ) * radius;
-                    float3 t2 = rayStart + normalize(celestialDir * 40.0f + j2) * 40.0f;
-                    float3 t3 = rayStart + normalize(celestialDir * 40.0f + j3) * 40.0f;
+                    float3 rDir2 = normalize(celestialDir * 40.0f + j2);
+                    if (dot(rDir2, nWorld) < 0.02f) {
+                        rDir2 = normalize(rDir2 + nWorld * (0.02f - dot(rDir2, nWorld)));
+                    }
+                    float3 rDir3 = normalize(celestialDir * 40.0f + j3);
+                    if (dot(rDir3, nWorld) < 0.02f) {
+                        rDir3 = normalize(rDir3 + nWorld * (0.02f - dot(rDir3, nWorld)));
+                    }
+                    float3 t2 = rayStart + rDir2 * 40.0f;
+                    float3 t3 = rayStart + rDir3 * 40.0f;
                     ShadowRayResult cRes2 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t2, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                     ShadowRayResult cRes3 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t3, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                     
-                    if (uVoxel.shadowParams.w > 0.5f) {
+                    if (canCastPlayerShadow) {
                         PlayerHit hit; hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, normalize(t1 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
+                        tracePlayerOBB(rayStart, rDir1, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
                         
                         hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, normalize(t2 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes2.vis = 0.0f;
+                        tracePlayerOBB(rayStart, rDir2, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes2.vis = 0.0f;
                         
                         hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, normalize(t3 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes3.vis = 0.0f;
+                        tracePlayerOBB(rayStart, rDir3, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes3.vis = 0.0f;
                     }
-                    celestialShadow = (cRes1.vis + cRes2.vis + cRes3.vis) * 0.333f;
-                    celestialTint = (cRes1.tint + cRes2.tint + cRes3.tint) * 0.333f;
+                    computedShadow = (cRes1.vis + cRes2.vis + cRes3.vis) * 0.333f;
+                    computedTint = (cRes1.tint + cRes2.tint + cRes3.tint) * 0.333f;
                 } else {
-                    if (uVoxel.shadowParams.w > 0.5f) {
+                    if (canCastPlayerShadow) {
                         PlayerHit hit; hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, normalize(t1 - rayStart), uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.0f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
+                        tracePlayerOBB(rayStart, rDir1, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
                     }
-                    celestialShadow = cRes1.vis;
-                    celestialTint = cRes1.tint;
+                    computedShadow = cRes1.vis;
+                    computedTint = cRes1.tint;
                 }
-                celestialShadow = mix(celestialShadow, 1.0f, u.rainStrength * 0.85f);
+                computedShadow = mix(computedShadow, 1.0f, u.rainStrength * 0.85f);
+                }
               }
+
+              float celestialShadow = mix(outsideShadow, computedShadow, gridWeight);
+              float3 celestialTint = mix(float3(1.0f), computedTint, gridWeight);
 
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
               float shadowAmbientFactor = mix(mix(1.0f, 0.50f, skyLevel), 1.0f, celestialShadow);
@@ -416,13 +490,15 @@ kernel void prisma_deferred_cs(
               float reflectFactor = 0.0f;
 
               if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
-                float4 nearPoint = uVoxel.invViewProj * float4(uv * 2.0f - 1.0f, 1.0f, 1.0f);
-                float3 pNear = nearPoint.xyz / max(nearPoint.w, 0.00001f);
-                float3 viewDir = normalize((uVoxel.camPos.xyz + pNear) - pWorld);
+                float3 viewDir = viewDirCam;
                 float NdotV = saturate(dot(surfNormal, viewDir));
 
-                float3 currentRayOrigin = pWorld;
+                float3 currentRayOrigin = pWorld + surfNormal * 0.04f;
                 float3 currentRayDir = reflect(-viewDir, surfNormal);
+                if (isWater || (isPuddle && surfNormal.y > 0.7f)) {
+                  currentRayDir.y = max(currentRayDir.y, 0.025f);
+                  currentRayDir = normalize(currentRayDir);
+                }
                 float3 accumulatedScene = float3(0.0f);
                 float currentAttenuation = 1.0f;
                 int maxBounces = max(1, int(uVoxel.shadowParams.y));
@@ -476,7 +552,7 @@ kernel void prisma_deferred_cs(
                         break;
                     }
                     
-                    currentRayOrigin = currentRayOrigin + currentRayDir * vxr.hitDist;
+                    currentRayOrigin = currentRayOrigin + currentRayDir * vxr.hitDist + vxr.normal * 0.04f;
                     currentRayDir = reflect(currentRayDir, vxr.normal);
                     currentAttenuation *= vxr.reflectivity;
                 }

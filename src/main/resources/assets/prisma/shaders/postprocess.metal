@@ -148,23 +148,22 @@ fragment float4 prisma_postprocess_fs(
   float contrast = saturate((maxLuma - minLuma) / max(maxLuma, 0.05f));
 
   float sdaa = u._pad1;
-  float sharpness = mix(-0.08f, -0.22f, contrast);
+  float3 color;
   if (sdaa > 0.5f) {
-      sharpness = mix(-0.08f, 0.25f, contrast); // Positive sharpness acts as edge blur (SDAA)
-  }
-  
-  float3 sharpCol = c + (n + s + w + e) * sharpness + (nw + ne + sw + se) * (sharpness * 0.5f);
-  float weight = 1.0f + 4.0f * sharpness + 4.0f * (sharpness * 0.5f);
-  
-  float3 color = sharpCol / weight;
-  if (sdaa < 0.5f) {
-      color = clamp(color, min(min(n,s), min(w,e)), max(max(n,s), max(w,e)));
+      color = applyFxaa(hdrTex, smp, in.uv, texel);
+  } else {
+      float3 blur = (n + s + w + e) * 0.25f;
+      float3 highPass = c - blur;
+      float sharpFactor = 0.20f * (1.0f - contrast);
+      float3 minVal = min(c, min(min(n, s), min(w, e)));
+      float3 maxVal = max(c, max(max(n, s), max(w, e)));
+      color = clamp(c + highPass * sharpFactor, minVal, maxVal);
   }
 
   uint2 depthGid = uint2(in.uv * float2(depthTex.get_width(), depthTex.get_height()));
   float depth = depthTex.read(depthGid);
-  if (depth < 1.0f) {
-      float4 clipPos = float4(in.uv.x * 2.0f - 1.0f, -(in.uv.y * 2.0f - 1.0f), depth, 1.0f);
+  if (depth > 0.00005f) {
+      float4 clipPos = float4(in.uv.x * 2.0f - 1.0f, in.uv.y * 2.0f - 1.0f, depth, 1.0f);
       float4 worldRel = u.invViewProj * clipPos;
       worldRel /= max(worldRel.w, 0.00001f);
       
@@ -173,9 +172,7 @@ fragment float4 prisma_postprocess_fs(
       
       float4 prevClip = u.prevViewProj * float4(prevRelPos, 1.0f);
       prevClip /= max(prevClip.w, 0.00001f);
-      float2 prevUv = prevClip.xy * 0.5f + 0.5f;
-      // Metal y is inverted clip space usually? Let's check if prevUv y needs flip.
-      // In Space warp we did `prevClip.xy * 0.5 + 0.5`, no flip, and it worked perfectly.
+      float2 prevUv = float2(prevClip.x * 0.5f + 0.5f, prevClip.y * 0.5f + 0.5f);
       
       float2 velocity = in.uv - prevUv;
       
@@ -197,8 +194,8 @@ fragment float4 prisma_postprocess_fs(
   // Extract Bloom using Vogel Disk (Golden Angle)
   float3 bloomSum = float3(0.0f);
   float bloomWeight = 0.0f;
-  float radius = 0.12f;
-  int samples = 32;
+  float radius = 0.05f;
+  int samples = 24;
   float goldenAngle = 2.400000333f;
   float randomRot = fract(sin(dot(in.position.xy, float2(12.9898f, 78.233f))) * 43758.5453f) * 6.283185f;
   
@@ -210,11 +207,12 @@ fragment float4 prisma_postprocess_fs(
       
       float3 s = hdrTex.sample(smp, in.uv + offset).rgb;
       
-      float knee = 0.5f;
+      float knee = 0.3f;
+      float threshold = 1.15f;
       float l = postLuma(s);
-      float rq = clamp(l - 0.75f + knee, 0.0f, knee * 2.0f);
+      float rq = clamp(l - threshold + knee, 0.0f, knee * 2.0f);
       rq = (rq * rq) / (4.0f * knee + 0.001f);
-      float3 extracted = s * max(rq, l - 0.75f) / max(l, 0.001f);
+      float3 extracted = s * max(rq, l - threshold) / max(l, 0.001f);
       
       float w = 1.0f / (1.0f + r * 15.0f);
       bloomSum += extracted * w;
@@ -223,7 +221,7 @@ fragment float4 prisma_postprocess_fs(
   
   if (bloomWeight > 0.0f) {
       float3 bloom = bloomSum / bloomWeight;
-      color += bloom * 1.50f;
+      color += bloom * 0.45f;
   }
   
   

@@ -263,8 +263,15 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 8L, sunAngle);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 12L, cameraPitch);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 16L, cameraYaw);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 20L, sunShadowsEnabled ? 1.0f : 0.0f);
-                float gameTime = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
+                uniforms.set(ValueLayout.JAVA_FLOAT, 20L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
+                float gameTime;
+                var mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc != null && mc.level != null) {
+                    float partialTick = mc.getDeltaTracker() != null ? mc.getDeltaTracker().getGameTimeDeltaPartialTick(false) : 0.0f;
+                    gameTime = ((float)(mc.level.getGameTime() % 2400000L) + partialTick) / 20.0f;
+                } else {
+                    gameTime = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
+                }
                 uniforms.set(ValueLayout.JAVA_FLOAT, 24L, gameTime);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 28L, cfg.waterWavesEnabled ? cfg.waterWaveStrength : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 32L, cfg.waterWaveSpeed);
@@ -280,15 +287,11 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 72L, (float)cfg.maxPointLights);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 76L, cfg.reflectionPointLightShadows ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 80L, cfg.reflectionDirectionalShadows ? 1.0f : 0.0f);
-                                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.vxaoInReflections ? 1.0f : 0.0f);
-                
+                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.vxaoInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 88L, cfg.volumetricCloudsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 92L, (float)cfg.cloudQualitySteps);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 100L, cfg.cloudsInReflections ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 100L, PrismaConfig.INSTANCE.cloudsInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
                 encoder.setBytes(uniforms, 108L, 0L);
             }

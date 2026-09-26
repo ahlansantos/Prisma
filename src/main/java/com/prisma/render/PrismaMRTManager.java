@@ -422,24 +422,19 @@ public final class PrismaMRTManager implements AutoCloseable {
         long height = colorTex.getHeight(0);
         long colorFormat = colorTex.mtlPixelFormat().value;
 
-        ensureSavedTextures(width, height, colorFormat);
-
-        if (!ObjC.isNil(this.savedWorldColorTexture)) {
-            MTLBlitCommandEncoder blit = encoder.commandBuffer().makeBlitCommandEncoder();
-            if (encoder.fence() != null) blit.waitForFence(encoder.fence());
-            blit.copyFromTextureToTexture(colorTex.nativeHandle(), 0L, 0L, 0L, 0L, width, height, this.savedWorldColorTexture, 0L, 0L, 0L, 0L);
-            if (encoder.fence() != null) blit.updateFence(encoder.fence());
-            blit.endEncoding();
-            this.hasWorldColorSnapshot = true;
-        }
-
         MemorySegment targetColor = colorTex.nativeHandle();
         MemorySegment currentDepth = currentDepthGpuTex instanceof MetalGpuTexture depthTex ? depthTex.nativeHandle() : MemorySegment.NULL;
-        System.out.println("[PRISMA DEBUG] currentDepthGpuTex class: " + (currentDepthGpuTex != null ? currentDepthGpuTex.getClass().getName() : "NULL"));
-        System.out.println("[PRISMA DEBUG] currentDepth handle: " + currentDepth);
-                MemorySegment worldDepth = !ObjC.isNil(currentDepth) ? currentDepth : this.fallbackDepthTexture;
-        MemorySegment handDepth = this.fallbackDepthTexture;
-        MemorySegment albedo = worldColorTexture(targetColor);
+        MemorySegment worldDepth = worldDepthTexture();
+        if (ObjC.isNil(worldDepth) && !ObjC.isNil(currentDepth)) {
+            worldDepth = currentDepth;
+        }
+        if (ObjC.isNil(worldDepth)) {
+            worldDepth = this.fallbackDepthTexture;
+        }
+        MemorySegment handDepth = (!ObjC.isNil(this.savedHandDepthTexture) && this.hasHandDepthSnapshot)
+                ? this.savedHandDepthTexture
+                : (!ObjC.isNil(currentDepth) ? currentDepth : this.fallbackDepthTexture);
+        MemorySegment albedo = targetColor;
         MemorySegment normal = normalTexture();
         MemorySegment lightData = lightDataTexture();
         MemorySegment hdrTarget = hdrColorTexture();
@@ -524,7 +519,7 @@ public final class PrismaMRTManager implements AutoCloseable {
         }
 
                 
-        if (!doSpaceWarp && !ObjC.isNil(this.previousHdrTexture)) {
+        if (com.prisma.config.PrismaConfig.INSTANCE.spaceWarpEnabled && !doSpaceWarp && !ObjC.isNil(this.previousHdrTexture)) {
             MTLBlitCommandEncoder blit = encoder.commandBuffer().makeBlitCommandEncoder();
             
             float upscaleFactor = ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ? com.prisma.config.PrismaConfig.INSTANCE.upscalingRatio : 1.0f);
@@ -535,10 +530,10 @@ public final class PrismaMRTManager implements AutoCloseable {
             blit.copyFromTextureToTexture(hdrTarget, 0L, 0L, 0L, 0L, hdrW, hdrH, this.previousHdrTexture, 0L, 0L, 0L, 0L);
             if (encoder.fence() != null) blit.updateFence(encoder.fence());
             blit.endEncoding();
-            this.prevViewProj.set(viewProj);
-            this.prevInvViewProj.set(invViewProj);
-            this.prevCamPos.set(camPosX, camPosY, camPosZ);
         }
+        this.prevViewProj.set(viewProj);
+        this.prevInvViewProj.set(invViewProj);
+        this.prevCamPos.set(camPosX, camPosY, camPosZ);
         
         MTLBuiltinPipelines.encodePostProcessPass(
                 encoder.commandBuffer(),

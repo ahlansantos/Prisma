@@ -34,7 +34,7 @@ fragment float4 prisma_spacewarp_fs(
   uint2 depthGid = uint2(in.uv * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
   float depth = worldDepthTex.read(depthGid);
   
-  float2 ndc = float2(in.uv.x * 2.0f - 1.0f, -(in.uv.y * 2.0f - 1.0f));
+  float2 ndc = float2(in.uv.x * 2.0f - 1.0f, in.uv.y * 2.0f - 1.0f);
   float4 clipPos = float4(ndc, depth, 1.0f);
   float4 worldRel = u.invViewProj * clipPos;
   worldRel /= max(worldRel.w, 0.00001f);
@@ -44,7 +44,7 @@ fragment float4 prisma_spacewarp_fs(
   
   float4 prevClip = u.prevViewProj * float4(prevRelPos, 1.0f);
   prevClip /= max(prevClip.w, 0.00001f);
-  float2 prevUv = prevClip.xy * 0.5f + 0.5f;
+  float2 prevUv = float2(prevClip.x * 0.5f + 0.5f, prevClip.y * 0.5f + 0.5f);
   
   if (prevUv.x < 0.0f || prevUv.x > 1.0f || prevUv.y < 0.0f || prevUv.y > 1.0f) {
       return float4(0.0f);

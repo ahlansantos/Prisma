@@ -3,11 +3,11 @@
   "id": "prisma",
   "version": "${version}",
   "name": "Prisma",
-  "description": "Prisma - Native Metal shaders with real-time ray marching for macOS.",
+  "description": "Native Metal Ray Traced Shader Loader for Apple Silicon.",
   "authors": [
-    "Ahlansantos - Shader code",
+    "ahlansantos - shader code",
     "kokodio - main base",
-    "Prisma Contributors"
+    "xtarlint - Metallum 26.3 Port"
   ],
   "contact": {
     "homepage": "https://github.com/ahlansantos/Prisma",

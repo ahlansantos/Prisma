@@ -355,7 +355,8 @@ public final class VoxelGridManager {
 
                         LevelChunk section = chunk;
                         LevelChunkSection chunkSection = chunk.getSection(secIdx);
-                        if (chunkSection == null || chunkSection.hasOnlyAir()) continue;
+                        if (chunkSection == null) continue;
+                        boolean onlyAir = chunkSection.hasOnlyAir();
 
                         int secSolidCount = 0;
                         int[] octCount = new int[8];
@@ -376,6 +377,35 @@ public final class VoxelGridManager {
                         int baseWx = cx << 4;
                         int baseWy = sy << 4;
                         int baseWz = cz << 4;
+
+                        if (onlyAir) {
+                            for (int by = 0; by < 16; by++) {
+                                int wy = baseWy + by;
+                                int vy = wy - originY;
+                                if (vy < 0 || vy >= localSizeY) continue;
+
+                                for (int bz = 0; bz < 16; bz++) {
+                                    int wz = baseWz + bz;
+                                    int vz = wz - originZ;
+                                    if (vz < 0 || vz >= localSizeZ) continue;
+
+                                    for (int bx = 0; bx < 16; bx++) {
+                                        int wx = baseWx + bx;
+                                        int vx = wx - originX;
+                                        if (vx < 0 || vx >= localSizeX) continue;
+
+                                        int sky = skyData != null ? skyData.get(bx, by, bz) : 15;
+                                        int block = blockData != null ? blockData.get(bx, by, bz) : 0;
+                                        if (sky > 0 || block > 0) {
+                                            int low32 = ((block & 0x0F) << 4) | ((sky & 0x0F) << 8);
+                                            long voxelIndex = ((long) vz * (long) localSizeY + (long) vy) * (long) localSizeX + (long) vx;
+                                            backContents.set(JAVA_LONG, voxelIndex * 8L, (long) low32 & 0xFFFFFFFFL);
+                                        }
+                                    }
+                                }
+                            }
+                            continue;
+                        }
 
                         for (int by = 0; by < 16; by++) {
                             int wy = baseWy + by;
