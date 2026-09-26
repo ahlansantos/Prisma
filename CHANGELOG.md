@@ -7,7 +7,6 @@
 ## Main Graphics & Lighting
 - **Flawless Geometry Normals:** Block edges will never flash white or yellow again! Implemented an **Analytic Voxel Normal Fallback**. When the shader detects that the screen-space depth reading failed because it's exactly on the edge of a block (or on thin blocks like glass and iron bars), it smartly abandons the screen-space derivative and calculates the perfect normal based on the mathematical 3D Voxel Grid instead.
 - **Enhanced Shadow Contrast:** Shadows finally look like shadows! Fixed a critical bug where block faces pointing away from the sun skipped the shadow calculation but continued to receive 100% solar light. Unlit faces now properly drop to 0% sun exposure, drastically improving directional contrast and visual depth.
-- **Crisp Shadow Penumbras:** Stochastic noise (Interleaved Gradient Noise) has been completely removed from the shadow system. Grass, foliage, and blocks now cast perfectly crisp and clean shadows, with no visible graininess even at lower resolutions.
 
 ## Water, Reflections & Clouds
 - **Headbob Distortion Fixed:** Reflections no longer "slide" when you walk! The reflection vector now extracts the exact headbobbed camera position directly from the Inverse View Projection matrix, perfectly anchoring all reflections to your monitor's perspective.
