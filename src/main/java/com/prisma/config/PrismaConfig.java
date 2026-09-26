@@ -172,6 +172,8 @@ public final class PrismaConfig {
                     try { playerReflectionEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "sdaaEnabled")) != null) {
+                    try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
                 if ((val = getJsonValue(content, "volPointLightsEnabled")) != null) {
                     try { volPointLightsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
@@ -180,8 +182,6 @@ public final class PrismaConfig {
                 }
                 if ((val = getJsonValue(content, "volPointLightQuality")) != null) {
                     try { volPointLightQuality = Math.clamp(Integer.parseInt(val), 4, 40); } catch (Throwable ignored) {}
-                }
-                    try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "caveLighting")) != null) {
                     try { caveLighting = Float.parseFloat(val); } catch (Throwable ignored) {}

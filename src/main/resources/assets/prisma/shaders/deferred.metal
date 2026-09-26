@@ -612,8 +612,8 @@ kernel void prisma_deferred_cs(
                 float3 rayDir = normalize(pWorld - uVoxel.camPos.xyz);
                 
                 // Exponential distance fog (thicker to hide chunks better)
-                                float distFog = 1.0f - exp(-pow(distToCam * 0.003f, 3.5f));
-                float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f) * saturate(distToCam * 0.015f);
+                                float distFog = 1.0f - exp(-pow(distToCam * mix(0.0001f, 0.006f, u.rainStrength), mix(5.5f, 3.0f, u.rainStrength)));
+                float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f) * saturate(distToCam * 0.015f) * saturate(u.rainStrength * 2.0f);
                 
                 float fogFactor = saturate(distFog + heightFog);
                 float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
@@ -647,7 +647,7 @@ kernel void prisma_deferred_cs(
                               float window = saturate(1.0f - distNorm);
                               float smoothWin = window * window * (3.0f - 2.0f * window);
                               float falloff = smoothWin / (dL * dL * 0.12f + dL * 0.35f + 0.80f);
-                              float ptShadow = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayP, lPos, 12); stepLight += uVoxel.lights[li].colorAndIntensity.xyz * (uVoxel.lights[li].colorAndIntensity.w * falloff * ptShadow);
+                              ShadowRayResult cRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayP, lPos, blockAtlasTex, smp, blockUvTable, bitmaskTable); float ptShadow = cRes.vis; stepLight += uVoxel.lights[li].colorAndIntensity.xyz * (uVoxel.lights[li].colorAndIntensity.w * falloff * ptShadow);
                           }
                       }
                       volAccum += stepLight * stepSize;
