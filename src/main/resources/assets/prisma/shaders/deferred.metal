@@ -630,11 +630,11 @@ kernel void prisma_deferred_cs(
                 
               if (u.volPtEnabled > 0.5f && u.maxPointLights > 0.5f) {
                   float volDist = min(distToCam, 32.0f);
-                  int volSteps = int(u.volPtQuality);
+                  int volSteps = 15;
                   float stepSize = volDist / max(1.0f, float(volSteps));
                   float3 volAccum = float3(0.0f);
                   float3 rayP = uVoxel.camPos.xyz + rayDir * (stepSize * 0.5f);
-                  int lCount = min(int(uVoxel.gridSize.w), int(u.maxPointLights));
+                  int lCount = min(int(uVoxel.gridSize.w), int(u.volPtQuality));
                   for (int vs = 0; vs < volSteps; vs++) {
                       float3 stepLight = float3(0.0f);
                       for (int li = 0; li < lCount; li++) {
@@ -647,7 +647,7 @@ kernel void prisma_deferred_cs(
                               float window = saturate(1.0f - distNorm);
                               float smoothWin = window * window * (3.0f - 2.0f * window);
                               float falloff = smoothWin / (dL * dL * 0.12f + dL * 0.35f + 0.80f);
-                              stepLight += uVoxel.lights[li].colorAndIntensity.xyz * (uVoxel.lights[li].colorAndIntensity.w * falloff);
+                              float ptShadow = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayP, lPos, 12); stepLight += uVoxel.lights[li].colorAndIntensity.xyz * (uVoxel.lights[li].colorAndIntensity.w * falloff * ptShadow);
                           }
                       }
                       volAccum += stepLight * stepSize;

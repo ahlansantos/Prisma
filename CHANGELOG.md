@@ -1,3 +1,14 @@
+# Prisma 26.3 Revision 2
+
+## Volumetric Point Lights (Experimental)
+- Added true Volumetric Point Lights! Torches and emissive blocks now cast beautiful raymarched volumetric halos/fog into the surrounding air.
+- Emissive volumetric fog supports DDA shadows, meaning light realistically wraps around geometry blocks.
+- Added UI toggles for Volumetric Intensity and Max Lights limits in the Performance tab.
+
+## Soft Shadows in Reflections
+- Voxel grid reflections on water and specular surfaces now support Stochastic Penumbra (soft shadows)! Water reflections now mirror the same soft shadow edges as the main world view instead of hard edges.
+
+---
 # Prisma 26.3 Revision 1
 
 ## Graphics & Lighting
