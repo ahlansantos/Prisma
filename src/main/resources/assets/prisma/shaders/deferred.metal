@@ -32,9 +32,6 @@
               float reflectionsEnabled;
               float cloudsInReflections;
               float rainStrength;
-              float volPtEnabled;
-              float volPtIntensity;
-              float volPtQuality;
             };
 
                         static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
@@ -628,41 +625,8 @@ kernel void prisma_deferred_cs(
                 float3 mieGlare = currentSunColor * (miePhase * 0.035f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
                 fogColor += mieGlare;
                 
-              if (u.volPtEnabled > 0.5f && u.maxPointLights > 0.5f) {
-                  float volDist = min(distToCam, 32.0f);
-                  int volSteps = 15;
-                  float stepSize = volDist / max(1.0f, float(volSteps));
-                  float3 volAccum = float3(0.0f);
-                  float3 rayP = uVoxel.camPos.xyz + rayDir * (stepSize * 0.5f);
-                  int lCount = min(int(uVoxel.gridSize.w), int(u.volPtQuality));
-                  for (int vs = 0; vs < volSteps; vs++) {
-                      float3 stepLight = float3(0.0f);
-                      for (int li = 0; li < lCount; li++) {
-                          float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
-                          float3 delta = lPos - rayP;
-                          float dL = length(delta);
-                          float lRad = uVoxel.lights[li].posAndRadius.w;
-                          if (dL < lRad && dL > 0.05f) {
-                              float distNorm = dL / lRad;
-                              float window = saturate(1.0f - distNorm);
-                              float smoothWin = window * window * (3.0f - 2.0f * window);
-                              float falloff = smoothWin / (dL * dL * 0.12f + dL * 0.35f + 0.80f);
-                              ShadowRayResult cRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayP, lPos, blockAtlasTex, smp, blockUvTable, bitmaskTable); float ptShadow = cRes.vis; stepLight += uVoxel.lights[li].colorAndIntensity.xyz * (uVoxel.lights[li].colorAndIntensity.w * falloff * ptShadow);
-                          }
-                      }
-                      volAccum += stepLight * stepSize;
-                      rayP += rayDir * stepSize;
-                  }
-                  float volInt = u.volPtIntensity * 0.015f;
-                  
-                  fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
-                  litRgb = mix(litRgb, fogColor, fogFactor);
-                  
-                  litRgb += volAccum * volInt;
-              } else {
-                  fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
-                  litRgb = mix(litRgb, fogColor, fogFactor);
-              }
+                fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
+                litRgb = mix(litRgb, fogColor, fogFactor);
               }
 
               

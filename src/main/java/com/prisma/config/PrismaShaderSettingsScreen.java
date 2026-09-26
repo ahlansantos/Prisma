@@ -126,12 +126,7 @@ public class PrismaShaderSettingsScreen extends Screen {
             ConfigSlider b3 = new ConfigSlider("PEU Render Scale", 0.1, 1.5, PrismaConfig.INSTANCE.upscalingRatio, true, v -> PrismaConfig.INSTANCE.upscalingRatio = v.floatValue());
             this.listWidget.add(new SettingsEntry(b3, null));
             
-            this.listWidget.add(new SettingsEntry(Component.literal("Experimental").withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD)));
-            Button bVolPt = createToggle("Volumetric Point Lights", PrismaConfig.INSTANCE.volPointLightsEnabled, v -> PrismaConfig.INSTANCE.volPointLightsEnabled = v);
-            ConfigSlider sVolInt = new ConfigSlider("Vol. Intensity", 0.0, 5.0, PrismaConfig.INSTANCE.volPointLightIntensity, true, v -> PrismaConfig.INSTANCE.volPointLightIntensity = v.floatValue());
-            this.listWidget.add(new SettingsEntry(bVolPt, sVolInt));
-            ConfigSlider sVolQual = new ConfigSlider("Volumetric Lights Limit", 1.0, 64.0, PrismaConfig.INSTANCE.volPointLightQuality, false, v -> PrismaConfig.INSTANCE.volPointLightQuality = v.intValue());
-            this.listWidget.add(new SettingsEntry(sVolQual, null));
+
         }
         this.addRenderableWidget(this.listWidget);
     }

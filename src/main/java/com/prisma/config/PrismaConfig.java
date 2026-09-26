@@ -81,9 +81,6 @@ public final class PrismaConfig {
             sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
             sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
             sb.append("\"sdaaEnabled\":").append(sdaaEnabled).append(",");
-            sb.append("\"volPointLightsEnabled\":").append(volPointLightsEnabled).append(",");
-            sb.append(String.format(java.util.Locale.ROOT, "\"volPointLightIntensity\":%.2f,", volPointLightIntensity));
-            sb.append("\"volPointLightQuality\":").append(volPointLightQuality).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f", caveLighting));
             sb.append("}");
             Files.writeString(configFile, sb.toString());
@@ -174,15 +171,7 @@ public final class PrismaConfig {
                 if ((val = getJsonValue(content, "sdaaEnabled")) != null) {
                     try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "volPointLightsEnabled")) != null) {
-                    try { volPointLightsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
-                if ((val = getJsonValue(content, "volPointLightIntensity")) != null) {
-                    try { volPointLightIntensity = Math.clamp(Float.parseFloat(val), 0.0f, 5.0f); } catch (Throwable ignored) {}
-                }
-                if ((val = getJsonValue(content, "volPointLightQuality")) != null) {
-                    try { volPointLightQuality = Math.clamp(Integer.parseInt(val), 4, 40); } catch (Throwable ignored) {}
-                }
+
                 if ((val = getJsonValue(content, "caveLighting")) != null) {
                     try { caveLighting = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
