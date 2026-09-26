@@ -41,6 +41,9 @@ public final class PrismaConfig {
     public volatile boolean spaceWarpEnabled = false;
     public volatile boolean motionBlurEnabled = true;
     public volatile boolean sdaaEnabled = true;
+    public volatile boolean volPointLightsEnabled = false;
+    public volatile float volPointLightIntensity = 1.0f;
+    public volatile int volPointLightQuality = 15;
 
     
     private PrismaConfig() {
@@ -78,6 +81,9 @@ public final class PrismaConfig {
             sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
             sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
             sb.append("\"sdaaEnabled\":").append(sdaaEnabled).append(",");
+            sb.append("\"volPointLightsEnabled\":").append(volPointLightsEnabled).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"volPointLightIntensity\":%.2f,", volPointLightIntensity));
+            sb.append("\"volPointLightQuality\":").append(volPointLightQuality).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f", caveLighting));
             sb.append("}");
             Files.writeString(configFile, sb.toString());
@@ -166,6 +172,15 @@ public final class PrismaConfig {
                     try { playerReflectionEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "sdaaEnabled")) != null) {
+                if ((val = getJsonValue(content, "volPointLightsEnabled")) != null) {
+                    try { volPointLightsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "volPointLightIntensity")) != null) {
+                    try { volPointLightIntensity = Math.clamp(Float.parseFloat(val), 0.0f, 5.0f); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "volPointLightQuality")) != null) {
+                    try { volPointLightQuality = Math.clamp(Integer.parseInt(val), 4, 40); } catch (Throwable ignored) {}
+                }
                     try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "caveLighting")) != null) {

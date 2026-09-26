@@ -69,6 +69,13 @@ public class PrismaShaderSettingsScreen extends Screen {
             ConfigSlider sCave = new ConfigSlider("Cave Lighting", 0.0, 1.0, PrismaConfig.INSTANCE.caveLighting, true, v -> PrismaConfig.INSTANCE.caveLighting = v.floatValue());
             this.listWidget.add(new SettingsEntry(sCave, null));
 
+            this.listWidget.add(new SettingsEntry(Component.literal("Experimental").withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD)));
+            Button bVolPt = createToggle("Volumetric Point Lights", PrismaConfig.INSTANCE.volPointLightsEnabled, v -> PrismaConfig.INSTANCE.volPointLightsEnabled = v);
+            ConfigSlider sVolInt = new ConfigSlider("Vol. Intensity", 0.0, 5.0, PrismaConfig.INSTANCE.volPointLightIntensity, true, v -> PrismaConfig.INSTANCE.volPointLightIntensity = v.floatValue());
+            this.listWidget.add(new SettingsEntry(bVolPt, sVolInt));
+            ConfigSlider sVolQual = new ConfigSlider("Vol. Quality", 4.0, 40.0, PrismaConfig.INSTANCE.volPointLightQuality, false, v -> PrismaConfig.INSTANCE.volPointLightQuality = v.intValue());
+            this.listWidget.add(new SettingsEntry(sVolQual, null));
+
             this.listWidget.add(new SettingsEntry(Component.literal("Dynamic Lights").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b3 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
             ConfigSlider b4 = new ConfigSlider("Max Lights", 0.0, 128.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> PrismaConfig.INSTANCE.maxPointLights = v.intValue());
