@@ -113,15 +113,18 @@ public class PrismaShaderSettingsScreen extends Screen {
             ConfigSlider vrad = new ConfigSlider("Voxel Grid Radius", 2.0, 16.0, PrismaConfig.INSTANCE.voxelRadius, false, v -> PrismaConfig.INSTANCE.voxelRadius = v.intValue());
             this.listWidget.add(new SettingsEntry(vrad, null));
 
+
+            this.listWidget.add(new SettingsEntry(Component.literal("Spatial Denoiser & Anti Aliaser (SDAA)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button bSdaa = createToggle("SDAA Enabled", PrismaConfig.INSTANCE.sdaaEnabled, v -> PrismaConfig.INSTANCE.sdaaEnabled = v);
+            this.listWidget.add(new SettingsEntry(bSdaa, null));
             this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
             Button b2 = createToggle("SpaceWarp", PrismaConfig.INSTANCE.spaceWarpEnabled, v -> PrismaConfig.INSTANCE.spaceWarpEnabled = v);
             this.listWidget.add(new SettingsEntry(b1, b2));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Upscaling").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button bSdaa = createToggle("SDAA Enabled", PrismaConfig.INSTANCE.sdaaEnabled, v -> PrismaConfig.INSTANCE.sdaaEnabled = v);
             ConfigSlider b3 = new ConfigSlider("PEU Render Scale", 0.1, 1.5, PrismaConfig.INSTANCE.upscalingRatio, true, v -> PrismaConfig.INSTANCE.upscalingRatio = v.floatValue());
-            this.listWidget.add(new SettingsEntry(bSdaa, b3));
+            this.listWidget.add(new SettingsEntry(b3, null));
             
             this.listWidget.add(new SettingsEntry(Component.literal("Experimental").withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD)));
             Button bVolPt = createToggle("Volumetric Point Lights", PrismaConfig.INSTANCE.volPointLightsEnabled, v -> PrismaConfig.INSTANCE.volPointLightsEnabled = v);
