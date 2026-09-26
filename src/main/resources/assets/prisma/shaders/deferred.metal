@@ -654,12 +654,15 @@ kernel void prisma_deferred_cs(
                       rayP += rayDir * stepSize;
                   }
                   float volInt = u.volPtIntensity * 0.015f;
+                  
+                  fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
+                  litRgb = mix(litRgb, fogColor, fogFactor);
+                  
                   litRgb += volAccum * volInt;
+              } else {
+                  fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
+                  litRgb = mix(litRgb, fogColor, fogFactor);
               }
-
-                fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
-
-                litRgb = mix(litRgb, fogColor, fogFactor);
               }
 
               
