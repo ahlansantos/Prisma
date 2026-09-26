@@ -385,7 +385,7 @@ kernel void prisma_deferred_cs(
                   float ditherZ = sin(dAngle);
                   
                   float sdaaMode = uVoxel.shadowParams.z;
-                  float radius = 0.0f; // Removed jitter to fix noisy penumbras
+                  float radius = abs(sdaaMode) * 0.8f;
                   float3 j1 = float3(ditherX, 0.0f, ditherZ) * radius;
                 float3 rDir1 = normalize(celestialDir * 40.0f + j1);
                 if (dot(rDir1, nWorld) < 0.02f) {
