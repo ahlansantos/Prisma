@@ -44,41 +44,7 @@ static inline float postLuma(float3 c) {
 }
 
 
-static inline float3 applyFxaa(texture2d<float> tex, sampler smp, float2 uv, float2 texel) {
-  float3 rgbCenter = tex.sample(smp, uv).rgb;
 
-  float lumaN = postLuma(tex.sample(smp, uv + float2(0.0f, -texel.y)).rgb);
-  float lumaS = postLuma(tex.sample(smp, uv + float2(0.0f,  texel.y)).rgb);
-  float lumaE = postLuma(tex.sample(smp, uv + float2( texel.x, 0.0f)).rgb);
-  float lumaW = postLuma(tex.sample(smp, uv + float2(-texel.x, 0.0f)).rgb);
-  float lumaCenter = postLuma(rgbCenter);
-
-  float lumaMin = min(lumaCenter, min(min(lumaN, lumaS), min(lumaE, lumaW)));
-  float lumaMax = max(lumaCenter, max(max(lumaN, lumaS), max(lumaE, lumaW)));
-  float lumaRange = lumaMax - lumaMin;
-
-
-  if (lumaRange < max(0.0312f, lumaMax * 0.125f)) {
-    return rgbCenter;
-  }
-
-  float2 dir;
-  dir.x = -((lumaN + lumaS) - 2.0f * lumaCenter) * 2.0f - ((lumaE + lumaW) - 2.0f * lumaCenter);
-  dir.y = ((lumaE + lumaW) - 2.0f * lumaCenter) * 2.0f + ((lumaN + lumaS) - 2.0f * lumaCenter);
-  dir = float2(lumaW - lumaE, lumaN - lumaS);
-
-  float dirLen = length(dir);
-  if (dirLen < 1e-5f) {
-    return rgbCenter;
-  }
-  dir = dir / dirLen;
-
-  float3 rgbBlur = tex.sample(smp, uv + dir * texel * 1.5f).rgb * 0.5f
-                  + tex.sample(smp, uv - dir * texel * 1.5f).rgb * 0.5f;
-
-  float blendAmount = saturate(lumaRange / max(lumaMax, 0.0001f));
-  return mix(rgbCenter, rgbBlur, blendAmount * 0.75f);
-}
 
 
 // Fast Catmull-Rom bicubic interpolation
@@ -145,21 +111,17 @@ fragment float4 prisma_postprocess_fs(
   float lN = postLuma(n); float lS = postLuma(s); float lW = postLuma(w); float lE = postLuma(e);
   float minLuma = min(lC, min(min(lN, lS), min(lW, lE)));
   float maxLuma = max(lC, max(max(lN, lS), max(lW, lE)));
-  float contrast = saturate((maxLuma - minLuma) / max(maxLuma, 0.05f));
-
-  float sdaa = u._pad1;
-  float3 color;
-  if (sdaa > 0.5f) {
-      color = applyFxaa(hdrTex, smp, in.uv, texel);
-  } else {
-      float3 blur = (n + s + w + e) * 0.25f;
-      float3 highPass = c - blur;
-      float sharpFactor = 0.20f * (1.0f - contrast);
+  // Contrast Adaptive Laplacian Sharpen
+  float unsharpStrength = u._pad1; 
+  float3 color = c;
+  if (unsharpStrength > 0.01f) {
       float3 minVal = min(c, min(min(n, s), min(w, e)));
       float3 maxVal = max(c, max(max(n, s), max(w, e)));
-      color = clamp(c + highPass * sharpFactor, minVal, maxVal);
+      // Strong Laplacian Sharpen (Reverse Blur) with clamping
+      float3 laplacian = c * 4.0f - (n + s + w + e);
+      color = clamp(c + laplacian * unsharpStrength * 2.0f, minVal, maxVal);
   }
-
+  
   uint2 depthGid = uint2(in.uv * float2(depthTex.get_width(), depthTex.get_height()));
   float depth = depthTex.read(depthGid);
   if (depth > 0.00005f) {

@@ -110,9 +110,14 @@ public final class PrismaMRTManager implements AutoCloseable {
         float upscaleFactor = 1.0f;
 
         if (width <= 0 || height <= 0) return;
-        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled) {
-            int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
-            upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)) {
+            float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+            float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
+            if (true) {
+                upscaleFactor = 1.0f / (baseScale * easuScale); // Combined scale
+            } else {
+                upscaleFactor = 1.0f / easuScale; // EASU only
+            }
         } else {
             upscaleFactor = 1.0f;
         }
@@ -162,8 +167,17 @@ public final class PrismaMRTManager implements AutoCloseable {
             try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
-                desc.width(width);
-                desc.height(height);
+                
+                long interW = width;
+                long interH = height;
+                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) ) {
+                    float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
+                    interW = Math.max(1L, (long)(width * easuScale));
+                    interH = Math.max(1L, (long)(height * easuScale));
+                }
+                
+                desc.width(interW);
+                desc.height(interH);
                 desc.mipmapLevelCount(1);
                 desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
                 desc.storageMode(MTLStorageMode.Private);
@@ -250,14 +264,26 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled) {
-                    int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
-                    upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+                float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+                float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
+                boolean cascaded = true;
+                
+                long hdrW, hdrH;
+                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)) {
+                    if (cascaded) {
+                        upscaleFactor = 1.0f / (baseScale * easuScale);
+                        hdrW = Math.max(1L, (long)(width * baseScale * easuScale));
+                        hdrH = Math.max(1L, (long)(height * baseScale * easuScale));
+                    } else {
+                        upscaleFactor = 1.0f / easuScale;
+                        hdrW = Math.max(1L, (long)(width * easuScale));
+                        hdrH = Math.max(1L, (long)(height * easuScale));
+                    }
                 } else {
                     upscaleFactor = 1.0f;
+                    hdrW = width;
+                    hdrH = height;
                 }
-                long hdrW = Math.max(1L, (long)(width / upscaleFactor));
-                long hdrH = Math.max(1L, (long)(height / upscaleFactor));
                 
                 desc.width(hdrW);
                 desc.height(hdrH);
@@ -271,14 +297,26 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled) {
-                    int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
-                    upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+                float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+                float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
+                boolean cascaded = true;
+                
+                long hdrW, hdrH;
+                if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)) {
+                    if (cascaded) {
+                        upscaleFactor = 1.0f / (baseScale * easuScale);
+                        hdrW = Math.max(1L, (long)(width * baseScale * easuScale));
+                        hdrH = Math.max(1L, (long)(height * baseScale * easuScale));
+                    } else {
+                        upscaleFactor = 1.0f / easuScale;
+                        hdrW = Math.max(1L, (long)(width * easuScale));
+                        hdrH = Math.max(1L, (long)(height * easuScale));
+                    }
                 } else {
                     upscaleFactor = 1.0f;
+                    hdrW = width;
+                    hdrH = height;
                 }
-                long hdrW = Math.max(1L, (long)(width / upscaleFactor));
-                long hdrH = Math.max(1L, (long)(height / upscaleFactor));
                 
                 desc.width(hdrW);
                 desc.height(hdrH);
@@ -638,18 +676,19 @@ public final class PrismaMRTManager implements AutoCloseable {
         this.prevCamPos.set(camPosX, camPosY, camPosZ);
         
         MemorySegment postProcessInput = hdrTarget;
-        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && com.prisma.config.PrismaConfig.INSTANCE.metalFxUpscalingEnabled && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
-            long renderWidth = colorTex.getWidth(0);
-            long renderHeight = colorTex.getHeight(0);
-            float upscaleFactor = 1.0f;
-            int q = com.prisma.config.PrismaConfig.INSTANCE.metalFxQuality;
-            upscaleFactor = (q == 0) ? 2.0f : ((q == 1) ? 1.7f : 1.5f);
+        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)  && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
+            long finalWidth = colorTex.getWidth(0);
+            long finalHeight = colorTex.getHeight(0);
+            float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+            float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
             
-            long scaledWidth = (long)(renderWidth / upscaleFactor);
-            long scaledHeight = (long)(renderHeight / upscaleFactor);
+            long baseWidth = Math.max(1L, (long)(finalWidth * baseScale * easuScale));
+            long baseHeight = Math.max(1L, (long)(finalHeight * baseScale * easuScale));
+            long interWidth = Math.max(1L, (long)(finalWidth * easuScale));
+            long interHeight = Math.max(1L, (long)(finalHeight * easuScale));
             
-            this.mtlfxManager.ensureScaler(this.device, scaledWidth, scaledHeight, renderWidth, renderHeight);
-            this.mtlfxManager.encode(encoder.commandBuffer().handle(), hdrTarget, worldDepth, velocityTexture(), this.upscaledColorTexture, 0.0f, 0.0f);
+            this.mtlfxManager.ensureScaler(this.device, baseWidth, baseHeight, interWidth, interHeight);
+            this.mtlfxManager.encode(encoder.commandBuffer().handle(), hdrTarget, this.upscaledColorTexture);
             postProcessInput = this.upscaledColorTexture;
         }
 

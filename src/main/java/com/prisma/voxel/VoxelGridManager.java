@@ -587,7 +587,7 @@ public final class VoxelGridManager {
                                         boolean isPartialSnow = state.is(Blocks.SNOW) && state.hasProperty(net.minecraft.world.level.block.SnowLayerBlock.LAYERS) && state.getValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS) < 8;
                                         boolean isSign = state.getBlock() instanceof net.minecraft.world.level.block.SignBlock || state.getBlock() instanceof net.minecraft.world.level.block.WallSignBlock;
                                         boolean isPlateOrButton = state.getBlock() instanceof net.minecraft.world.level.block.BasePressurePlateBlock || state.getBlock() instanceof net.minecraft.world.level.block.ButtonBlock;
-                                        if (isSign || isPlateOrButton || isPartialSnow || state.is(Blocks.DIRT_PATH) || state.is(Blocks.FARMLAND) || state.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock || state.is(Blocks.MOSS_CARPET) || state.is(Blocks.PINK_PETALS) || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("leaf_litter") || state.getBlock() instanceof net.minecraft.world.level.block.VineBlock) {
+                                        if (isSign || isPlateOrButton || isPartialSnow || state.is(Blocks.DIRT_PATH) || state.is(Blocks.FARMLAND) || state.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock || state.is(Blocks.MOSS_CARPET) || state.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock || state.is(Blocks.PINK_PETALS) || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("leaf_litter") || state.getBlock() instanceof net.minecraft.world.level.block.VineBlock) {
                                             shapeId = SHAPE_NO_SHADOW;
                                         } else if (maskCheck != -1L || state.is(Blocks.SPAWNER) || state.is(Blocks.POINTED_DRIPSTONE)) {
                                             boolean isFire = state.getBlock() instanceof net.minecraft.world.level.block.BaseFireBlock;
@@ -909,11 +909,17 @@ public final class VoxelGridManager {
         List<PointLight> sortedBase = new ArrayList<>(baseLights);
         if (mc != null && mc.player != null) {
             net.minecraft.world.phys.Vec3 pPos = mc.player.position();
-            sortedBase.sort(Comparator.comparingDouble(l -> {
-                double dx = l.x() - pPos.x;
-                double dy = l.y() - pPos.y;
-                double dz = l.z() - pPos.z;
-                return dx * dx + dy * dy + dz * dz;
+            // Use block position to ensure stable sorting when standing still
+            long bx = net.minecraft.util.Mth.floor(pPos.x);
+            long by = net.minecraft.util.Mth.floor(pPos.y);
+            long bz = net.minecraft.util.Mth.floor(pPos.z);
+            sortedBase.sort(Comparator.comparingLong(l -> {
+                long dx = net.minecraft.util.Mth.floor(l.x()) - bx;
+                long dy = net.minecraft.util.Mth.floor(l.y()) - by;
+                long dz = net.minecraft.util.Mth.floor(l.z()) - bz;
+                // Add a small stable tie-breaker based on light coordinates so it doesn't flicker
+                long tieBreaker = (net.minecraft.util.Mth.floor(l.x()) & 0xF) | ((net.minecraft.util.Mth.floor(l.y()) & 0xF) << 4) | ((net.minecraft.util.Mth.floor(l.z()) & 0xF) << 8);
+                return (dx * dx + dy * dy + dz * dz) * 10000L + tieBreaker;
             }));
         }
 

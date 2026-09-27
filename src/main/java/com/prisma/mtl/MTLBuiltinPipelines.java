@@ -293,10 +293,9 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 100L, cfg.cloudsInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 108L, cfg.restirTemporal ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 112L, cfg.restirSpatial ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 116L, cfg.restirSpatialRadius);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 120L, (float)cfg.restirHistoryLimit);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 112L, (float)cfg.shadowRayCount);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 116L, 0.0f); // padding
+                uniforms.set(ValueLayout.JAVA_FLOAT, 120L, 0.0f); // padding
                 encoder.setBytes(uniforms, 128L, 0L);
             }
             long tgWidth = (width + 15) / 16;
@@ -355,7 +354,7 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 76L, playerHeight);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 80L, playerBodyYaw);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 84L, shadowQuality);
-                vUniforms.set(ValueLayout.JAVA_FLOAT, 88L, com.prisma.config.PrismaConfig.INSTANCE.sdaaEnabled ? 1.0f : -1.0f);
+                vUniforms.set(ValueLayout.JAVA_FLOAT, 88L, 1.0f);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 92L, playerShadowEnabled ? 1.0f : 0.0f);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 96L, playerLimbSwing);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 100L, playerLimbAmount);
@@ -540,7 +539,7 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 32L, prevCamPosX);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 36L, prevCamPosY);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 40L, prevCamPosZ);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 44L, com.prisma.config.PrismaConfig.INSTANCE.sdaaEnabled ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 44L, com.prisma.config.PrismaConfig.INSTANCE.unsharpMaskStrength);
                 
                 java.nio.ByteBuffer bb = uniforms.asByteBuffer().order(java.nio.ByteOrder.nativeOrder());
                 viewProj.get(48, bb);

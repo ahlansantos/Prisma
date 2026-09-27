@@ -32,45 +32,14 @@
               float reflectionsEnabled;
               float cloudsInReflections;
               float rainStrength;
-              float restirTemporal;
-              float restirSpatial;
-              float restirSpatialRadius;
-              float restirHistoryLimit;
+              float pointLightSoftShadows;
+              float shadowRayCount;
+              float _pad116;
+              float _padPL;
             };
 
                         
-struct ReSTIRReservoir {
-    uint lightPacked;
-    uint targetPdf;
-    uint weightSum;
-    uint numSamples;
-};
-
-// --- ReSTIR ---
-static inline float randFloat(thread uint& seed) {
-    seed ^= seed << 13;
-    seed ^= seed >> 17;
-    seed ^= seed << 5;
-    return float(seed) * 2.3283064365386963e-10f;
-}
-
-static inline void updateReservoir(thread ReSTIRReservoir& r, uint newLight, float weight, float pdf, float randomValue) {
-    float currentWeightSum = as_type<float>(r.weightSum);
-    currentWeightSum += weight;
-    r.weightSum = as_type<uint>(currentWeightSum);
-    r.numSamples += 1;
-    if (randomValue * currentWeightSum <= weight) {
-        r.lightPacked = newLight;
-        r.targetPdf = as_type<uint>(pdf);
-    }
-}
-
-static inline void combineReservoirs(thread ReSTIRReservoir& r, ReSTIRReservoir newRes, float randomValue) {
-    float newPdf = as_type<float>(newRes.targetPdf);
-    float newW = as_type<float>(newRes.weightSum);
-    float weight = newPdf * newW * float(newRes.numSamples);
-    updateReservoir(r, newRes.lightPacked, weight, newPdf, randomValue);
-}
+// --- Analytical Point Lights (replaced ReSTIR) ---
 
 static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
               if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
@@ -394,75 +363,89 @@ kernel void prisma_deferred_cs(
               float4 prevClip = uVoxel.prevViewProj * float4(pWorld, 1.0f);
               float2 currentUv = (currentClip.xy / max(currentClip.w, 0.0001f)) * 0.5f + 0.5f;
               float2 prevUv = (prevClip.xy / max(prevClip.w, 0.0001f)) * 0.5f + 0.5f;
-              float2 velocity = currentUv - prevUv;
+              // Motion vector in pixels (MetalFX requires pixel-space, Y points DOWN in texture space)
+              float2 velocity = (currentUv - prevUv) * float2(float(velocityTex.get_width()), -float(velocityTex.get_height()));
               velocityTex.write(float4(velocity, 0.0f, 0.0f), gid);
 
-              // --- ReSTIR Initial Spawning ---
-              uint seed = (gid.x * 1973 + gid.y * 9277 + uint(u.gameTime * 100000.0f)) | 1;
-              ReSTIRReservoir r;
-              r.lightPacked = 0;
-              r.targetPdf = 0;
-              r.weightSum = 0;
-              r.numSamples = 0;
-              
-              int lightCount = int(uVoxel.gridSize.w);
-              if (lightCount > 0) {
-                  int randomLightIdx = min(int(randFloat(seed) * lightCount), lightCount - 1);
-                  float3 lPos = uVoxel.lights[randomLightIdx].posAndRadius.xyz;
-                  float3 toL = lPos - pWorld;
-                  float distL = length(toL);
-                  float lRad = uVoxel.lights[randomLightIdx].posAndRadius.w;
-                  
-                  if (distL < lRad && distL > 0.05f) {
-                      float NdotL = saturate(dot(surfNormal, toL / distL));
-                      float atten = saturate(1.0f - distL / lRad);
-                      float pdf = NdotL * (atten * atten) * uVoxel.lights[randomLightIdx].colorAndIntensity.w;
-                      
-                      // 1 / prob is just lightCount for uniform sampling
-                      float w = pdf * float(lightCount);
-                      updateReservoir(r, randomLightIdx, w, pdf, randFloat(seed));
-                  }
-              }
-              
-              // Write to buffer
-              currReservoirTex.write(uint4(r.lightPacked, r.targetPdf, r.weightSum, r.numSamples), gid);
+              // Write dummy reservoir (kept for compatibility)
+              currReservoirTex.write(uint4(0, 0, 0, 0), gid);
 
 
               
               bool isFirstPerson = (length(uVoxel.camPos.xyz - (uVoxel.playerPos.xyz + float3(0.0f, 1.5f, 0.0f))) < 0.60f);
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
               
+              // --- Analytical Point Lights (deterministic, no noise) ---
               PointLightResult ptRes = PointLightResult{float3(0.0f), 0.0f, 0.0f};
-              if (uVoxel.camRight.w > 0.5f && r.numSamples > 0 && as_type<float>(r.weightSum) > 0.0001f && as_type<float>(r.targetPdf) > 0.0001f) {
-                  uint chosenIdx = r.lightPacked;
-                  float3 lPos = uVoxel.lights[chosenIdx].posAndRadius.xyz;
-                  float3 toL = lPos - pWorld;
-                  float distL = length(toL);
-                  float lRad = uVoxel.lights[chosenIdx].posAndRadius.w;
+              float3 pointLights = float3(0.0f);
+              if (uVoxel.camRight.w > 0.5f) {
+                  int lightCount = int(uVoxel.gridSize.w);
+                  float3 rayOrigin = pWorld + surfNormal * 0.05f;
                   
-                  if (distL < lRad && distL > 0.05f) {
+                  int rayCount = int(u.shadowRayCount);
+                  float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
+                  float dAngle = ign * 6.2831853f;
+                  
+                  float maxDarkening = 0.0f;
+                          
+                  for (int li = 0; li < lightCount && li < 32; li++) {
+                      float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
+                      float3 toL = lPos - pWorld;
+                      float distL = length(toL);
+                      float lRad = uVoxel.lights[li].posAndRadius.w;
+                      if (distL >= lRad || distL < 0.05f) continue;
+                      
                       float3 L = toL / distL;
                       float NdotL = saturate(dot(surfNormal, L));
-                      float atten = saturate(1.0f - distL / lRad);
+                      if (NdotL < 0.001f) continue;
+                      
+                      float atten = saturate(1.0f - (distL / lRad));
                       float smoothAtten = atten * atten;
-                      float3 lColor = uVoxel.lights[chosenIdx].colorAndIntensity.xyz * uVoxel.lights[chosenIdx].colorAndIntensity.w;
+                      float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz * uVoxel.lights[li].colorAndIntensity.w;
                       
-                      // Calculate visibility (raytrace shadow)
-                      float visibility = 1.0f;
-                      float3 rayOrigin = pWorld + surfNormal * 0.05f;
-                      float3 targetPos = rayOrigin + L * distL;
-                      ShadowRayResult shadowRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                      visibility = shadowRes.vis;
+                      int numSamples = max(1, min(rayCount, 32));
+                      float radius = (rayCount > 0) ? 0.30f : 0.0f;
                       
-                      float finalW = as_type<float>(r.weightSum);
-                      // Since targetPdf already includes NdotL and smoothAtten, finalW will divide them out,
-                      // so we multiply by them here to get the proper physical light intensity.
-                      ptRes.color = lColor * NdotL * smoothAtten * visibility * finalW;
+                      float totalVis = 0.0f;
+                      float3 up = abs(L.y) < 0.99f ? float3(0, 1, 0) : float3(1, 0, 0);
+                      float3 tangent = normalize(cross(up, L));
+                      float3 bitangent = cross(L, tangent);
+                      
+                      for (int si = 0; si < numSamples; si++) {
+                          float rRadius = sqrt((float(si) + 0.5f) / float(numSamples)) * radius;
+                          float theta = float(si) * 2.399963f + dAngle;
+                          float2 disk = float2(cos(theta), sin(theta)) * rRadius;
+                          float3 offset = (tangent * disk.x + bitangent * disk.y);
+                          
+                          float3 jitteredLPos = lPos + offset;
+                          float3 jitteredL = jitteredLPos - pWorld;
+                          float jitteredDist = length(jitteredL);
+                          float3 targetPos = rayOrigin + (jitteredL / jitteredDist) * jitteredDist;
+                          
+                          ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                          
+                          if (uVoxel.shadowParams.w > 0.5f && sr.vis > 0.0f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f) {
+                              if (isFirstPerson && nWorld.y > 0.55f && rayOrigin.y <= uVoxel.playerPos.y + 0.6f) {
+                                  float3 ptL = normalize(targetPos - rayOrigin);
+                                  PlayerHit hit; hit.hitDist = 1e6f;
+                                  tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                                  if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
+                                      sr.vis = 0.0f;
+                                  }
+                              }
+                          }
+                          totalVis += sr.vis;
+                      }
+                      
+                      float visibility = totalVis / float(numSamples);
+                      pointLights += lColor * NdotL * smoothAtten * visibility;
+                      
+                      float currentDarkening = (1.0f - visibility) * NdotL * atten * saturate(uVoxel.lights[li].colorAndIntensity.w * 0.5f);
+                      maxDarkening = max(maxDarkening, currentDarkening);
                   }
+                  ptRes.shadowDarkening = maxDarkening;
               }
-              float3 pointLights = ptRes.color;
-
-              float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
+                            float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
               float3 scaledPtLight = pointLights * dayDampen;
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
               float3 totalBlockLight = smoothPointLights;
@@ -487,63 +470,46 @@ kernel void prisma_deferred_cs(
 
                   float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
                   float dAngle = ign * 6.2831853f;
-                  float ditherX = cos(dAngle);
-                  float ditherZ = sin(dAngle);
                   
-                  float sdaaMode = uVoxel.shadowParams.z;
-                  float radius = abs(sdaaMode) * 0.8f;
-                  float3 j1 = float3(ditherX, 0.0f, ditherZ) * radius;
-                float3 rDir1 = normalize(celestialDir * 40.0f + j1);
-                if (dot(rDir1, nWorld) < 0.02f) {
-                    rDir1 = normalize(rDir1 + nWorld * (0.02f - dot(rDir1, nWorld)));
-                }
-                float3 t1 = rayStart + rDir1 * 40.0f;
-                ShadowRayResult cRes1 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                
-                bool canCastPlayerShadow = (uVoxel.shadowParams.w > 0.5f && length(rayStart.xz - uVoxel.playerPos.xz) < 12.0f);
-                if (isFirstPerson) {
-                    canCastPlayerShadow = canCastPlayerShadow && (nWorld.y > 0.55f && rayStart.y <= uVoxel.playerPos.y + 0.6f);
-                }
-                if (sdaaMode > 0.0f) {
-                    float3 j2 = float3(-ditherZ, 0.0f, ditherX) * radius;
-                    float3 j3 = float3(-ditherX, 0.0f, -ditherZ) * radius;
-                    float3 rDir2 = normalize(celestialDir * 40.0f + j2);
-                    if (dot(rDir2, nWorld) < 0.02f) {
-                        rDir2 = normalize(rDir2 + nWorld * (0.02f - dot(rDir2, nWorld)));
-                    }
-                    float3 rDir3 = normalize(celestialDir * 40.0f + j3);
-                    if (dot(rDir3, nWorld) < 0.02f) {
-                        rDir3 = normalize(rDir3 + nWorld * (0.02f - dot(rDir3, nWorld)));
-                    }
-                    float3 t2 = rayStart + rDir2 * 40.0f;
-                    float3 t3 = rayStart + rDir3 * 40.0f;
-                    ShadowRayResult cRes2 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t2, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                    ShadowRayResult cRes3 = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t3, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                    
-                    if (canCastPlayerShadow) {
-                        PlayerHit hit; hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, rDir1, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
-                        
-                        hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, rDir2, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes2.vis = 0.0f;
-                        
-                        hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, rDir3, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes3.vis = 0.0f;
-                    }
-                    computedShadow = (cRes1.vis + cRes2.vis + cRes3.vis) * 0.333f;
-                    computedTint = (cRes1.tint + cRes2.tint + cRes3.tint) * 0.333f;
-                } else {
-                    if (canCastPlayerShadow) {
-                        PlayerHit hit; hit.hitDist = 1e6f;
-                        tracePlayerOBB(rayStart, rDir1, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                        if (hit.hitDist > 0.15f && hit.hitDist < 40.0f) cRes1.vis = 0.0f;
-                    }
-                    computedShadow = cRes1.vis;
-                    computedTint = cRes1.tint;
-                }
+                  
+                  float radius = 0.8f;
+                  
+                  bool canCastPlayerShadow = (uVoxel.shadowParams.w > 0.5f && length(rayStart.xz - uVoxel.playerPos.xz) < 12.0f);
+                  if (isFirstPerson) {
+                      canCastPlayerShadow = canCastPlayerShadow && (nWorld.y > 0.55f && rayStart.y <= uVoxel.playerPos.y + 0.6f);
+                  }
+                  
+                  int rayCount = int(u.shadowRayCount);
+                  int numSamples = max(1, min(rayCount, 32));
+                  if (rayCount == 0) radius = 0.0f;
+                  
+                  float totalVis = 0.0f;
+                  float3 totalTint = float3(0.0f);
+                  
+                  for (int si = 0; si < numSamples; si++) {
+                      float rRadius = sqrt((float(si) + 0.5f) / float(numSamples)) * radius;
+                      float theta = float(si) * 2.399963f + dAngle;
+                      float2 disk = float2(cos(theta), sin(theta)) * rRadius;
+                      float3 offset = float3(disk.x, 0.0f, disk.y);
+                      
+                      float3 rDir = normalize(celestialDir * 40.0f + offset);
+                      if (dot(rDir, nWorld) < 0.02f) {
+                          rDir = normalize(rDir + nWorld * (0.02f - dot(rDir, nWorld)));
+                      }
+                      float3 t1 = rayStart + rDir * 40.0f;
+                      ShadowRayResult cRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                      
+                      if (canCastPlayerShadow) {
+                          PlayerHit hit; hit.hitDist = 1e6f;
+                          tracePlayerOBB(rayStart, rDir, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                          if (hit.hitDist > 0.0000f && hit.hitDist < 40.0f) cRes.vis = 0.0f;
+                      }
+                      totalVis += cRes.vis;
+                      totalTint += cRes.tint;
+                  }
+                  
+                  computedShadow = totalVis / float(numSamples);
+                  computedTint = totalTint / float(numSamples);
                 computedShadow = mix(computedShadow, 1.0f, u.rainStrength * 0.85f);
                 }
               }
@@ -688,9 +654,8 @@ kernel void prisma_deferred_cs(
               }
 
               bool isEmissiveBlock = (insideVox.x & 8) != 0;
-              bool isOutsideGridEmissive = !isEntity && blockLevel > 0.92f;
-              if (isEmissiveBlock || isOutsideGridEmissive) {
-                float emStr = isMetal ? 1.15f : mix(1.0f, 1.6f, blockLevel);
+              if (isEmissiveBlock) {
+                float emStr = isMetal ? 1.15f : 1.6f;
                 baseLighting = max(baseLighting, float3(emStr));
               }
 
@@ -748,6 +713,46 @@ kernel void prisma_deferred_cs(
                   
                   float4 cloudData = computeVolumetricClouds(uVoxel.camPos.xyz, rayDir, u.gameTime, hazeColor, sunWeight, sunDir, moonDir, currentSunColor, currentMoonColor, u.cloudsEnabled, u.cloudSteps, u.rainStrength, distToCam);
                   litRgb = litRgb * cloudData.a + cloudData.rgb;
+              }
+              
+              // --- Analytical Volumetric Light Scattering ---
+              if (uVoxel.camRight.w > 0.5f) {
+                  float3 volumetricFog = float3(0.0f);
+                  int lightCount = int(uVoxel.gridSize.w);
+                  float3 ro = uVoxel.camPos.xyz;
+                  float3 rd = normalize(pWorld - ro);
+                  float tMax = length(pWorld - ro);
+
+                  for (int li = 0; li < lightCount && li < 32; li++) {
+                      float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
+                      float lRad = uVoxel.lights[li].posAndRadius.w;
+                      float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz * uVoxel.lights[li].colorAndIntensity.w;
+                      
+                      float3 toLight = lPos - ro;
+                      float tClosest = dot(toLight, rd);
+                      float d = max(length(toLight - rd * tClosest), 0.15f);
+
+                      float val1 = atan((tMax - tClosest) / d);
+                      float val2 = atan((0.0f - tClosest) / d);
+                      float scattering = max(0.0f, val1 - val2) / d;
+                      
+                      float tClamp = clamp(tClosest, 0.0f, tMax);
+                      float distSq = length_squared(lPos - (ro + rd * tClamp));
+                      float attenuation = saturate(1.0f - sqrt(distSq) / (lRad * 1.2f));
+                      attenuation *= attenuation * attenuation; // Smooth rapid falloff
+                      
+                      float3 lColorBase = uVoxel.lights[li].colorAndIntensity.xyz;
+                      float baseMultiplier = 0.12f;
+                      
+                      // Identify Torches & Lanterns by their specific hardcoded warm color (1.0, 0.65, 0.22)
+                      if (abs(lColorBase.r - 1.0f) < 0.02f && abs(lColorBase.g - 0.65f) < 0.02f && abs(lColorBase.b - 0.22f) < 0.02f) {
+                          baseMultiplier = 0.005f;
+                      }
+                      
+                      float glow = scattering * baseMultiplier * attenuation;
+                      volumetricFog += lColor * glow;
+                  }
+                  litRgb += volumetricFog;
               }
               
               outTexture.write(float4(litRgb, albedo.a), gid);

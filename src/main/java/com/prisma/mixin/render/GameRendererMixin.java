@@ -130,9 +130,7 @@ public class GameRendererMixin {
                             sunriseAlpha = -2.0f;
                         }
 
-                        long dayTime = this.minecraft.level.getOverworldClockTime() % 24000L;
-                        float timeFraction = ((float) dayTime + partialTick) / 24000.0f;
-                        sunAngle = (timeFraction - 0.25f) * 2.0f * (float) Math.PI;
+
                     }
                     float cameraPitch = (float) Math.toRadians(camera.xRot());
                     float cameraYaw = (float) Math.toRadians(camera.yRot());

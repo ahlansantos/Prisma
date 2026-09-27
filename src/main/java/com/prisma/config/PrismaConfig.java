@@ -10,44 +10,42 @@ public final class PrismaConfig {
 
         public volatile int voxelRadius = 6;
     public volatile float caveLighting = 0.05f;
-    public volatile boolean vxaoEnabled = true;
+    public volatile boolean vxaoEnabled = false;
     public volatile float vxaoStrength = 1.0f;
     public volatile String shaderPack = "VXR Default";
 
-    public volatile boolean pointLightsEnabled = true;
-    public volatile boolean reflectionsEnabled = true;
+    public volatile boolean pointLightsEnabled = false;
+    public volatile boolean reflectionsEnabled = false;
     public volatile boolean cloudsInReflections = true;
 
     public volatile boolean reflectionPointLightShadows = true;
     public volatile boolean reflectionDirectionalShadows = true;
     public volatile boolean vxaoInReflections = true;
-    public volatile boolean sunShadowsEnabled = true;
+    public volatile boolean sunShadowsEnabled = false;
 
 
 
-    public volatile boolean playerShadowEnabled = true;
+    public volatile boolean playerShadowEnabled = false;
     public volatile boolean playerReflectionEnabled = true;
                 
 
     public volatile int csmResolution = 2048;
     public volatile int csmCascades = 3;
-    public volatile boolean waterWavesEnabled = true;
+    public volatile boolean waterWavesEnabled = false;
     public volatile float waterWaveStrength = 1.0f;
     public volatile float waterWaveSpeed = 1.0f;
     public volatile float waterAbsorptionStrength = 1.0f;
-    public volatile boolean volumetricCloudsEnabled = true;
+    public volatile boolean volumetricCloudsEnabled = false;
     public volatile int cloudQualitySteps = 30;
     public volatile float upscalingRatio = 1.0f;
     public volatile boolean motionBlurEnabled = true;
-    public volatile boolean sdaaEnabled = true;
 
     // ReSTIR
-    public volatile boolean restirTemporal = true;
-    public volatile boolean restirSpatial = true;
-    public volatile float restirSpatialRadius = 30.0f;
-    public volatile int restirHistoryLimit = 20;
-    public volatile boolean metalFxUpscalingEnabled = false;
-    public volatile int metalFxQuality = 1; // 0=Performance, 1=Balanced, 2=Quality
+     // PCF soft shadow for point lights
+    public volatile float metalFxResolutionScale = 0.5f;
+    public volatile float easuResolutionScale = 1.0f;
+    public volatile float unsharpMaskStrength = 0.0f;
+    public volatile int shadowRayCount = 3; // 0.1 to 2.0
     public volatile boolean volPointLightsEnabled = false;
     public volatile float volPointLightIntensity = 1.0f;
     public volatile int volPointLightQuality = 15;
@@ -85,13 +83,10 @@ public final class PrismaConfig {
             sb.append("\"motionBlurEnabled\":").append(motionBlurEnabled).append(",");
             sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
             sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
-            sb.append("\"sdaaEnabled\":").append(sdaaEnabled).append(",");
-            sb.append("\"restirTemporal\":").append(restirTemporal).append(",");
-            sb.append("\"restirSpatial\":").append(restirSpatial).append(",");
-            sb.append("\"restirSpatialRadius\":").append(restirSpatialRadius).append(",");
-            sb.append("\"restirHistoryLimit\":").append(restirHistoryLimit).append(",");
-            sb.append("\"metalFxUpscalingEnabled\":").append(metalFxUpscalingEnabled).append(",");
-            sb.append("\"metalFxQuality\":").append(metalFxQuality).append(",");
+                        sb.append("\"metalFxResolutionScale\":").append(metalFxResolutionScale).append(",");
+            sb.append("\"easuResolutionScale\":").append(easuResolutionScale).append(",");
+            sb.append("\"unsharpMaskStrength\":").append(unsharpMaskStrength).append(",");
+            sb.append("\"shadowRayCount\":").append(shadowRayCount).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f", caveLighting));
             sb.append("}");
             Files.writeString(configFile, sb.toString());
@@ -168,36 +163,29 @@ public final class PrismaConfig {
                 if ((val = getJsonValue(content, "cloudQualitySteps")) != null) {
                     try { cloudQualitySteps = Math.clamp(Integer.parseInt(val), 10, 80); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "upscalingRatio")) != null) {
-                    try { upscalingRatio = Math.clamp(Float.parseFloat(val), 0.1f, 1.5f); } catch (Throwable ignored) {}
-                }
+                
                 if ((val = getJsonValue(content, "playerShadowEnabled")) != null) {
                     try { playerShadowEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "playerReflectionEnabled")) != null) {
                     try { playerReflectionEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "sdaaEnabled")) != null) {
-                    try { sdaaEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
+                
 
-                if ((val = getJsonValue(content, "restirTemporal")) != null) {
-                    try { restirTemporal = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                
+                
+                
+                if ((val = getJsonValue(content, "metalFxResolutionScale")) != null) {
+                    try { metalFxResolutionScale = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "restirSpatial")) != null) {
-                    try { restirSpatial = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                if ((val = getJsonValue(content, "easuResolutionScale")) != null) {
+                    try { easuResolutionScale = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "restirSpatialRadius")) != null) {
-                    try { restirSpatialRadius = Float.parseFloat(val); } catch (Throwable ignored) {}
+                if ((val = getJsonValue(content, "unsharpMaskStrength")) != null) {
+                    try { unsharpMaskStrength = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "restirHistoryLimit")) != null) {
-                    try { restirHistoryLimit = Integer.parseInt(val); } catch (Throwable ignored) {}
-                }
-                if ((val = getJsonValue(content, "metalFxUpscalingEnabled")) != null) {
-                    try { metalFxUpscalingEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
-                if ((val = getJsonValue(content, "metalFxQuality")) != null) {
-                    try { metalFxQuality = Integer.parseInt(val); } catch (Throwable ignored) {}
+                if ((val = getJsonValue(content, "shadowRayCount")) != null) {
+                    try { shadowRayCount = Integer.parseInt(val); } catch (Throwable ignored) {}
                 }
 
                 if ((val = getJsonValue(content, "caveLighting")) != null) {

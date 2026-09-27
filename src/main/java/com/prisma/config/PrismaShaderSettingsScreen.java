@@ -63,30 +63,25 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(Component.literal("in-game UI configuration menus.").withStyle(net.minecraft.ChatFormatting.GRAY)));
         } else if (this.currentTab == Tab.LIGHTING) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Illumination").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b1 = createToggle("Double AO", PrismaConfig.INSTANCE.vxaoEnabled, v -> PrismaConfig.INSTANCE.vxaoEnabled = v);
-            ConfigSlider b2 = new ConfigSlider("AO Strength", 0.0, 2.0, PrismaConfig.INSTANCE.vxaoStrength, true, v -> PrismaConfig.INSTANCE.vxaoStrength = v.floatValue());
-            this.listWidget.add(new SettingsEntry(b1, b2));
-            ConfigSlider sCave = new ConfigSlider("Cave Lighting", 0.0, 1.0, PrismaConfig.INSTANCE.caveLighting, true, v -> PrismaConfig.INSTANCE.caveLighting = v.floatValue());
-            this.listWidget.add(new SettingsEntry(sCave, null));
-
-
-            this.listWidget.add(new SettingsEntry(Component.literal("ReSTIR & Point Lights").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button bVxao = createToggle("Voxel AO", PrismaConfig.INSTANCE.vxaoEnabled, v -> PrismaConfig.INSTANCE.vxaoEnabled = v);
+            ConfigSlider bVxaoStrength = new ConfigSlider("VXAO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.vxaoStrength, false, v -> { PrismaConfig.INSTANCE.vxaoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
+            this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
+            
             Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
-            Button bTemp = createToggle("Temporal Reuse", PrismaConfig.INSTANCE.restirTemporal, v -> PrismaConfig.INSTANCE.restirTemporal = v);
-            this.listWidget.add(new SettingsEntry(b4, bTemp));
-            
-            Button bSpat = createToggle("Spatial Reuse", PrismaConfig.INSTANCE.restirSpatial, v -> PrismaConfig.INSTANCE.restirSpatial = v);
-            ConfigSlider sHist = new ConfigSlider("Temporal History", 1.0, 40.0, PrismaConfig.INSTANCE.restirHistoryLimit, false, v -> PrismaConfig.INSTANCE.restirHistoryLimit = v.intValue());
-            this.listWidget.add(new SettingsEntry(bSpat, sHist));
-            
-            ConfigSlider sRad = new ConfigSlider("Spatial Radius", 5.0, 100.0, PrismaConfig.INSTANCE.restirSpatialRadius, true, v -> PrismaConfig.INSTANCE.restirSpatialRadius = v.floatValue());
-            this.listWidget.add(new SettingsEntry(sRad, null));
+            this.listWidget.add(new SettingsEntry(b4, null));
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Shadows").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            this.listWidget.add(new SettingsEntry(Component.literal("Shadows & Quality").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b5 = createToggle("Sun Shadows", PrismaConfig.INSTANCE.sunShadowsEnabled, v -> PrismaConfig.INSTANCE.sunShadowsEnabled = v);
             Button b7 = createToggle("Player Shadows", PrismaConfig.INSTANCE.playerShadowEnabled, v -> PrismaConfig.INSTANCE.playerShadowEnabled = v);
             this.listWidget.add(new SettingsEntry(b5, b7));
-
+            
+            ConfigSlider bRays = new ConfigSlider("Penumbra Ray Count", 0.0, 32.0, PrismaConfig.INSTANCE.shadowRayCount, false, v -> {
+                PrismaConfig.INSTANCE.shadowRayCount = v.intValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            bRays.setWidth(310); // Make it take two slots if possible
+            this.listWidget.add(new SettingsEntry(bRays, null));
+            
             this.listWidget.add(new SettingsEntry(Component.literal("Ray Traced Reflections").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b9 = createToggle("Reflections", PrismaConfig.INSTANCE.reflectionsEnabled, v -> PrismaConfig.INSTANCE.reflectionsEnabled = v);
             Button b8 = createToggle("Player Reflections", PrismaConfig.INSTANCE.playerReflectionEnabled, v -> PrismaConfig.INSTANCE.playerReflectionEnabled = v);
@@ -121,25 +116,27 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(vrad, null));
 
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Spatial Denoiser & Anti Aliaser (SDAA)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button bSdaa = createToggle("SDAA Enabled", PrismaConfig.INSTANCE.sdaaEnabled, v -> PrismaConfig.INSTANCE.sdaaEnabled = v);
-            this.listWidget.add(new SettingsEntry(bSdaa, null));
+
             this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
             this.listWidget.add(new SettingsEntry(b1, null));
 
-            this.listWidget.add(new SettingsEntry(Component.literal("MetalFX Upscaling").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button bMetalFX = createToggle("MetalFX Enabled", PrismaConfig.INSTANCE.metalFxUpscalingEnabled, v -> PrismaConfig.INSTANCE.metalFxUpscalingEnabled = v);
+            this.listWidget.add(new SettingsEntry(Component.literal("Cascaded Upscaling (MFX + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             
-            String[] mfxModes = new String[]{"Performance", "Balanced", "Quality"};
-            Button bMfxQ = Button.builder(net.minecraft.network.chat.Component.literal("Mode: " + mfxModes[PrismaConfig.INSTANCE.metalFxQuality]), (b) -> {
-                PrismaConfig.INSTANCE.metalFxQuality = (PrismaConfig.INSTANCE.metalFxQuality + 1) % 3;
-                b.setMessage(net.minecraft.network.chat.Component.literal("Mode: " + mfxModes[PrismaConfig.INSTANCE.metalFxQuality]));
+            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 1.0, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
+                PrismaConfig.INSTANCE.metalFxResolutionScale = v.floatValue();
                 PrismaConfig.INSTANCE.save();
-            }).bounds(0, 0, 150, 20).build();
-
-            this.listWidget.add(new SettingsEntry(bMetalFX, bMfxQ));
-            
+            });
+            ConfigSlider bEasuQ = new ConfigSlider("Intermediate Scale (EASU Input)", 0.25, 1.0, PrismaConfig.INSTANCE.easuResolutionScale, true, v -> {
+                PrismaConfig.INSTANCE.easuResolutionScale = v.floatValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            this.listWidget.add(new SettingsEntry(bMfxQ, bEasuQ));
+            ConfigSlider bUnsharp = new ConfigSlider("Sharpening / Reverse Blur", 0.0, 1.0, PrismaConfig.INSTANCE.unsharpMaskStrength, true, v -> {
+                PrismaConfig.INSTANCE.unsharpMaskStrength = v.floatValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            this.listWidget.add(new SettingsEntry(bUnsharp, null));         
 
         }
         this.addRenderableWidget(this.listWidget);
