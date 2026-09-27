@@ -19,6 +19,8 @@
 - Cleaned up obsolete settings toggles and unified Double AO settings.
 - Optimized volumetric step limits (24 max steps) to prevent macOS GPU Metal submit timeouts.
 
+> **Performance Note (M1 Air / Base Apple Silicon):** Prisma is highly demanding. On base models like the M1 MacBook Air, performance is heavily impacted unless render resolution scaling is set around 25%–45% with quality settings set to Medium.
+
 ---
 
 ## [26.3-Preview.1]
