@@ -1,52 +1,63 @@
-# Prisma: The Native Ray Traced Voxel Engine for macOS
+# Prisma
 
-[![Fabric 0.19.3](https://img.shields.io/badge/Fabric-0.19.3-lightgrey.svg)](https://fabricmc.net/)
-[![Minecraft 26.3](https://img.shields.io/badge/Minecraft-26.3-brightgreen.svg)](https://minecraft.net/)
-[![Apple Silicon](https://img.shields.io/badge/Apple-Silicon_Optimized-blue.svg)](#)
-[![Metal API](https://img.shields.io/badge/Graphics-Apple_Metal-orange.svg)](#)
+> **Notice:** Prisma is fully open-source under the MIT license. However, pre-compiled binaries and official releases are exclusively distributed via our [Discord Server](https://discord.gg/X8u3yJZQbm). 
 
-Prisma is a revolutionary ray tracing engine and shader loader designed natively for Minecraft macOS. Built from the ground up to bypass GLSL translation overhead, Prisma utilizes Apple's **Metal Shading Language (MSL)** and the Unified Memory Architecture of M-series chips to deliver pure path tracing performance.
+Prisma is a **Native Apple Silicon Metal Shader Loader** for Minecraft and Sodium. 
 
-## 🌟 Core Features
+By completely bypassing OpenGL, MoltenVK, and translation layers, Prisma loads and compiles `.metal` (MSL) shaderpacks directly to the GPU. This provides unprecedented performance for shaders on Mac. 
 
-- **Native Voxel Ray Tracing**: Real-time access to a 3D Voxel Grid on the GPU, powered by heavily optimized DDA ray marching for accurate physical collision and reflections.
-- **MetalFX & EASU Cascaded Upscaling**: Run natively at high resolutions using cascaded spatial upscaling (Apple MetalFX + AMD EASU), coupled with contrast-adaptive Laplacian Sharpening.
-- **Unconstrained Penumbra Shadows**: Every light source casts physically accurate dynamic shadows. Using procedural Vogel disk sampling, penumbra shadows scale flawlessly up to 32 simultaneous rays.
-- **Analytical Volumetric Scattering**: Beautiful, mathematically pure volumetric light bloom (fog) around point lights calculated natively along the view ray.
-- **Open Shader API**: Built-in `PrismaShaderAPI` gives third-party mods elegant hooks to register custom MSL passes, inject custom uniforms, and control the rendering pipeline directly in Java.
-
-## 🚀 Getting Started
-
-1. Ensure you are running **Minecraft 26.3** with **Fabric Loader 0.19.3**.
-2. Install the required dependency: **Sodium mc26.3-0.9.2**.
-3. Drop the `prisma-26.3-preview-1.jar` into your `mods` folder.
-4. Launch the game and access the Prisma Settings through the video menu.
-
-*(Note: Prisma pushes macOS hardware to its limits. Base M1 Air devices may experience performance drops at full resolution on maximum settings).*
-
-## 🛠 For Developers
-
-Want to write a custom post-processing effect natively in MSL? Use the new `PrismaShaderAPI`.
-
-```java
-import com.prisma.api.PrismaShaderAPI;
-import net.minecraft.util.Identifier;
-
-public class MyAddon {
-    public void init() {
-        // Register a custom bloom pass
-        PrismaShaderAPI.getInstance().registerCustomMetalPass(
-            new Identifier("mymod", "custom_bloom"),
-            "mymod:shaders/bloom.metal"
-        );
-        
-        // Push uniforms directly to the GPU
-        PrismaShaderAPI.getInstance().bindCustomUniform("u_bloomStrength", new float[]{ 1.5f });
-    }
-}
-```
-
-Check out our [Website & Docs](https://ahlansantos.github.io/prisma/) or join the [Discord](https://discord.gg/EtdRVPtxMA).
+Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, which features real-time lighting, analytical voxel ray-traced shadows, and reflections.
 
 ---
-*Prisma is an independent engine. Not affiliated with Mojang AB or Apple Inc.*
+
+## Built-in Shader: Prisma's VXR Default
+
+The engine comes with a flagship built-in shaderpack out of the box. Here are its features:
+
+- **ASFW (Async Space Frame Warp):** Native Frame Generation interpolation that artificially multiplies framerates by projecting previous frames based on camera velocity.
+- **PEU (Prisma Edge-Adaptive Upscaler):** Edge-adaptive spatial upscaling running natively in MSL. Inspired by EASU (FSR 1.0), it dynamically detects edge contrast and reconstructs crisp details for practically lossless visuals at 50% native resolution, completely eliminating blur.
+- **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces.
+- **Volumetric Clouds:** Raymarched clouds with dynamic lighting and self-shadowing.
+- **Dynamic Weather System:** Includes fog, rain puddles, and ripples on the ground.
+- **Double AO:** Unified Voxel Ambient Occlusion (VXAO) and Screen-Space Ambient Occlusion (SSAO).
+- **VPLS (Voxel Point Light Shadows):** Dynamic shadows for held and placed light sources.
+- **Ray-Traced Foliage:** Alpha cutout sampling for precise foliage silhouettes and shadows.
+- **Post-Processing Pipeline:** Velocity-Based Motion Blur, Native Bloom, ACES Filmic Tonemapping, and Vignette.
+
+---
+
+<details>
+<summary><b>For Shader Developers</b></summary>
+
+Prisma acts as an open standard MSL (Metal Shading Language) Shader Loader.
+
+- **Dynamic Loading:** Prisma automatically scans the `shaderpacks/` directory for any folders containing a `shaders/` sub-directory with `.metal` files.
+- **VXR Isolation:** Advanced built-in features like PEU (Prisma Edge-Adaptive Upscaler) and ASFW (Frame Generation) are strictly isolated to the built-in VXR Default shader. Custom shaders render perfectly at native resolution with no G-Buffer bleeding or distortion.
+- **Ray Traced Shadows Template:** Looking to build advanced lighting? Join our [Discord Server](https://discord.gg/X8u3yJZQbm) to download an extended Metal shader template that includes built-in voxel ray-traced shadows!
+
+</details>
+
+## Installation
+
+1. Install Fabric Loader and Sodium.
+2. Download the latest Prisma `.jar` from Discord.
+3. Drop the `.jar` into your `.minecraft/mods` folder.
+4. Configure options under **Video Settings -> Shader Packs**.
+
+---
+
+<details>
+<summary><b>Known Limitations (Prisma's VXR Default)</b></summary>
+
+- **Voxel Grid Radius:** Terrain beyond the active voxel chunk radius reflects sky and ambient light rather than discrete geometry.
+- **ASFW Hardware Compatibility:** FrameWarp (ASFW) currently ONLY works on M1 and M2 architectures. It **does NOT support M3 chips and above** due to Apple's Dynamic Caching memory barrier changes.
+- **ASFW Artifacts:** On supported chips, very fast camera sweeps may produce minor edge ghosting. Using PEU alongside ASFW is highly recommended.
+- **Light Transmission:** Currently only supports solid translucent blocks (like stained glass). Light transmission through water is a work in progress.
+
+</details>
+
+---
+
+## Credits
+
+Built on top of Metallum by kokodio. Powered by Fabric and Sodium.
