@@ -8,6 +8,7 @@
     "gui.TitleScreenMixin",
     "gui.HudMixin",
     "render.GameRendererMixin",
+    "render.PrismaLevelRendererMixin",
     "render.PreferredGraphicsApiMixin",
     "sodium.DrawBackendMixin",
     "sodium.SodiumPreferredGraphicsApiMixin",

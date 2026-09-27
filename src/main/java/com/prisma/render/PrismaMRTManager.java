@@ -510,18 +510,22 @@ public final class PrismaMRTManager implements AutoCloseable {
 
     private static MemorySegment getPlayerSkinTexture(net.minecraft.client.Minecraft mc) {
         if (mc.player == null) return MemorySegment.NULL;
-        net.minecraft.client.renderer.texture.TextureManager tm = mc.getTextureManager();
-        var skinLoc = mc.player.getSkin().body().texturePath();
-        if (skinLoc != null) {
-            net.minecraft.client.renderer.texture.AbstractTexture skinTex = tm.getTexture(skinLoc);
-            if (skinTex != null) {
-                if (skinTex.getTexture() instanceof com.prisma.render.MetalGpuTexture mtlTex) {
-                    return mtlTex.nativeHandle();
-                }
-                if (skinTex.getTextureView() instanceof com.prisma.render.MetalGpuTextureView mtlView) {
-                    return mtlView.nativeHandle();
+        try {
+            net.minecraft.client.renderer.texture.TextureManager tm = mc.getTextureManager();
+            if (tm == null) return MemorySegment.NULL;
+            var skinLoc = mc.player.getSkin().body().texturePath();
+            if (skinLoc != null) {
+                net.minecraft.client.renderer.texture.AbstractTexture skinTex = tm.getTexture(skinLoc);
+                if (skinTex != null) {
+                    if (skinTex.getTexture() instanceof com.prisma.render.MetalGpuTexture mtlTex) {
+                        return mtlTex.nativeHandle();
+                    }
+                    if (skinTex.getTextureView() instanceof com.prisma.render.MetalGpuTextureView mtlView) {
+                        return mtlView.nativeHandle();
+                    }
                 }
             }
+        } catch (Throwable ignored) {
         }
         return MemorySegment.NULL;
     }
@@ -571,7 +575,8 @@ public final class PrismaMRTManager implements AutoCloseable {
             final float sunriseB,
             final float starBrightness,
             final float rainStrength,
-            final com.prisma.voxel.VoxelGridManager voxelManager
+            final com.prisma.voxel.VoxelGridManager voxelManager,
+            final boolean waterOnlyPass
     ) {
         if (!(colorGpuTex instanceof MetalGpuTexture colorTex)) {
             return;
@@ -669,6 +674,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 rainStrength,
                 voxelManager,
                 this.prevViewProj,
+                waterOnlyPass,
                 encoder.fence()
         );
 

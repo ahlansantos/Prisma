@@ -37,6 +37,7 @@
               float volFogEnabled;   // 116
               float volFogSamples;   // 120
               float volFogIntensity; // 124
+              float waterOnlyPass;   // 128
             };
 
                         
@@ -293,17 +294,31 @@ kernel void prisma_deferred_cs(
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
 
               if (!isEntity && !isCameraInFluid) {
-                // Check if this surface block is water
-                if (((insideVox.x & 4) != 0 && (insideVox.x & 8) == 0) || ((currVox.x & 4) != 0 && (currVox.x & 8) == 0)) {
-                  isWater = true;
+                // A surface is water ONLY if it is a horizontal upward surface within water height (Minecraft water is ~0.88 height)
+                bool isHorizontalSurface = (nWorld.y > 0.85f) && (geomNormal.y > 0.85f);
+                bool isWithinWaterHeight = (fract(pWorld.y) <= 0.92f);
+                // Check if current block or block directly below is water
+                int3 blockUnderPos = int3(floor(pWorld - float3(0.0f, 0.1f, 0.0f)));
+                uint2 voxUnder = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(blockUnderPos - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
+                bool hasWaterVoxel = ((currVox.x & 4) != 0 && (currVox.x & 8) == 0) || ((voxUnder.x & 4) != 0 && (voxUnder.x & 8) == 0);
+                if (isHorizontalSurface && isWithinWaterHeight && hasWaterVoxel) {
+                  if (u.waterOnlyPass > 0.5f) {
+                    isWater = true;
+                  }
                 }
-                uint reflectType = (insideVox.x >> 12) & 0x0F;
+                uint reflectType = max((currVox.x >> 12) & 0x0Fu, (insideVox.x >> 12) & 0x0Fu);
                 if (reflectType == 2u) {
                   isMetal = true;
                 }
                 if (reflectType == 1u) {
                   isGlass = true;
                 }
+              }
+
+              // In water-only pass, process water AND translucent glass reflections!
+              if (u.waterOnlyPass > 0.5f && !isWater && !isGlass) {
+                outTexture.write(float4(albedo.rgb, albedo.a), gid);
+                return;
               }
 
               float3 surfNormal = isEntity ? geomNormal : normalize(mix(geomNormal, nWorld, 0.70f));
@@ -684,9 +699,9 @@ kernel void prisma_deferred_cs(
 
               if (isCameraUnderwater) {
                 float distToCam = length(pWorld - uVoxel.camPos.xyz);
-                float fogFactor = saturate(distToCam * 0.04f);
-                float3 rtxWater = mix(float3(0.005f, 0.03f, 0.15f), float3(0.02f, 0.55f, 0.75f), saturate(1.0f - distToCam / 32.0f));
-                litRgb = mix(litRgb, rtxWater * max(activeSkyLight, float3(0.3f)), fogFactor);
+                float fogFactor = saturate(1.0f - exp(-distToCam * 0.055f));
+                float3 rtxWater = mix(float3(0.02f, 0.22f, 0.45f), float3(0.10f, 0.65f, 0.85f), saturate(1.0f - distToCam / 40.0f));
+                litRgb = mix(litRgb, rtxWater * max(activeSkyLight * 1.2f, float3(0.45f)), fogFactor);
               } else if (isCameraInLava) {
                 float distToCam = length(pWorld - uVoxel.camPos.xyz);
                 float fogFactor = saturate(distToCam * 0.40f);

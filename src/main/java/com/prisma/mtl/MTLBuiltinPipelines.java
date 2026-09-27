@@ -217,10 +217,10 @@ public final class MTLBuiltinPipelines {
     }
 
     public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
-        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, prevViewProj, globalFence);
+        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, prevViewProj, false, globalFence);
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, boolean waterOnlyPass, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLComputeCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(albedoTexture)) {
@@ -257,7 +257,8 @@ public final class MTLBuiltinPipelines {
             MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
             try (MemoryStack stack = MemoryStack.stackPush();){
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
-                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 128)).reinterpret(128L);
+                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 144)).reinterpret(144L);
+                uniforms.fill((byte) 0);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 0L, aspect);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 4L, fovScale);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 8L, sunAngle);
@@ -297,7 +298,8 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 116L, cfg.rayMarchedFogEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 120L, (float)cfg.rayMarchedFogSamples);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 124L, cfg.rayMarchedFogIntensity);
-                encoder.setBytes(uniforms, 132L, 0L);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 128L, waterOnlyPass ? 1.0f : 0.0f);
+                encoder.setBytes(uniforms, 144L, 0L);
             }
             long tgWidth = (width + 15) / 16;
             long tgHeight = (height + 15) / 16;

@@ -3,6 +3,8 @@
 ## [26.3-Preview.2 - Hotfix]
 
 ### Features & Improvements
+- **Dual-Pass Translucent Deferred Shading:** Split deferred lighting into a pre-translucent solid pass and a post-translucent pass. Looking through stained glass and water now reveals fully deferred lighting (sun shadows, point light shadows, VXAO, indirect lighting) instead of vanilla illumination!
+- **Translucent Glass & Water Reflections:** Restored and polished specular reflections for stained glass and water across the dual-pass pipeline.
 - **Ray Traced Volumetric Fog Scattering:** Complete ground-up GPU ray march implementation with forward Henyey-Greenstein scattering and Beer-Lambert attenuation.
 - **Volumetric Sunlight & Moon God Rays:** Atmospheric crepuscular beams cast from the sun and moon directly through open sky and windows.
 - **Colored Glass Volumetric Light Staining:** Sunlight and point light beams passing through stained glass accurately take on the color of the glass media.
@@ -15,6 +17,8 @@
 - **Extended Handheld Lights:** Added redstone items and blocks to handheld dynamic emission.
 
 ### Fixes & Cleanups
+- **Water Boundary & Z-Fighting Fix:** Constrained water surface detection strictly to upward faces (`> 0.85`), eliminating flickering and z-fighting on adjacent submerged/exposed block walls.
+- **Water Fog Stability:** Stabilized ray-marched atmospheric fog around water boundaries to prevent jumpy or erratic shifts when moving near or submerged in water.
 - **Multiplayer Connection Crash Fix:** Guarded deferred lighting passes against uninitialized projection matrices during `ClientboundLoginPacket`, resolving `Network Protocol Error` disconnects.
 - **Cloud & Horizon Fog Dither Fix:** Bounded volumetric fog raymarching to the local voxel radius (56 blocks), eliminating harsh checkerboard/stippled noise patterns on clouds and distant water while improving performance.
 - Bamboo and iron bar collision/alpha bounds corrected to match true geometry.
