@@ -205,11 +205,11 @@ public class GameRendererMixin {
 
                     boolean sunShadows = PrismaConfig.INSTANCE.sunShadowsEnabled;
                     boolean playerShadow = PrismaConfig.INSTANCE.playerShadowEnabled;
-                    boolean playerReflection = PrismaConfig.INSTANCE.playerReflectionEnabled;
+                    boolean playerReflection = true;
                     float shadowQuality = 2.0f;
 
                     
-                        float vxaoStrength = PrismaConfig.INSTANCE.vxaoEnabled ? PrismaConfig.INSTANCE.vxaoStrength : 0.0f;
+                        float doubleAoStrength = PrismaConfig.INSTANCE.doubleAoEnabled ? PrismaConfig.INSTANCE.doubleAoStrength : 0.0f;
                         boolean ptLights = PrismaConfig.INSTANCE.pointLightsEnabled;
 
                         float rainStrength = this.minecraft.level != null ? this.minecraft.level.getRainLevel(partialTick) : 0.0f;
@@ -247,7 +247,7 @@ public class GameRendererMixin {
                                 mobData,
                                 invViewProj,
                                 viewProj,
-                                vxaoStrength,
+                                doubleAoStrength,
                                 ptLights,
                                 skyR,
                                 skyG,

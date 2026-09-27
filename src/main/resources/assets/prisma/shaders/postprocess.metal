@@ -190,9 +190,8 @@ fragment float4 prisma_postprocess_fs(
   
   
 
-  // Tonemapper (ACES)
-  
-  
+
+
   // Tonemapper (ACES)
   float ta = 2.51f;
   float tb = 0.03f;

@@ -25,7 +25,7 @@
               float maxPointLights;
               float reflectionPtShadows;
               float reflectionDirShadows;
-              float vxaoInReflections;
+              float doubleAoInReflections;
               
               float cloudsEnabled;
               float cloudSteps;
@@ -34,8 +34,9 @@
               float rainStrength;
               float pointLightSoftShadows;
               float shadowRayCount;
-              float _pad116;
-              float _padPL;
+              float volFogEnabled;   // 116
+              float volFogSamples;   // 120
+              float volFogIntensity; // 124
             };
 
                         
@@ -322,9 +323,9 @@ kernel void prisma_deferred_cs(
                 }
               }
 
-              float vxaoStrength = uVoxel.camPos.w;
-              float vxao = (!isEntity && gridWeight > 0.05f && vxaoStrength > 0.01f) ? computeVXAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * vxaoStrength * gridWeight : 0.0f;
-              float ssao = (!isEntity && vxaoStrength > 0.01f && vxao < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * vxaoStrength : 0.0f;
+              float doubleAoStrength = uVoxel.camPos.w;
+              float doubleAo = (!isEntity && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * doubleAoStrength * gridWeight : 0.0f;
+              float ssao = (!isEntity && doubleAoStrength > 0.01f && doubleAo < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * doubleAoStrength : 0.0f;
               
               float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld);
               float outsideSky = (surfNormal.y > -0.2f ? 1.0f : 0.5f);
@@ -348,7 +349,7 @@ kernel void prisma_deferred_cs(
               float skyLevel = get_vanilla_brightness(rawSky);
               float blockLevel = get_vanilla_brightness(rawBlock);
 
-              float combinedAo = saturate(max(vxao, ssao) * 0.80f) * saturate(1.0f - blockLevel * blockLevel);
+              float combinedAo = saturate(max(doubleAo, ssao) * 0.80f) * saturate(1.0f - blockLevel * blockLevel);
               if (isFoliage) {
                 combinedAo *= 0.40f; // Soften AO for tree leaves and vegetation
               }
@@ -407,6 +408,7 @@ kernel void prisma_deferred_cs(
                       float radius = (rayCount > 0) ? 0.30f : 0.0f;
                       
                       float totalVis = 0.0f;
+                      float3 totalTint = float3(0.0f);
                       float3 up = abs(L.y) < 0.99f ? float3(0, 1, 0) : float3(1, 0, 0);
                       float3 tangent = normalize(cross(up, L));
                       float3 bitangent = cross(L, tangent);
@@ -424,21 +426,27 @@ kernel void prisma_deferred_cs(
                           
                           ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                           
-                          if (uVoxel.shadowParams.w > 0.5f && sr.vis > 0.0f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f) {
-                              if (isFirstPerson && nWorld.y > 0.55f && rayOrigin.y <= uVoxel.playerPos.y + 0.6f) {
-                                  float3 ptL = normalize(targetPos - rayOrigin);
-                                  PlayerHit hit; hit.hitDist = 1e6f;
-                                  tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                                  if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
-                                      sr.vis = 0.0f;
-                                  }
+                          bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f) || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
+                          bool canCastPtPlayerShadow = (!isHandheld && uVoxel.shadowParams.w > 0.5f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f);
+                          if (isFirstPerson) {
+                              canCastPtPlayerShadow = canCastPtPlayerShadow && (nWorld.y > 0.55f && rayOrigin.y <= uVoxel.playerPos.y + 0.6f);
+                          }
+                          
+                          if (canCastPtPlayerShadow && sr.vis > 0.0f) {
+                              float3 ptL = normalize(targetPos - rayOrigin);
+                              PlayerHit hit; hit.hitDist = 1e6f;
+                              tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                              if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
+                                  sr.vis = 0.0f;
                               }
                           }
                           totalVis += sr.vis;
+                          totalTint += sr.tint;
                       }
                       
                       float visibility = totalVis / float(numSamples);
-                      pointLights += lColor * NdotL * smoothAtten * visibility;
+                      float3 tintCol = totalTint / float(numSamples);
+                      pointLights += lColor * tintCol * NdotL * smoothAtten * visibility;
                       
                       float currentDarkening = (1.0f - visibility) * NdotL * atten * saturate(uVoxel.lights[li].colorAndIntensity.w * 0.5f);
                       maxDarkening = max(maxDarkening, currentDarkening);
@@ -450,12 +458,16 @@ kernel void prisma_deferred_cs(
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
               float3 totalBlockLight = smoothPointLights;
 
-              float minAmbient = mix(0.03f, 0.04f, sunWeight);
+              float minAmbient = mix(0.045f, 0.055f, sunWeight);
               if (isNether) {
-                minAmbient = max(minAmbient, 0.11f);
+                minAmbient = max(minAmbient, 0.12f);
               }
               minAmbient = max(minAmbient, uVoxel.playerHead.z);
-              float3 ambientSky = max(activeSkyLight * (skyLevel * 0.68f), float3(0.03f, 0.025f, 0.02f));
+
+              // Hemispherical sky factor: vertical walls receive 60% sky, upward faces receive 100%
+              float hemiSky = saturate(surfNormal.y * 0.40f + 0.60f);
+              float3 nightSkyAmbient = mix(float3(0.025f, 0.035f, 0.055f), float3(0.045f, 0.065f, 0.095f), skyLevel);
+              float3 ambientSky = max(activeSkyLight * (skyLevel * 0.85f * hemiSky), nightSkyAmbient);
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
 
@@ -518,7 +530,8 @@ kernel void prisma_deferred_cs(
               float3 celestialTint = mix(float3(1.0f), computedTint, gridWeight);
 
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
-              float shadowAmbientFactor = mix(mix(1.0f, 0.15f, skyLevel), 1.0f, celestialShadow);
+              // Never crush sky ambient on outdoor faces: outdoor shadow factor is at least 0.50f
+              float shadowAmbientFactor = mix(mix(1.0f, 0.55f, skyLevel), 1.0f, celestialShadow);
               float3 baseAmbient = ambientSky * shadowAmbientFactor;
 
 
@@ -536,6 +549,10 @@ kernel void prisma_deferred_cs(
               }
 
               baseLighting *= volumetricAo;
+              
+              // Phase 2: Prevent Pitch Black (Total Darkness)
+              float3 baseAmbientFloor = mix(float3(0.004f, 0.005f, 0.008f), float3(0.008f, 0.010f, 0.015f), sunWeight);
+              baseLighting = max(baseLighting, baseAmbientFloor);
 
               if (isWater) {
                 float waveSlopeSun = (surfNormal.x * celestialDir.x + surfNormal.z * celestialDir.z) * 0.45f * sunWeight;
@@ -582,7 +599,7 @@ kernel void prisma_deferred_cs(
                     float cloudsRefl = (b == 0) ? u.cloudsInReflections : 0.0f;
                     float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, cloudsRefl, u.cloudSteps, u.rainStrength, 1e6f) * skyLevel;
                     
-                                        VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.vxaoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel);
+                                        VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.doubleAoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel, u.shadowRayCount);
                     
                     float reflDist = vxr.hitDist;
                     float rawReflFog = saturate(1.0f - exp(-pow(reflDist * 0.003f, 3.5f)));
@@ -715,43 +732,120 @@ kernel void prisma_deferred_cs(
                   litRgb = litRgb * cloudData.a + cloudData.rgb;
               }
               
-              // --- Analytical Volumetric Light Scattering ---
-              if (uVoxel.camRight.w > 0.5f) {
+              // --- Ray Traced Volumetric Fog Scattering ---
+              // A proper forward ray march from the camera to the hit surface.
+              // Each step samples all point lights. Because we only march to tMax (the surface),
+              // fog cannot physically leak through any wall — no binary shadow tests needed.
+              if (u.volFogEnabled > 0.5f) {
                   float3 volumetricFog = float3(0.0f);
                   int lightCount = int(uVoxel.gridSize.w);
                   float3 ro = uVoxel.camPos.xyz;
                   float3 rd = normalize(pWorld - ro);
                   float tMax = length(pWorld - ro);
 
-                  for (int li = 0; li < lightCount && li < 32; li++) {
-                      float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
-                      float lRad = uVoxel.lights[li].posAndRadius.w;
-                      float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz * uVoxel.lights[li].colorAndIntensity.w;
-                      
-                      float3 toLight = lPos - ro;
-                      float tClosest = dot(toLight, rd);
-                      float d = max(length(toLight - rd * tClosest), 0.15f);
+                  // Skip very close surfaces (avoids self-fog on first-person hand)
+                  if (tMax > 0.5f) {
+                      // Cap steps to 24 max to prevent 5-second Metal GPU timeout crashes!
+                      int numSteps = max(4, min(int(u.volFogSamples), 24));
+                      float stepSize = tMax / float(numSteps);
 
-                      float val1 = atan((tMax - tClosest) / d);
-                      float val2 = atan((0.0f - tClosest) / d);
-                      float scattering = max(0.0f, val1 - val2) / d;
-                      
-                      float tClamp = clamp(tClosest, 0.0f, tMax);
-                      float distSq = length_squared(lPos - (ro + rd * tClamp));
-                      float attenuation = saturate(1.0f - sqrt(distSq) / max(lRad * 1.2f, 0.001f));
-                      attenuation *= attenuation * attenuation; // Smooth rapid falloff
-                      
-                      float3 lColorBase = uVoxel.lights[li].colorAndIntensity.xyz;
-                      float baseMultiplier = 0.12f;
-                      
-                      // Identify Torches & Lanterns by their specific hardcoded warm color (1.0, 0.65, 0.22)
-                      if (abs(lColorBase.r - 1.0f) < 0.02f && abs(lColorBase.g - 0.65f) < 0.02f && abs(lColorBase.b - 0.22f) < 0.02f) {
-                          baseMultiplier = 0.005f;
+                      // Blue noise dither offset: per-pixel constant, no temporal jitter = no flicker
+                      float ditherOffset = fract(dot(float2(gid), float2(0.754877669f, 0.569840296f)));
+                      float tStart = stepSize * (0.5f + ditherOffset * 0.5f);
+
+                      // Extinction coefficient (how dense the participating media is)
+                      float extinction = 0.035f * u.volFogIntensity;
+                      // Scattering albedo (how much light bounces vs is absorbed)
+                      float scatteringAlbedo = 0.85f;
+
+                      // Directional Sun Light for God Rays / Volumetric Sunlight
+                      float3 celestialCol = (sunWeight > 0.5f) ? (currentSunColor * 1.25f) : (currentMoonColor * 0.40f);
+                      float cosThetaSun = dot(rd, celestialDir);
+                      float gSun = 0.65f; // Strong forward scattering for crisp god rays
+                      float gSun2 = gSun * gSun;
+                      float phaseSun = (1.0f - gSun2) / (4.0f * 3.14159265f * pow(1.0f + gSun2 - 2.0f * gSun * cosThetaSun, 1.5f));
+
+                      for (int step = 0; step < numSteps; step++) {
+                          float t = tStart + float(step) * stepSize;
+                          if (t >= tMax) break;
+
+                          float3 samplePos = ro + rd * t;
+                          float3 inScatter = float3(0.0f);
+
+                          // --- 1. Volumetric Sun / Moon Rays (God Rays) ---
+                          if (celestialDir.y > 0.02f) {
+                              float3 sunRayTarget = samplePos + celestialDir * 32.0f;
+                              float3 sunTint = float3(1.0f);
+                              float sunVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, sunRayTarget, 16, sunTint);
+                              if (sunVis > 0.01f) {
+                                  inScatter += (celestialCol * sunTint) * (phaseSun * scatteringAlbedo * sunVis * 0.75f);
+                              }
+                          }
+
+                          // --- 2. Volumetric Point Lights ---
+                          for (int li = 0; li < lightCount && li < 16; li++) {
+                              float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
+                              float lRad = uVoxel.lights[li].posAndRadius.w;
+
+                              float3 toLight = lPos - samplePos;
+                              float dist = length(toLight);
+                              if (dist >= lRad) continue;
+
+                              float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz
+                                            * uVoxel.lights[li].colorAndIntensity.w;
+
+                              // Henyey-Greenstein phase function
+                              float cosTheta = dot(rd, toLight / dist);
+                              float g = 0.3f;
+                              float g2 = g * g;
+                              float phase = (1.0f - g2) / (4.0f * 3.14159265f * pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f));
+
+                              // Smooth quadratic radial attenuation
+                              float distNorm = dist / lRad;
+                              float window = saturate(1.0f - distNorm * distNorm);
+                              float attenuation = window * window;
+
+                              // Handheld lights get greatly dimmed fog so the haze stays local
+                              bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f)
+                                             || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
+                              
+                              float3 lColorBase = uVoxel.lights[li].colorAndIntensity.xyz;
+                              float fogMultiplier = 0.50f;
+                              
+                              // Torches: gentle warm glow, not an overwhelming dense cloud
+                              if (abs(lColorBase.r - 1.0f) < 0.03f && abs(lColorBase.g - 0.65f) < 0.05f && abs(lColorBase.b - 0.22f) < 0.05f) {
+                                  fogMultiplier = 0.18f;
+                              }
+                              // Sea Lanterns: cool clean atmospheric radiance
+                              else if (abs(lColorBase.r - 0.40f) < 0.05f && abs(lColorBase.g - 0.92f) < 0.05f && abs(lColorBase.b - 1.00f) < 0.05f) {
+                                  fogMultiplier = 0.35f;
+                              }
+                              // Regular Lanterns
+                              else if (abs(lColorBase.r - 1.0f) < 0.03f && abs(lColorBase.g - 0.70f) < 0.05f && abs(lColorBase.b - 0.24f) < 0.05f) {
+                                  fogMultiplier = 0.30f;
+                              }
+                              
+                              if (isHandheld) {
+                                  fogMultiplier = 0.03f;
+                              }
+
+                              // Fast shadow ray with colored glass support (super fast, prevents GPU crash)
+                              float shadowVis = 1.0f;
+                              float3 shadowTint = float3(1.0f);
+                              if (!isHandheld && dist > 0.25f) {
+                                  shadowVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, lPos, 16, shadowTint);
+                              }
+
+                              inScatter += (lColor * shadowTint) * (phase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis);
+                          }
+
+                          // Beer-Lambert transmittance along the ray up to this step
+                          float transmittance = exp(-extinction * t);
+                          volumetricFog += inScatter * (extinction * transmittance * stepSize);
                       }
-                      
-                      float glow = scattering * baseMultiplier * attenuation;
-                      volumetricFog += lColor * glow;
+                      volumetricFog *= u.volFogIntensity;
                   }
+
                   litRgb += volumetricFog;
               }
               

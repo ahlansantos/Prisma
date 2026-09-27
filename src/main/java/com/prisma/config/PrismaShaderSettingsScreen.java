@@ -63,12 +63,25 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(Component.literal("in-game UI configuration menus.").withStyle(net.minecraft.ChatFormatting.GRAY)));
         } else if (this.currentTab == Tab.LIGHTING) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Illumination").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button bVxao = createToggle("Voxel AO", PrismaConfig.INSTANCE.vxaoEnabled, v -> PrismaConfig.INSTANCE.vxaoEnabled = v);
-            ConfigSlider bVxaoStrength = new ConfigSlider("VXAO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.vxaoStrength, false, v -> { PrismaConfig.INSTANCE.vxaoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
+            Button bVxao = createToggle("Double AO", PrismaConfig.INSTANCE.doubleAoEnabled, v -> PrismaConfig.INSTANCE.doubleAoEnabled = v);
+            ConfigSlider bVxaoStrength = new ConfigSlider("Double AO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, false, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
             
             Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
             this.listWidget.add(new SettingsEntry(b4, null));
+
+            this.listWidget.add(new SettingsEntry(Component.literal("Volumetric Fog").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button bFog = createToggle("Ray Traced Fog", PrismaConfig.INSTANCE.rayMarchedFogEnabled, v -> PrismaConfig.INSTANCE.rayMarchedFogEnabled = v);
+            ConfigSlider bFogSamples = new ConfigSlider("Fog Ray Steps", 4.0, 64.0, PrismaConfig.INSTANCE.rayMarchedFogSamples, false, v -> {
+                PrismaConfig.INSTANCE.rayMarchedFogSamples = v.intValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            this.listWidget.add(new SettingsEntry(bFog, bFogSamples));
+            ConfigSlider bFogIntensity = new ConfigSlider("Fog Intensity", 0.1, 3.0, PrismaConfig.INSTANCE.rayMarchedFogIntensity, true, v -> {
+                PrismaConfig.INSTANCE.rayMarchedFogIntensity = v.floatValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            this.listWidget.add(new SettingsEntry(bFogIntensity, null));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Shadows & Quality").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b5 = createToggle("Sun Shadows", PrismaConfig.INSTANCE.sunShadowsEnabled, v -> PrismaConfig.INSTANCE.sunShadowsEnabled = v);
@@ -84,14 +97,10 @@ public class PrismaShaderSettingsScreen extends Screen {
             
             this.listWidget.add(new SettingsEntry(Component.literal("Ray Traced Reflections").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b9 = createToggle("Reflections", PrismaConfig.INSTANCE.reflectionsEnabled, v -> PrismaConfig.INSTANCE.reflectionsEnabled = v);
-            Button b8 = createToggle("Player Reflections", PrismaConfig.INSTANCE.playerReflectionEnabled, v -> PrismaConfig.INSTANCE.playerReflectionEnabled = v);
-            this.listWidget.add(new SettingsEntry(b9, b8));
+                        this.listWidget.add(new SettingsEntry(b9, null));
 
-            Button b11 = createToggle("Reflect Point Shadows", PrismaConfig.INSTANCE.reflectionPointLightShadows, v -> PrismaConfig.INSTANCE.reflectionPointLightShadows = v);
-            Button b12 = createToggle("Reflect Sun Shadows", PrismaConfig.INSTANCE.reflectionDirectionalShadows, v -> PrismaConfig.INSTANCE.reflectionDirectionalShadows = v);
-            this.listWidget.add(new SettingsEntry(b11, b12));
-
-            Button b13 = createToggle("Reflect VXAO", PrismaConfig.INSTANCE.vxaoInReflections, v -> PrismaConfig.INSTANCE.vxaoInReflections = v);
+                                    
+            Button b13 = createToggle("Reflect Double AO", PrismaConfig.INSTANCE.doubleAoInReflections, v -> PrismaConfig.INSTANCE.doubleAoInReflections = v);
             Button b14 = createToggle("Reflect Clouds", PrismaConfig.INSTANCE.cloudsInReflections, v -> PrismaConfig.INSTANCE.cloudsInReflections = v);
             this.listWidget.add(new SettingsEntry(b13, b14));
         }

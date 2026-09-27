@@ -25,6 +25,8 @@ public final class HandheldLightManager {
         if (stack.is(Items.GLOWSTONE)) return new LightEmission(15, 1.0f, 0.85f, 0.40f);
         if (stack.is(Items.SEA_LANTERN)) return new LightEmission(15, 0.40f, 0.92f, 1.00f);
         if (stack.is(Items.REDSTONE_TORCH)) return new LightEmission(7, 1.0f, 0.15f, 0.05f);
+        if (stack.is(Items.REDSTONE)) return new LightEmission(5, 1.0f, 0.15f, 0.05f);
+        if (stack.is(Items.REDSTONE_BLOCK)) return new LightEmission(10, 1.0f, 0.15f, 0.05f);
         if (stack.is(Items.MAGMA_BLOCK)) return new LightEmission(8, 1.0f, 0.35f, 0.05f);
         if (stack.is(Items.GLOW_BERRIES)) return new LightEmission(14, 1.0f, 0.75f, 0.20f);
         if (stack.is(Items.AMETHYST_SHARD)) return new LightEmission(5, 0.80f, 0.40f, 0.95f);
@@ -63,7 +65,10 @@ public final class HandheldLightManager {
 
         boolean useMain = mainEm != null && (offEm == null || mainEm.emission() >= offEm.emission());
         LightEmission em = useMain ? mainEm : offEm;
-        float sideSign = useMain ? 1.0f : -1.0f;
+        boolean isRightArm = (player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT);
+        boolean inRightHand = useMain ? isRightArm : !isRightArm;
+        // In this camera coordinate system, negative camRight points to the screen's right hand side
+        float sideOffset = inRightHand ? -0.28f : 0.28f;
 
         float fwdX = fwdVec != null ? (float) fwdVec.x : 0.0f;
         float fwdY = fwdVec != null ? (float) fwdVec.y : 0.0f;
@@ -73,9 +78,10 @@ public final class HandheldLightManager {
         float upY = upVec != null ? (float) upVec.y : 1.0f;
         float upZ = upVec != null ? (float) upVec.z : 0.0f;
 
-        float hx = (float) camPos.x + camRightX * (0.35f * sideSign) + fwdX * 0.40f - upX * 0.20f;
-        float hy = (float) camPos.y + camRightY * (0.35f * sideSign) + fwdY * 0.40f - upY * 0.20f;
-        float hz = (float) camPos.z + camRightZ * (0.35f * sideSign) + fwdZ * 0.40f - upZ * 0.20f;
+        // Position directly at the item model in hand
+        float hx = (float) camPos.x + camRightX * sideOffset + fwdX * 0.28f - upX * 0.22f;
+        float hy = (float) camPos.y + camRightY * sideOffset + fwdY * 0.28f - upY * 0.22f;
+        float hz = (float) camPos.z + camRightZ * sideOffset + fwdZ * 0.28f - upZ * 0.22f;
 
         float radius = Math.max(em.emission() * 0.90f, 6.0f);
         float intensity = Math.min((em.emission() / 15.0f) * 1.35f, 1.40f);

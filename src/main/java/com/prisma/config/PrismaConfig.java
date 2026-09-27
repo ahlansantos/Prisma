@@ -10,23 +10,18 @@ public final class PrismaConfig {
 
         public volatile int voxelRadius = 6;
     public volatile float caveLighting = 0.05f;
-    public volatile boolean vxaoEnabled = false;
-    public volatile float vxaoStrength = 1.0f;
+    public volatile boolean doubleAoEnabled = false;
+    public volatile float doubleAoStrength = 1.0f;
     public volatile String shaderPack = "VXR Default";
 
     public volatile boolean pointLightsEnabled = false;
     public volatile boolean reflectionsEnabled = false;
     public volatile boolean cloudsInReflections = true;
 
-    public volatile boolean reflectionPointLightShadows = true;
-    public volatile boolean reflectionDirectionalShadows = true;
-    public volatile boolean vxaoInReflections = true;
+    public volatile boolean doubleAoInReflections = true;
     public volatile boolean sunShadowsEnabled = false;
 
-
-
     public volatile boolean playerShadowEnabled = false;
-    public volatile boolean playerReflectionEnabled = true;
                 
 
     public volatile int csmResolution = 2048;
@@ -45,10 +40,11 @@ public final class PrismaConfig {
     public volatile float metalFxResolutionScale = 0.5f;
     public volatile float easuResolutionScale = 1.0f;
     public volatile float unsharpMaskStrength = 0.0f;
-    public volatile int shadowRayCount = 3; // 0.1 to 2.0
-    public volatile boolean volPointLightsEnabled = false;
-    public volatile float volPointLightIntensity = 1.0f;
-    public volatile int volPointLightQuality = 15;
+    public volatile int shadowRayCount = 3;
+    // Ray Traced Volumetric Fog Scattering
+    public volatile boolean rayMarchedFogEnabled = false;
+    public volatile int rayMarchedFogSamples = 12;
+    public volatile float rayMarchedFogIntensity = 1.0f;
 
     
     private PrismaConfig() {
@@ -62,14 +58,12 @@ public final class PrismaConfig {
             StringBuilder sb = new StringBuilder("{");
             sb.append("\"shaderPack\":\"").append(shaderPack != null ? shaderPack : "").append("\",");
             sb.append("\"voxelRadius\":").append(voxelRadius).append(",");
-            sb.append("\"vxaoEnabled\":").append(vxaoEnabled).append(",");
-            sb.append(String.format(java.util.Locale.ROOT, "\"vxaoStrength\":%.2f,", vxaoStrength));
+            sb.append("\"doubleAoEnabled\":").append(doubleAoEnabled).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"doubleAoStrength\":%.2f,", doubleAoStrength));
             sb.append("\"pointLightsEnabled\":").append(pointLightsEnabled).append(",");
             sb.append("\"reflectionsEnabled\":").append(reflectionsEnabled).append(",");
             sb.append("\"cloudsInReflections\":").append(cloudsInReflections).append(",");
-            sb.append("\"reflectionPointLightShadows\":").append(reflectionPointLightShadows).append(",");
-            sb.append("\"reflectionDirectionalShadows\":").append(reflectionDirectionalShadows).append(",");
-            sb.append("\"vxaoInReflections\":").append(vxaoInReflections).append(",");
+            sb.append("\"doubleAoInReflections\":").append(doubleAoInReflections).append(",");
             sb.append("\"sunShadowsEnabled\":").append(sunShadowsEnabled).append(",");
             sb.append("\"csmResolution\":").append(csmResolution).append(",");
             sb.append("\"csmCascades\":").append(csmCascades).append(",");
@@ -82,12 +76,14 @@ public final class PrismaConfig {
             sb.append(String.format(java.util.Locale.ROOT, "\"upscalingRatio\":%.2f,", upscalingRatio));
             sb.append("\"motionBlurEnabled\":").append(motionBlurEnabled).append(",");
             sb.append("\"playerShadowEnabled\":").append(playerShadowEnabled).append(",");
-            sb.append("\"playerReflectionEnabled\":").append(playerReflectionEnabled).append(",");
                         sb.append("\"metalFxResolutionScale\":").append(metalFxResolutionScale).append(",");
             sb.append("\"easuResolutionScale\":").append(easuResolutionScale).append(",");
             sb.append("\"unsharpMaskStrength\":").append(unsharpMaskStrength).append(",");
             sb.append("\"shadowRayCount\":").append(shadowRayCount).append(",");
-            sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f", caveLighting));
+            sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f,", caveLighting));
+            sb.append("\"rayMarchedFogEnabled\":").append(rayMarchedFogEnabled).append(",");
+            sb.append("\"rayMarchedFogSamples\":").append(rayMarchedFogSamples).append(",");
+            sb.append(String.format(java.util.Locale.ROOT, "\"rayMarchedFogIntensity\":%.2f", rayMarchedFogIntensity));
             sb.append("}");
             Files.writeString(configFile, sb.toString());
         } catch (Throwable ignored) {
@@ -117,22 +113,16 @@ public final class PrismaConfig {
                 if ((val = getJsonValue(content, "voxelRadius")) != null) {
                     try { voxelRadius = Math.clamp(Integer.parseInt(val), 2, 16); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "vxaoEnabled")) != null) {
-                    try { vxaoEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                if ((val = getJsonValue(content, "doubleAoEnabled")) != null) {
+                    try { doubleAoEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "vxaoStrength")) != null) {
-                    try { vxaoStrength = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
+                if ((val = getJsonValue(content, "doubleAoStrength")) != null) {
+                    try { doubleAoStrength = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "vxaoInReflections")) != null) {
-                    try { vxaoInReflections = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                if ((val = getJsonValue(content, "doubleAoInReflections")) != null) {
+                    try { doubleAoInReflections = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
 
-                if ((val = getJsonValue(content, "reflectionPointLightShadows")) != null) {
-                    try { reflectionPointLightShadows = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
-                if ((val = getJsonValue(content, "reflectionDirectionalShadows")) != null) {
-                    try { reflectionDirectionalShadows = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
                 if ((val = getJsonValue(content, "reflectionsEnabled")) != null) {
                     try { reflectionsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
@@ -167,13 +157,6 @@ public final class PrismaConfig {
                 if ((val = getJsonValue(content, "playerShadowEnabled")) != null) {
                     try { playerShadowEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
-                if ((val = getJsonValue(content, "playerReflectionEnabled")) != null) {
-                    try { playerReflectionEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
-                
-
-                
-                
                 
                 if ((val = getJsonValue(content, "metalFxResolutionScale")) != null) {
                     try { metalFxResolutionScale = Float.parseFloat(val); } catch (Throwable ignored) {}
@@ -193,6 +176,15 @@ public final class PrismaConfig {
                 }
                 if ((val = getJsonValue(content, "motionBlurEnabled")) != null) {
                     try { motionBlurEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "rayMarchedFogEnabled")) != null) {
+                    try { rayMarchedFogEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "rayMarchedFogSamples")) != null) {
+                    try { rayMarchedFogSamples = Math.clamp(Integer.parseInt(val), 4, 64); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "rayMarchedFogIntensity")) != null) {
+                    try { rayMarchedFogIntensity = Math.clamp(Float.parseFloat(val), 0.1f, 4.0f); } catch (Throwable ignored) {}
                 }
 
             }

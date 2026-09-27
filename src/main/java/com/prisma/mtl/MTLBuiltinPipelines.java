@@ -220,7 +220,7 @@ public final class MTLBuiltinPipelines {
         MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, prevViewProj, globalFence);
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLComputeCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(albedoTexture)) {
@@ -254,7 +254,7 @@ public final class MTLBuiltinPipelines {
             encoder.setTexture(targetColorTexture, 10L);
             encoder.setSamplerState(presentLinearSampler, 0L);
             
-            MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, vxaoStrength, pointLightsEnabled, prevViewProj);
+            MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
             try (MemoryStack stack = MemoryStack.stackPush();){
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
                 MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 128)).reinterpret(128L);
@@ -285,18 +285,19 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 64L, sunriseB);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 68L, starBrightness);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 72L, 1024.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 76L, cfg.reflectionPointLightShadows ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 80L, cfg.reflectionDirectionalShadows ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.vxaoInReflections ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 76L, cfg.pointLightsEnabled ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 80L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.doubleAoInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 88L, cfg.volumetricCloudsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 92L, (float)cfg.cloudQualitySteps);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 100L, cfg.cloudsInReflections ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 112L, (float)cfg.shadowRayCount);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 116L, 0.0f); // padding
-                uniforms.set(ValueLayout.JAVA_FLOAT, 120L, 0.0f); // padding
-                encoder.setBytes(uniforms, 128L, 0L);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 116L, cfg.rayMarchedFogEnabled ? 1.0f : 0.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 120L, (float)cfg.rayMarchedFogSamples);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 124L, cfg.rayMarchedFogIntensity);
+                encoder.setBytes(uniforms, 132L, 0L);
             }
             long tgWidth = (width + 15) / 16;
             long tgHeight = (height + 15) / 16;
@@ -309,7 +310,7 @@ public final class MTLBuiltinPipelines {
         }
     }
 
-    private static void bindVoxelUniformsForDeferred(MTLComputeCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float vxaoStrength, boolean pointLightsEnabled, org.joml.Matrix4fc prevViewProj) {
+    private static void bindVoxelUniformsForDeferred(MTLComputeCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, org.joml.Matrix4fc prevViewProj) {
         VoxelGridManager.GridState gridState = voxelManager != null ? voxelManager.activeState() : null;
         VoxelGridManager.GridState gridState2 = gridState;
         if (gridState != null && gridState.buffer() != null) {
@@ -343,7 +344,7 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 32L, camPosX);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 36L, camPosY);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 40L, camPosZ);
-                vUniforms.set(ValueLayout.JAVA_FLOAT, 44L, vxaoStrength);
+                vUniforms.set(ValueLayout.JAVA_FLOAT, 44L, doubleAoStrength);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 48L, camRightX);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 52L, camRightY);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 56L, camRightZ);

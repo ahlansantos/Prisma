@@ -1,5 +1,28 @@
 # Changelog
 
+## [26.3-Preview.2]
+
+### Features & Improvements
+- **Ray Traced Volumetric Fog Scattering:** Complete ground-up GPU ray march implementation with forward Henyey-Greenstein scattering and Beer-Lambert attenuation.
+- **Volumetric Sunlight & Moon God Rays:** Atmospheric crepuscular beams cast from the sun and moon directly through open sky and windows.
+- **Colored Glass Volumetric Light Staining:** Sunlight and point light beams passing through stained glass accurately take on the color of the glass media.
+- **Linked Reflection Penumbra:** Soft reflection shadows are now dynamically tied to the world shadow penumbra slider (0 = razor sharp, >0 = realistic soft penumbra).
+- **Physical Point Light Shadows in Reflections:** Replaced fast voxel approximation with full DDA raytracing for point lights inside reflections.
+- **High-Fidelity Indoor Reflections:** Calibrated sky ambient attenuation and enhanced Double AO inside voxel grid reflections, eliminating bright walls in dark indoor rooms.
+- **Pixel-Art Crisp Reflections:** Removed blurry bilinear filtering from all voxel reflection texture samples (`filter::nearest`), restoring authentic Minecraft sharpness.
+- **Glass Transparency in Reflections:** Reflection rays now traverse transparent glass panes instead of stopping on opaque surfaces.
+- **3rd-Person Player Shadow:** Player model shadows now cast accurately in 3rd-person perspective.
+- **Balanced Light Multipliers:** Torch fog softened to a gentle warm haze (`0.18`), sea lanterns and normal lanterns properly tuned, and handheld fog confined to player hand.
+- **Extended Handheld Lights:** Added redstone items and blocks to handheld dynamic emission.
+
+### Fixes & Cleanups
+- Removed flickering auto-exposure post-process passes.
+- Bamboo and iron bar collision/alpha bounds corrected to match true geometry.
+- Cleaned up obsolete settings toggles and unified Double AO settings.
+- Optimized volumetric step limits (24 max steps) to prevent macOS GPU Metal submit timeouts.
+
+---
+
 ## [26.3-Preview.1]
 
 ### Features
