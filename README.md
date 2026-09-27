@@ -14,12 +14,12 @@ Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, whic
 
 The engine comes with a flagship built-in shaderpack out of the box. Here are its features:
 
-- **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces.
+- **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces with authentic pixel-art sharpness, dynamic penumbra scaling, and point light shadow casting.
 - **Unconstrained Penumbra Shadows:** Every light source casts physically accurate dynamic shadows. Leveraging procedural Vogel disk sampling, penumbra shadows scale flawlessly up to 32 simultaneous rays.
-- **Analytical Volumetric Scattering:** Features a physically-based volumetric fog halo around point lights computed analytically along the ray, independent of world fog.
+- **Ray Traced Volumetric Fog & God Rays:** Ground-up GPU ray march implementation with forward Henyey-Greenstein scattering, Beer-Lambert attenuation, atmospheric sun/moon crepuscular god rays, and colored stained-glass beam staining.
 - **MetalFX & EASU Cascaded Upscaling:** Runs native resolutions seamlessly by enforcing cascaded spatial upscaling using Apple MetalFX and AMD EASU, coupled with contrast-adaptive Laplacian Sharpening.
 - **Volumetric Clouds:** Raymarched clouds with dynamic lighting and self-shadowing.
-- **Dynamic Weather System:** Includes fog, rain puddles, and ripples on the ground.
+- **Dynamic Weather System:** Includes rain puddles, wet surface ripples, and dynamic atmospheric haze.
 - **Post-Processing Pipeline:** Native Vogel Bloom, ACES Filmic Tonemapping, Vignette, and Laplacian reverse blur.
 
 ---
@@ -47,7 +47,7 @@ Prisma acts as an open standard MSL (Metal Shading Language) Shader Loader.
 <summary><b>Known Limitations (Prisma's VXR Default)</b></summary>
 
 - **Voxel Grid Radius:** Terrain beyond the active voxel chunk radius reflects sky and ambient light rather than discrete geometry.
-- **Hardware Demands:** Prisma pushes hardware to its limits. Running the engine at native full-resolution with all settings maxed out may cause performance drops on base models (like the M1 MacBook Air).
+- **Hardware Demands:** Prisma pushes hardware to its limits. On base models (like the M1 MacBook Air), performance will be heavily impacted unless you set render resolution scaling to around 25%–45% with quality settings on Medium.
 - **Light Transmission:** Currently only supports solid translucent blocks (like stained glass). Light transmission through water is a work in progress.
 
 </details>
