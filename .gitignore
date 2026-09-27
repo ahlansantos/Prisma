@@ -14,9 +14,9 @@ TestJOML.java
 run.log
 scratch.metal
 
-VXR-Default/
+shaderpack-template
 *.java
 *.diff
 *.patch
 
-Prisma-docs/ru
+webrepo
