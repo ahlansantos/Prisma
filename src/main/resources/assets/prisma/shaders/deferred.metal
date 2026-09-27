@@ -138,7 +138,7 @@ kernel void prisma_deferred_cs(
               bool isNether = u.sunriseAlpha < -0.5f && u.sunriseAlpha > -1.5f;
               bool isEnd = u.sunriseAlpha < -1.5f;
 
-              float3 noonSunColor = float3(1.10f, 1.05f, 1.00f);
+              float3 noonSunColor = float3(1.08f, 1.01f, 0.88f);
               float3 sunsetSunColor = float3(1.50f, 0.70f, 0.25f);
               float3 currentSunColor = mix(noonSunColor, sunsetSunColor, max(sunsetFactor, clampedSunrise));
               float3 currentMoonColor = float3(0.24f, 0.34f, 0.54f);
@@ -759,7 +759,9 @@ kernel void prisma_deferred_cs(
                       float scatteringAlbedo = 0.85f;
 
                       // Directional Sun Light for God Rays / Volumetric Sunlight
-                      float3 celestialCol = (sunWeight > 0.5f) ? (currentSunColor * 1.25f) : (currentMoonColor * 0.40f);
+                      // Warm atmospheric tint so beams look golden and organic instead of stark white
+                      float3 sunRayColor = currentSunColor * float3(1.04f, 0.95f, 0.82f);
+                      float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 0.65f) : (currentMoonColor * 0.35f);
                       float cosThetaSun = dot(rd, celestialDir);
                       float gSun = 0.65f; // Strong forward scattering for crisp god rays
                       float gSun2 = gSun * gSun;
@@ -778,7 +780,7 @@ kernel void prisma_deferred_cs(
                               float3 sunTint = float3(1.0f);
                               float sunVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, sunRayTarget, 16, sunTint);
                               if (sunVis > 0.01f) {
-                                  inScatter += (celestialCol * sunTint) * (phaseSun * scatteringAlbedo * sunVis * 0.75f);
+                                  inScatter += (celestialCol * sunTint) * (phaseSun * scatteringAlbedo * sunVis * 0.35f);
                               }
                           }
 
