@@ -7,7 +7,6 @@ run/
 *.py
 scratch/
 build
-*.py
 *.class
 *.txt
 cfr.jar
@@ -15,9 +14,9 @@ TestJOML.java
 run.log
 scratch.metal
 
-shaderpack-template/
+VXR-Default/
 *.java
 *.diff
 *.patch
 
-prisma026.prisma-26.2/
+Prisma-docs/ru
