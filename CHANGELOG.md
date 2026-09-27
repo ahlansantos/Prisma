@@ -1,6 +1,6 @@
 # Changelog
 
-## [26.3-Preview.2]
+## [26.3-Preview.2 - Hotfix]
 
 ### Features & Improvements
 - **Ray Traced Volumetric Fog Scattering:** Complete ground-up GPU ray march implementation with forward Henyey-Greenstein scattering and Beer-Lambert attenuation.
@@ -15,6 +15,8 @@
 - **Extended Handheld Lights:** Added redstone items and blocks to handheld dynamic emission.
 
 ### Fixes & Cleanups
+- **Multiplayer Connection Crash Fix:** Guarded deferred lighting passes against uninitialized projection matrices during `ClientboundLoginPacket`, resolving `Network Protocol Error` disconnects.
+- **Cloud & Horizon Fog Dither Fix:** Bounded volumetric fog raymarching to the local voxel radius (56 blocks), eliminating harsh checkerboard/stippled noise patterns on clouds and distant water while improving performance.
 - Bamboo and iron bar collision/alpha bounds corrected to match true geometry.
 - Cleaned up obsolete settings toggles and unified Double AO settings.
 - Optimized volumetric step limits (24 max steps) to prevent macOS GPU Metal submit timeouts.
