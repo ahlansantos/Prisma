@@ -543,9 +543,9 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 44L, com.prisma.config.PrismaConfig.INSTANCE.unsharpMaskStrength);
                 
                 java.nio.ByteBuffer bb = uniforms.asByteBuffer().order(java.nio.ByteOrder.nativeOrder());
-                viewProj.get(48, bb);
-                prevViewProj.get(112, bb);
-                invViewProj.get(176, bb);
+                if (viewProj != null) viewProj.get(48, bb);
+                if (prevViewProj != null) prevViewProj.get(112, bb);
+                if (invViewProj != null) invViewProj.get(176, bb);
                 
                 encoder.setFragmentBytes(uniforms, (long)size, 0L);
             }

@@ -745,13 +745,18 @@ kernel void prisma_deferred_cs(
 
                   // Skip very close surfaces (avoids self-fog on first-person hand)
                   if (tMax > 0.5f) {
+                      // Clamp the ray march distance to the local voxel grid radius (56 blocks).
+                      // The voxel grid only extends ~64 blocks around the player.
+                      // Marching hundreds of meters into sky/clouds or distant horizons causes
+                      // huge 20-50m steps, producing severe stipple/dither noise on clouds and distant water.
+                      float marchDist = min(tMax, 56.0f);
                       // Cap steps to 24 max to prevent 5-second Metal GPU timeout crashes!
                       int numSteps = max(4, min(int(u.volFogSamples), 24));
-                      float stepSize = tMax / float(numSteps);
+                      float stepSize = marchDist / float(numSteps);
 
-                      // Blue noise dither offset: per-pixel constant, no temporal jitter = no flicker
+                      // Gentle blue noise dither offset: per-pixel constant, no temporal jitter = no flicker
                       float ditherOffset = fract(dot(float2(gid), float2(0.754877669f, 0.569840296f)));
-                      float tStart = stepSize * (0.5f + ditherOffset * 0.5f);
+                      float tStart = stepSize * (0.5f + (ditherOffset - 0.5f) * 0.25f);
 
                       // Extinction coefficient (how dense the participating media is)
                       float extinction = 0.035f * u.volFogIntensity;
@@ -769,7 +774,7 @@ kernel void prisma_deferred_cs(
 
                       for (int step = 0; step < numSteps; step++) {
                           float t = tStart + float(step) * stepSize;
-                          if (t >= tMax) break;
+                          if (t >= marchDist) break;
 
                           float3 samplePos = ro + rd * t;
                           float3 inScatter = float3(0.0f);

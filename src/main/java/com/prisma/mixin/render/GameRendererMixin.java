@@ -74,7 +74,7 @@ public class GameRendererMixin {
         if (this.minecraft.options != null && com.prisma.config.PrismaConfig.INSTANCE.volumetricCloudsEnabled) {
             this.minecraft.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF);
         }
-        if (renderLevel && this.minecraft.level != null) {
+        if (this.minecraft.level != null && this.prisma$hasCapturedInvViewProj) {
             MetalDevice metalDevice = MetalBackend.getActiveDevice();
             if (metalDevice != null) {
                 float fov = (float) this.minecraft.options.fov().get();
@@ -83,6 +83,10 @@ public class GameRendererMixin {
                 RenderTarget mainTarget = ((GameRenderer) (Object) this).mainRenderTarget();
                 if (mainTarget != null) {
                     net.minecraft.client.Camera camera = this.minecraft.gameRenderer.mainCamera();
+                    if (camera == null) {
+                        this.prisma$hasCapturedInvViewProj = false;
+                        return;
+                    }
                     float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
                     float sunAngle = 0.0f;
                     try {
@@ -142,8 +146,12 @@ public class GameRendererMixin {
                     double camX = this.prisma$capturedCamPos != null ? this.prisma$capturedCamPos.x : camPos.x;
                     double camY = this.prisma$capturedCamPos != null ? this.prisma$capturedCamPos.y : camPos.y;
                     double camZ = this.prisma$capturedCamPos != null ? this.prisma$capturedCamPos.z : camPos.z;
-                    Matrix4fc invViewProj = this.prisma$hasCapturedInvViewProj ? this.prisma$capturedInvViewProj : null;
-                    Matrix4fc viewProj = this.prisma$hasCapturedInvViewProj ? this.prisma$capturedViewProj : null;
+                    Matrix4fc invViewProj = this.prisma$capturedInvViewProj;
+                    Matrix4fc viewProj = this.prisma$capturedViewProj;
+                    if (invViewProj == null || viewProj == null) {
+                        this.prisma$hasCapturedInvViewProj = false;
+                        return;
+                    }
 
                     var leftVec = camera.leftVector();
                     var upVec = camera.upVector();
@@ -260,6 +268,7 @@ public class GameRendererMixin {
                                 rainStrength,
                                 voxelManager
                         );
+                        this.prisma$hasCapturedInvViewProj = false;
                 }
             }
         }

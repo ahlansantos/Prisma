@@ -576,6 +576,9 @@ public final class PrismaMRTManager implements AutoCloseable {
         if (!(colorGpuTex instanceof MetalGpuTexture colorTex)) {
             return;
         }
+        if (viewProj == null || invViewProj == null) {
+            return;
+        }
 
         encoder.flushPendingClear(colorTex);
         encoder.submitRenderPass();
@@ -671,9 +674,14 @@ public final class PrismaMRTManager implements AutoCloseable {
 
                 
 
-        this.prevViewProj.set(viewProj);
-        this.prevInvViewProj.set(invViewProj);
-        this.prevCamPos.set(camPosX, camPosY, camPosZ);
+        if (this.prevViewProj == null) this.prevViewProj = new org.joml.Matrix4f(viewProj);
+        else this.prevViewProj.set(viewProj);
+
+        if (this.prevInvViewProj == null) this.prevInvViewProj = new org.joml.Matrix4f(invViewProj);
+        else this.prevInvViewProj.set(invViewProj);
+
+        if (this.prevCamPos == null) this.prevCamPos = new org.joml.Vector3f(camPosX, camPosY, camPosZ);
+        else this.prevCamPos.set(camPosX, camPosY, camPosZ);
         
         MemorySegment postProcessInput = hdrTarget;
         if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)  && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
