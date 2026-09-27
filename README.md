@@ -6,7 +6,7 @@ Prisma is a **Native Apple Silicon Metal Shader Loader** for Minecraft and Sodiu
 
 By completely bypassing OpenGL, MoltenVK, and translation layers, Prisma loads and compiles `.metal` (MSL) shaderpacks directly to the GPU. This provides unprecedented performance for shaders on Mac. 
 
-Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, which features real-time lighting, analytical voxel ray-traced shadows, and volumetric scattering.
+Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, which features real-time lighting, analytical voxel ray-traced shadows, and volumetric effects.
 
 ---
 
@@ -14,11 +14,13 @@ Prisma comes with a built-in flagship shaderpack: **Prisma's VXR Default**, whic
 
 The engine comes with a flagship built-in shaderpack out of the box. Here are its features:
 
-- **Native Voxel Ray Tracing:** Real-time access to a 3D Voxel Grid stored directly on the GPU, powered by heavily optimized DDA ray marching for accurate physical collision and reflections.
+- **VXR (Voxel Reflections):** Real-time 3D voxel ray-traced reflections on water and glossy surfaces.
+- **Unconstrained Penumbra Shadows:** Every light source casts physically accurate dynamic shadows. Leveraging procedural Vogel disk sampling, penumbra shadows scale flawlessly up to 32 simultaneous rays.
+- **Analytical Volumetric Scattering:** Features a physically-based volumetric fog halo around point lights computed analytically along the ray, independent of world fog.
 - **MetalFX & EASU Cascaded Upscaling:** Runs native resolutions seamlessly by enforcing cascaded spatial upscaling using Apple MetalFX and AMD EASU, coupled with contrast-adaptive Laplacian Sharpening.
-- **Unconstrained Penumbra Shadows:** Every light source casts physically accurate dynamic shadows. Leveraging procedural Vogel disk sampling, penumbra shadows scale flawlessly up to 32 simultaneous rays per light source.
-- **Analytical Volumetric Scattering:** Features a physically-based volumetric fog halo around light sources computed analytically along the ray, independent of world fog.
-- **Pure Compute Shaders:** Replaces legacy fragment shaders with pure Metal Compute Shaders for exponentially faster dispatch.
+- **Volumetric Clouds:** Raymarched clouds with dynamic lighting and self-shadowing.
+- **Dynamic Weather System:** Includes fog, rain puddles, and ripples on the ground.
+- **Post-Processing Pipeline:** Native Vogel Bloom, ACES Filmic Tonemapping, Vignette, and Laplacian reverse blur.
 
 ---
 
