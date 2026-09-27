@@ -738,7 +738,7 @@ kernel void prisma_deferred_cs(
                       
                       float tClamp = clamp(tClosest, 0.0f, tMax);
                       float distSq = length_squared(lPos - (ro + rd * tClamp));
-                      float attenuation = saturate(1.0f - sqrt(distSq) / (lRad * 1.2f));
+                      float attenuation = saturate(1.0f - sqrt(distSq) / max(lRad * 1.2f, 0.001f));
                       attenuation *= attenuation * attenuation; // Smooth rapid falloff
                       
                       float3 lColorBase = uVoxel.lights[li].colorAndIntensity.xyz;
