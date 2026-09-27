@@ -349,6 +349,11 @@ static inline float computeDoubleAO(
       int3 voxelPos = int3(floor(samplePos));
       uint2 vox = readVoxel(voxelGrid, origin, size, voxelPos);
       if ((vox.x & 1) != 0) {
+        uint rType = (vox.x >> 12) & 0x0Fu;
+        if (rType == 1u) {
+          maxWeight += stepWeight[s] * dirWeight;
+          continue;
+        }
         uint shapeId = (vox.y >> 24) & 0xFF;
         if (shapeId == 0) {
           totalOcclusion += stepWeight[s] * dirWeight;

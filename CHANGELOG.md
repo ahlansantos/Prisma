@@ -17,6 +17,11 @@
 - **Extended Handheld Lights:** Added redstone items and blocks to handheld dynamic emission.
 
 ### Fixes & Cleanups
+- **Enhanced Crepuscular God Rays:** Increased god ray scattering and atmospheric sunlight beam presence through gaps, windows, and foliage.
+- **Block Edge & Corner Normal Reconstruction Fix:** Eliminated white lines and abnormal highlights along block corners and edges by weighting axis-snapped normals with camera view alignment and filtering fallback normals to visible front-faces.
+- **Glass Reflection & Dual-Pass Z-Fighting Fix:** Isolated glass surface classification strictly to the underlying block voxel (`insideVox`), preventing adjacent solid walls or faces pointed towards glass from triggering duplicate reflection passes and z-fighting.
+- **Underwater Volumetric Fog Clean-up:** Volumetric atmospheric fog now halts cleanly at water boundaries and is disabled underwater, eliminating scanline banding around sea lanterns and underwater artifacts.
+- **Translucent AO Exclusion:** Excluded transparent glass and water from generating and receiving ambient occlusion, ensuring clean glass without dark smudges.
 - **Water Boundary & Z-Fighting Fix:** Constrained water surface detection strictly to upward faces (`> 0.85`), eliminating flickering and z-fighting on adjacent submerged/exposed block walls.
 - **Water Fog Stability:** Stabilized ray-marched atmospheric fog around water boundaries to prevent jumpy or erratic shifts when moving near or submerged in water.
 - **Multiplayer Connection Crash Fix:** Guarded deferred lighting passes against uninitialized projection matrices during `ClientboundLoginPacket`, resolving `Network Protocol Error` disconnects.

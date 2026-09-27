@@ -207,23 +207,23 @@ kernel void prisma_deferred_cs(
               float3 crossDir = cross(dY, dX);
               float crossLen = dot(crossDir, crossDir);
 
-              float3 pLocal = pWorld - floor(pWorld);
-              float3 distMin = pLocal;
-              float3 distMax = 1.0f - pLocal;
-              float3 blockNormal = float3(0.0f, 1.0f, 0.0f);
-              float minDist = 1000.0f;
-              if (distMin.x < minDist) { minDist = distMin.x; blockNormal = float3(-1.0f, 0.0f, 0.0f); }
-              if (distMax.x < minDist) { minDist = distMax.x; blockNormal = float3(1.0f, 0.0f, 0.0f); }
-              if (distMin.y < minDist) { minDist = distMin.y; blockNormal = float3(0.0f, -1.0f, 0.0f); }
-              if (distMax.y < minDist) { minDist = distMax.y; blockNormal = float3(0.0f, 1.0f, 0.0f); }
-              if (distMin.z < minDist) { minDist = distMin.z; blockNormal = float3(0.0f, 0.0f, -1.0f); }
-              if (distMax.z < minDist) { minDist = distMax.z; blockNormal = float3(0.0f, 0.0f, 1.0f); }
-
               float2 ndcTrue = float2(uv.x * 2.0f - 1.0f, uv.y * 2.0f - 1.0f);
               float4 nearP = uVoxel.invViewProj * float4(ndcTrue, 1.0f, 1.0f);
               float4 farP = uVoxel.invViewProj * float4(ndcTrue, 0.0f, 1.0f);
               float3 trueRayDir = normalize(farP.xyz / max(farP.w, 1e-5f) - nearP.xyz / max(nearP.w, 1e-5f));
               float3 viewDirCam = -trueRayDir;
+
+              float3 pLocal = pWorld - floor(pWorld);
+              float3 distMin = pLocal;
+              float3 distMax = 1.0f - pLocal;
+              float3 blockNormal = float3(0.0f, 1.0f, 0.0f);
+              float minDist = 1000.0f;
+              if (distMin.x < minDist && viewDirCam.x < -0.01f) { minDist = distMin.x; blockNormal = float3(-1.0f, 0.0f, 0.0f); }
+              if (distMax.x < minDist && viewDirCam.x >  0.01f) { minDist = distMax.x; blockNormal = float3(1.0f, 0.0f, 0.0f); }
+              if (distMin.y < minDist && viewDirCam.y < -0.01f) { minDist = distMin.y; blockNormal = float3(0.0f, -1.0f, 0.0f); }
+              if (distMax.y < minDist && viewDirCam.y >  0.01f) { minDist = distMax.y; blockNormal = float3(0.0f, 1.0f, 0.0f); }
+              if (distMin.z < minDist && viewDirCam.z < -0.01f) { minDist = distMin.z; blockNormal = float3(0.0f, 0.0f, -1.0f); }
+              if (distMax.z < minDist && viewDirCam.z >  0.01f) { minDist = distMax.z; blockNormal = float3(0.0f, 0.0f, 1.0f); }
 
               bool badDerivative = dot(dX, dX) > 0.25f || dot(dY, dY) > 0.25f;
               float3 geomNormal = (crossLen > 1e-20f && !badDerivative) ? normalize(crossDir) : blockNormal;
@@ -233,9 +233,10 @@ kernel void prisma_deferred_cs(
 
               float3 nWorld = geomNormal;
               float3 absN = abs(geomNormal);
-              if (absN.y >= absN.x && absN.y >= absN.z) {
+              float3 weightedN = absN * (abs(viewDirCam) + 0.20f);
+              if (weightedN.y >= weightedN.x && weightedN.y >= weightedN.z) {
                   nWorld = float3(0.0f, sign(geomNormal.y), 0.0f);
-              } else if (absN.x >= absN.z) {
+              } else if (weightedN.x >= weightedN.z) {
                   nWorld = float3(sign(geomNormal.x), 0.0f, 0.0f);
               } else {
                   nWorld = float3(0.0f, 0.0f, sign(geomNormal.z));
@@ -306,7 +307,7 @@ kernel void prisma_deferred_cs(
                     isWater = true;
                   }
                 }
-                uint reflectType = max((currVox.x >> 12) & 0x0Fu, (insideVox.x >> 12) & 0x0Fu);
+                uint reflectType = (insideVox.x >> 12) & 0x0Fu;
                 if (reflectType == 2u) {
                   isMetal = true;
                 }
@@ -339,8 +340,8 @@ kernel void prisma_deferred_cs(
               }
 
               float doubleAoStrength = uVoxel.camPos.w;
-              float doubleAo = (!isEntity && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * doubleAoStrength * gridWeight : 0.0f;
-              float ssao = (!isEntity && doubleAoStrength > 0.01f && doubleAo < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * doubleAoStrength : 0.0f;
+              float doubleAo = (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * doubleAoStrength * gridWeight : 0.0f;
+              float ssao = (!isEntity && !isWater && !isGlass && doubleAoStrength > 0.01f && doubleAo < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * doubleAoStrength : 0.0f;
               
               float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld);
               float outsideSky = (surfNormal.y > -0.2f ? 1.0f : 0.5f);
@@ -751,7 +752,7 @@ kernel void prisma_deferred_cs(
               // A proper forward ray march from the camera to the hit surface.
               // Each step samples all point lights. Because we only march to tMax (the surface),
               // fog cannot physically leak through any wall — no binary shadow tests needed.
-              if (u.volFogEnabled > 0.5f) {
+              if (u.volFogEnabled > 0.5f && u.waterOnlyPass < 0.5f && !isCameraUnderwater) {
                   float3 volumetricFog = float3(0.0f);
                   int lightCount = int(uVoxel.gridSize.w);
                   float3 ro = uVoxel.camPos.xyz;
@@ -774,14 +775,14 @@ kernel void prisma_deferred_cs(
                       float tStart = stepSize * (0.5f + (ditherOffset - 0.5f) * 0.25f);
 
                       // Extinction coefficient (how dense the participating media is)
-                      float extinction = 0.035f * u.volFogIntensity;
+                      float extinction = 0.045f * u.volFogIntensity;
                       // Scattering albedo (how much light bounces vs is absorbed)
                       float scatteringAlbedo = 0.85f;
 
                       // Directional Sun Light for God Rays / Volumetric Sunlight
                       // Warm atmospheric tint so beams look golden and organic instead of stark white
                       float3 sunRayColor = currentSunColor * float3(1.04f, 0.95f, 0.82f);
-                      float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 0.65f) : (currentMoonColor * 0.35f);
+                      float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 1.15f) : (currentMoonColor * 0.45f);
                       float cosThetaSun = dot(rd, celestialDir);
                       float gSun = 0.65f; // Strong forward scattering for crisp god rays
                       float gSun2 = gSun * gSun;
@@ -792,6 +793,9 @@ kernel void prisma_deferred_cs(
                           if (t >= marchDist) break;
 
                           float3 samplePos = ro + rd * t;
+                          uint2 sVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(samplePos)));
+                          if ((sVox.x & 4) != 0) break; // Air fog stops at water boundary
+
                           float3 inScatter = float3(0.0f);
 
                           // --- 1. Volumetric Sun / Moon Rays (God Rays) ---
@@ -800,7 +804,7 @@ kernel void prisma_deferred_cs(
                               float3 sunTint = float3(1.0f);
                               float sunVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, sunRayTarget, 16, sunTint);
                               if (sunVis > 0.01f) {
-                                  inScatter += (celestialCol * sunTint) * (phaseSun * scatteringAlbedo * sunVis * 0.35f);
+                                  inScatter += (celestialCol * sunTint) * (phaseSun * scatteringAlbedo * sunVis * 0.75f);
                               }
                           }
 
