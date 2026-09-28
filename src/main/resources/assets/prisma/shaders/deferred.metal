@@ -94,6 +94,45 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
               return out;
             }
 
+            // =========================================================================
+            // AgX Tone Mapping (Industry Standard: Blender 4.0+ / Film Color Science)
+            // Replaces ACES to eliminate crushed shadows (open soft toe) and clipping.
+            // =========================================================================
+            static inline float3 agxInset(float3 c) {
+                return float3(
+                    c.r * 0.842479f + c.g * 0.078434f + c.b * 0.079224f,
+                    c.r * 0.042328f + c.g * 0.878469f + c.b * 0.079166f,
+                    c.r * 0.042376f + c.g * 0.078434f + c.b * 0.879143f
+                );
+            }
+
+            static inline float3 agxOutset(float3 c) {
+                return float3(
+                    c.r * 1.196879f - c.g * 0.098021f - c.b * 0.099030f,
+                   -c.r * 0.052897f + c.g * 1.151903f - c.b * 0.098961f,
+                   -c.r * 0.052972f - c.g * 0.098043f + c.b * 1.151074f
+                );
+            }
+
+            static inline float3 applyAgX(float3 val) {
+                val = max(val, float3(1e-6f));
+                float3 agx = agxInset(val);
+
+                // AgX Log2 Encoding (-10.0 to +6.5 EV)
+                const float minEv = -10.0f;
+                const float maxEv = 6.5f;
+                agx = clamp((log2(agx) - minEv) / (maxEv - minEv), 0.0f, 1.0f);
+
+                // AgX Soft-Toe Sigmoid Curve: smooth Hermite curve in log space
+                // Preserves deep shadow details without harsh ACES crushing,
+                // and extends highlight headroom gracefully.
+                float3 s = agx * agx * (3.0f - 2.0f * agx);
+
+                // Outset back to linear display space
+                float3 linearDisplay = max(float3(0.0f), agxOutset(s));
+                return linearDisplay;
+            }
+
 kernel void prisma_deferred_cs(
               uint2 gid [[thread_position_in_grid]],
               texture2d<float, access::read_write> outTexture [[texture(10)]],
@@ -1038,24 +1077,16 @@ kernel void prisma_deferred_cs(
                   litRgb += volumetricFog;
               }
               
-              // --- ACES Filmic Tone Mapping ---
-              // Prevents hard clipping of bright values to pure white.
-              // Uses the Hill ACES approximation (fast, no matrix multiply).
-              // This is the fix for the "washed out / tudo branco" look.
+              // --- AgX Tone Mapping ---
+              // Replaces ACES to eliminate harsh shadow crushing (open soft toe)
+              // and maintain rich, unclipped color saturation in mid-day and golden hour.
               {
-                  // Exposure pre-scale: controls overall scene brightness feel.
-                  // 0.85 = slightly underexposed = richer colors, more detail in brights.
-                  float exposure = mix(0.85f, 0.72f, sunsetFactor * sunWeight); // Even darker during golden hour so colors saturate
-                  litRgb *= exposure;
+                  float exposure = mix(1.05f, 0.88f, sunsetFactor * sunWeight);
+                  litRgb = applyAgX(litRgb * exposure);
 
-                  // Hill ACES approximation:
-                  //   f(x) = (x*(2.51*x + 0.03)) / (x*(2.43*x + 0.59) + 0.14)
-                  float3 x = litRgb;
-                  litRgb = saturate((x * (2.51f * x + 0.03f)) / (x * (2.43f * x + 0.59f) + 0.14f));
-
-                  // Subtle golden hour color grade: push shadows slightly cooler, mids warmer
-                  float3 warmGrade = mix(float3(1.0f), float3(1.04f, 0.98f, 0.90f), sunsetFactor * sunWeight);
-                  litRgb = mix(litRgb, litRgb * warmGrade, 0.60f);
+                  // Subtle golden hour warmth: rich warm mids without color skewing
+                  float3 warmGrade = mix(float3(1.0f), float3(1.03f, 0.98f, 0.92f), sunsetFactor * sunWeight);
+                  litRgb = mix(litRgb, litRgb * warmGrade, 0.50f);
               }
 
               outTexture.write(float4(litRgb, albedo.a), gid);
