@@ -582,6 +582,39 @@ kernel void prisma_deferred_cs(
                 baseLighting *= clamp(1.0f + waveSlopeSun + waveSlopeSky, 0.65f, 1.35f);
               }
 
+              // === Underwater Light Transmission (Caustic Pattern) ===
+              // In Pass 1 (opaque), apply animated solar caustic patterns to submerged floors.
+              // We check if this solid pixel is below water (water voxel directly above).
+              // Then project the Gerstner wave normal onto the sun direction to get
+              // a physically-based animated light pool pattern on the sea bed.
+              if (!isWater && !isEntity && u.waterOnlyPass < 0.5f && skyLevel > 0.05f && sunWeight > 0.1f) {
+                  // Check if there's a water voxel in the 4 blocks above this pixel
+                  bool isSubmergedFloor = false;
+                  float waterDepthAbove = 0.0f;
+                  int3 floorPos = int3(floor(pWorld));
+                  for (int yUp = 1; yUp <= 4 && !isSubmergedFloor; yUp++) {
+                      uint2 aboveVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, floorPos + int3(0, yUp, 0));
+                      if ((aboveVox.x & 4) != 0 && (aboveVox.x & 8) == 0) {
+                          isSubmergedFloor = true;
+                          waterDepthAbove = float(yUp);
+                      }
+                  }
+
+                  if (isSubmergedFloor && waterDepthAbove <= 3.5f) {
+                      // Sample the animated wave normal at the water surface above this pixel
+                      float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength * 2.0f, u.waterWaveSpeed);
+                      // The wave normal focuses/defocuses the sun ray — Jacobian of the wave surface
+                      float sunThroughWave = saturate(dot(waveNorm, celestialDir) * 2.5f - 0.5f);
+                      // Beer-Lambert: light attenuates with depth
+                      float3 waterExt = float3(0.38f, 0.14f, 0.04f);
+                      float3 beamAtten = exp(-waterExt * waterDepthAbove);
+                      // Caustic brightness scales with sun height and wave strength
+                      float causticStr = sunThroughWave * skyLevel * sunWeight * u.waterWaveStrength;
+                      float3 causticColor = currentSunColor * beamAtten * causticStr * 0.60f;
+                      baseLighting += causticColor;
+                  }
+              }
+
               bool isPuddle = false;
               // Puddles form on horizontal outdoor surfaces during rain
               // Also form on surfaces near water bodies (wet ground / wet sand effect)
