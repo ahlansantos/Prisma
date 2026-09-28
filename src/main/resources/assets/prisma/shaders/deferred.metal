@@ -299,15 +299,18 @@ kernel void prisma_deferred_cs(
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
 
               if (!isEntity && !isCameraInFluid) {
-                // A surface is water ONLY if it is a horizontal upward surface within water height (Minecraft water is ~0.88 height)
-                bool isHorizontalSurface = (nWorld.y > 0.85f) && (geomNormal.y > 0.85f);
-                bool isWithinWaterHeight = (fract(pWorld.y) <= 0.92f);
-                // Check if current block or block directly below is water
-                int3 blockUnderPos = int3(floor(pWorld - float3(0.0f, 0.1f, 0.0f)));
-                uint2 voxUnder = (distToGridEdge > -2.0f) ? readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, clamp(blockUnderPos - uVoxel.gridOrigin.xyz, int3(0), uVoxel.gridSize.xyz - int3(1))) : uint2(0, 0);
-                bool hasWaterVoxel = ((currVox.x & 4) != 0 && (currVox.x & 8) == 0) || ((voxUnder.x & 4) != 0 && (voxUnder.x & 8) == 0);
-                if (isHorizontalSurface && isWithinWaterHeight && hasWaterVoxel) {
-                  if (u.waterOnlyPass > 0.5f) {
+                // In water-only pass, only translucent water or stained glass should be processed
+                if (u.waterOnlyPass > 0.5f) {
+                  // A surface is water ONLY if:
+                  // 1. The voxel is NOT an opaque solid block
+                  // 2. The voxel has FLAG_WATER ((vox.x & 4) != 0 && (vox.x & 8) == 0)
+                  // 3. Normal points generally upwards (water surface)
+                  int3 voxPos = int3(floor(pWorld - nWorld * 0.05f));
+                  uint2 checkVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, voxPos);
+                  bool isSolidNonWater = ((currVox.x & 1) != 0 && (currVox.x & 4) == 0);
+                  bool hasWater = ((currVox.x & 4) != 0 && (currVox.x & 8) == 0) || ((checkVox.x & 4) != 0 && (checkVox.x & 8) == 0);
+                  
+                  if (!isSolidNonWater && hasWater && nWorld.y > 0.45f) {
                     isWater = true;
                   }
                 }
@@ -747,45 +750,48 @@ kernel void prisma_deferred_cs(
                 float f0 = isMetal ? 0.85f : (isGlass ? 0.15f : (isPuddle ? 0.15f : 0.02f));
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
-                // === Crystal Clear Water: Beer-Lambert depth absorption ===
-                // Completely replace vanilla albedo for water surfaces.
-                // Extinction coefficients: red absorbed first, blue last (physically correct).
-                float3 waterExtinction = float3(0.38f, 0.14f, 0.04f) * u.waterAbsorption;
-                float3 toSurf = uVoxel.camPos.xyz - pWorld;
-                float vertDist   = max(abs(toSurf.y), 0.5f);
-                float horizDist  = length(toSurf.xz);
-                // Effective optical depth = vertical + horizontal component (view angle)
-                float waterDepth = vertDist + horizDist * 0.30f;
-                // Beer-Lambert transmittance: shallow turquoise, deep navy
-                float3 transmitted = exp(-waterExtinction * waterDepth);
-                float3 crystalShallow = float3(0.22f, 0.72f, 0.88f);  // crystal turquoise/emerald near shore
-                float3 crystalDeep   = float3(0.01f, 0.08f, 0.28f);   // deep midnight navy
-                float3 waterVol = mix(crystalDeep, crystalShallow, transmitted);
-                // Completely override vanilla texture with procedural color
-                albedo.rgb = waterVol;
-
-                // === SSR (Screen-Space Reflections) for water outside voxel grid ===
-                // When water is beyond the voxel grid (~56 blocks), voxel ray trace misses.
-                // Instead, do a screen-space raymarch in UV space for cheap distant reflections.
-                if (isWater && gridWeight < 0.50f && u.reflectionsEnabled > 0.5f) {
-                    float2 ssrTexSize = float2(outTexture.get_width(), outTexture.get_height());
-                    float3 reflDir   = reflect(-viewDir, surfNormal);
-                    // Only SSR if ray goes upward (sky reflection, most common for flat water)
-                    if (reflDir.y > 0.01f) {
-                        float3 skyRefl = evaluateSkyAndReflections(pWorld, reflDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsInReflections, u.cloudSteps, u.rainStrength, 1e6f);
-                        // SSR: step in clip space along reflect direction
-                        float3 ssrColor = skyRefl;
-                        float4 clipRefl = uVoxel.viewProj * float4(pWorld + reflDir * 2.0f, 1.0f);
-                        float2 reflUv = (clipRefl.xy / max(clipRefl.w, 0.0001f)) * 0.5f + 0.5f;
-                        if (reflUv.x >= 0.01f && reflUv.x <= 0.99f && reflUv.y >= 0.01f && reflUv.y <= 0.99f) {
-                            // Sample the already-rendered scene at the reflected UV
-                            uint2 ssrCoord = clamp(uint2(reflUv * ssrTexSize), uint2(0), uint2(uint(ssrTexSize.x) - 1, uint(ssrTexSize.y) - 1));
-                            float4 ssrSample = outTexture.read(ssrCoord);
-                            // Blend screen sample with sky fallback based on ray angle
-                            float ssrStrength = saturate(1.0f - reflDir.y * 3.0f); // less SSR for steep angles (sky dominates)
-                            ssrColor = mix(skyRefl, ssrSample.rgb, ssrStrength * 0.65f);
+                if (isWater) {
+                    // === Physically-Based Water Depth (Vertical Voxel Count) ===
+                    // ZERO CAMERA DISTANCE BOGUS DEPTH.
+                    // Count physical water voxels straight DOWN from the surface to the seabed.
+                    int3 waterColPos = int3(floor(pWorld));
+                    int physicalWaterDepth = 1;
+                    for (int dy = 1; dy <= 24; dy++) {
+                        int3 checkBelow = waterColPos - int3(0, dy, 0);
+                        uint2 belowVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkBelow);
+                        if ((belowVox.x & 4) != 0 && (belowVox.x & 8) == 0) {
+                            physicalWaterDepth++;
+                        } else {
+                            break; // Hit riverbed / seabed (sand, gravel, dirt, stone)
                         }
-                        accumulatedScene = ssrColor;
+                    }
+                    float realDepth = float(physicalWaterDepth);
+
+                    // Beer-Lambert spectral absorption: red absorbed fastest, blue last
+                    float3 waterExtinction = float3(0.38f, 0.14f, 0.04f) * u.waterAbsorption;
+                    float3 transmitted = exp(-waterExtinction * realDepth);
+
+                    // Shallow water: crystal clear turquoise / emerald tint
+                    float3 crystalShallow = float3(0.18f, 0.76f, 0.85f);
+                    // Deep ocean: rich oceanic midnight navy
+                    float3 crystalDeep   = float3(0.01f, 0.06f, 0.22f);
+
+                    float3 waterBodyColor = mix(crystalDeep, crystalShallow, transmitted);
+
+                    // Preserve seabed: albedo.rgb contains the seabed rendered in Pass 1!
+                    // Shallow: transmitted is ~0.85 -> seabed is clearly visible with light turquoise tint!
+                    // Deep: transmitted is ~0.05 -> seabed naturally fades into midnight navy!
+                    float3 seabedFiltered = albedo.rgb * transmitted;
+                    float waterOpacity = saturate(1.0f - transmitted.b * 0.80f);
+                    albedo.rgb = mix(seabedFiltered + waterBodyColor * 0.20f, waterBodyColor, waterOpacity * 0.65f);
+
+                    // For water outside the voxel grid, reflect the sky cleanly
+                    if (gridWeight < 0.50f && u.reflectionsEnabled > 0.5f) {
+                        float3 reflDir = reflect(-viewDir, surfNormal);
+                        if (reflDir.y > -0.1f) {
+                            float3 skyRefl = evaluateSkyAndReflections(pWorld, reflDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsInReflections, u.cloudSteps, u.rainStrength, 1e6f);
+                            accumulatedScene = skyRefl;
+                        }
                     }
                 }
 
