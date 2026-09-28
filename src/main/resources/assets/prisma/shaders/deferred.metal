@@ -903,9 +903,11 @@ kernel void prisma_deferred_cs(
                       int numSteps = max(4, min(int(u.volFogSamples), 24));
                       float stepSize = marchDist / float(numSteps);
 
-                      // Gentle blue noise dither offset: per-pixel constant, no temporal jitter = no flicker
-                      float ditherOffset = fract(dot(float2(gid), float2(0.754877669f, 0.569840296f)));
-                      float tStart = stepSize * (0.5f + (ditherOffset - 0.5f) * 0.25f);
+                      // World-space anchored step alignment:
+                      // Anchor the ray march phase to the camera position projected along the sun direction,
+                      // so all 3D sampling slices remain rock-solid in world space when the player moves or looks around!
+                      float worldPhase = fract(dot(ro, celestialDir) * 0.20f);
+                      float tStart = stepSize * (0.35f + worldPhase * 0.30f);
 
                       // Extinction coefficient (how dense the participating media is)
                       float extinction = 0.045f * u.volFogIntensity;
@@ -918,10 +920,16 @@ kernel void prisma_deferred_cs(
                       // Golden hour: extra beam intensity and warmth when sun is near horizon
                       float goldenFogBoost = 1.0f + sunsetFactor * 1.20f;
                       float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 1.15f * goldenFogBoost) : (currentMoonColor * 0.45f);
+
+                      // Dual-lobe phase function for God Rays:
+                      // 1. Forward lobe (gSun = 0.65) for brilliant beams when facing the sun
+                      // 2. Side-scattering lobe (isotropic 1/4pi) so beams can be seen from the side passing through rooms!
                       float cosThetaSun = dot(rd, celestialDir);
-                      float gSun = 0.65f; // Strong forward scattering for crisp god rays
+                      float gSun = 0.65f;
                       float gSun2 = gSun * gSun;
-                      float phaseSun = (1.0f - gSun2) / (4.0f * 3.14159265f * pow(1.0f + gSun2 - 2.0f * gSun * cosThetaSun, 1.5f));
+                      float forwardPhase = (1.0f - gSun2) / (4.0f * 3.14159265f * pow(max(1.0f + gSun2 - 2.0f * gSun * cosThetaSun, 0.04f), 1.5f));
+                      float sidePhase    = 1.0f / (4.0f * 3.14159265f);
+                      float phaseSun     = forwardPhase * 0.85f + sidePhase * 0.40f;
 
                       for (int step = 0; step < numSteps; step++) {
                           float t = tStart + float(step) * stepSize;
