@@ -525,43 +525,52 @@ static inline float4 computeVolumetricClouds(
     float  accTrans = 1.0f;
 
     // ===========================================================
-    // LAYER 1: Stratocumulus Undulatus (620 - 900 units)
-    // Classic Bliss low rolling bands — sine-wave domain distortion.
+    // LAYER 1: Stratocumulus (620 - 720 units)
+    // Flattened vertical height (~100 units) to eliminate towering walls,
+    // preserving the stylized cubic block volume with flat base.
     // ===========================================================
     {
-        float cMin = 620.0f, cMax = 900.0f;
+        float cMin = 620.0f, cMax = 720.0f;
         float tm = (cMin - pWorld.y) / rWorld.y;
         float tM = (cMax - pWorld.y) / rWorld.y;
         if (tm > tM) { float tmp = tm; tm = tM; tM = tmp; }
-        tM = min(tM, min(tm + 4000.0f, maxDist));
+        tM = min(tM, min(tm + 3500.0f, maxDist));
         if (tM > tm && tM > 0.0f) {
             tm = max(tm, 0.0f);
             float3 sPos = pWorld + rWorld * tm;
             float  mL   = length((pWorld + rWorld * tM) - sPos);
-            float  sC   = max(8.0f, min(cloudSteps, 48.0f));
+            float  sC   = max(8.0f, min(cloudSteps, 36.0f));
             float  sZ   = mL / sC;
             float3 cP   = sPos;
 
             for (int i = 0; i < int(sC); i++) {
                 if (accTrans < 0.04f) break;
-                float3 q = cP * 0.0024f + float3(gameTime * 0.013f, 0.0f, gameTime * 0.0045f);
-                // Undulatus: sine wave distortion -> parallel bands
-                q.x += sin(cP.x * 0.0022f * 6.2831f + cP.z * 0.0008f * 6.2831f) * 0.40f;
+                float3 q = cP * 0.0022f + float3(gameTime * 0.013f, 0.0f, gameTime * 0.0045f);
+                // Wider, natural domain modulation (preserves cubic clumps without tight corrugated stripes)
+                q.x += sin(cP.x * 0.0012f * 6.2831f + cP.z * 0.0005f * 6.2831f) * 0.25f;
                 float n = fbmClouds(q);
                 float d = max(0.0f, n - cloudThreshold) * cloudDensityMult;
                 float hF = (cP.y - cMin) / (cMax - cMin);
-                d *= smoothstep(0.0f, 0.20f, hF) * smoothstep(1.0f, 0.60f, hF);
+                // Flat bottom cumulus profile, soft curved top
+                d *= smoothstep(0.0f, 0.15f, hF) * smoothstep(1.0f, 0.50f, hF);
                 d *= smoothstep(5000.0f, 1200.0f, length(cP - pWorld));
 
                 if (d > 0.01f) {
                     float sigmaT = d * 0.065f;
                     float stT    = exp(-sigmaT * sZ);
-                    float ln     = smoothNoise3D((cP + celDir * 30.0f) * 0.0024f + float3(gameTime * 0.013f, 0.0f, gameTime * 0.0045f)) * 0.85f;
+                    float ln     = smoothNoise3D((cP + celDir * 30.0f) * 0.0022f + float3(gameTime * 0.013f, 0.0f, gameTime * 0.0045f)) * 0.85f;
                     float lT     = exp(-max(0.0f, ln - cloudThreshold) * cloudDensityMult * 0.065f * 30.0f);
-                    float silverLining = hgPhase(cosSunTheta, 0.85f) * 0.35f * sunWeight;
-                    float inscatter = lT * (1.0f - exp(-d * 2.8f)) + silverLining;
-                    float3 sunD  = currentSunColor  * (inscatter * phNet  * sunWeight       * 0.90f);
-                    float3 moonD = currentMoonColor * (inscatter * mPhNet * (1.0f-sunWeight) * 0.01f);
+
+                    // Sun Direct Scattering + Silver Lining
+                    float sunSilverLining = hgPhase(cosSunTheta, 0.85f) * 0.35f * sunWeight;
+                    float sunInscatter    = lT * (1.0f - exp(-d * 2.8f)) + sunSilverLining;
+                    float3 sunD  = currentSunColor * (sunInscatter * phNet * sunWeight * 0.90f);
+
+                    // Moon Direct Scattering + Lunar Silver Lining (bright silver edges facing the moon!)
+                    float moonSilverLining = hgPhase(cosMoonTheta, 0.82f) * 0.40f * (1.0f - sunWeight);
+                    float moonInscatter    = lT * (1.0f - exp(-d * 2.8f)) + moonSilverLining;
+                    float3 moonD = currentMoonColor * (moonInscatter * mPhNet * (1.0f - sunWeight) * 0.35f);
+
                     accColor += accTrans * sigmaT * ((sunD + moonD) * (1.0f - rainStrength * 0.75f) + cloudAmbient) * sZ;
                     accTrans *= stT;
                 }
@@ -571,46 +580,52 @@ static inline float4 computeVolumetricClouds(
     }
 
     // ===========================================================
-    // LAYER 2: Altocumulus Undulatus (1220 - 1500 units)
-    // High mackerel sky — finer scale, perpendicular wave direction.
+    // LAYER 2: Altocumulus / Cirrus (1200 - 1260 units)
+    // Thin high mackerel layer (~60 units) with responsive day/night lighting.
     // ===========================================================
     if (accTrans > 0.08f) {
-        float cMin = 1220.0f, cMax = 1500.0f;
+        float cMin = 1200.0f, cMax = 1260.0f;
         float tm = (cMin - pWorld.y) / rWorld.y;
         float tM = (cMax - pWorld.y) / rWorld.y;
         if (tm > tM) { float tmp = tm; tm = tM; tM = tmp; }
-        tM = min(tM, min(tm + 6000.0f, maxDist));
+        tM = min(tM, min(tm + 5000.0f, maxDist));
         if (tM > tm && tM > 0.0f) {
             tm = max(tm, 0.0f);
             float3 sPos = pWorld + rWorld * tm;
             float  mL   = length((pWorld + rWorld * tM) - sPos);
-            float  sC   = max(4.0f, min(cloudSteps * 0.50f, 24.0f));
+            float  sC   = max(4.0f, min(cloudSteps * 0.50f, 20.0f));
             float  sZ   = mL / sC;
             float3 cP   = sPos;
-            float  altoThresh  = cloudThreshold + 0.10f;
+            float  altoThresh  = cloudThreshold + 0.08f;
             float  altoDensity = cloudDensityMult * 0.55f;
 
             for (int i = 0; i < int(sC); i++) {
                 if (accTrans < 0.04f) break;
-                float3 q = cP * 0.0042f + float3(gameTime * 0.008f, 0.0f, gameTime * 0.003f);
-                // Perpendicular undulation -> mackerel/sheep pattern
-                q.z += sin(cP.z * 0.0038f * 6.2831f + cP.x * 0.0010f * 6.2831f) * 0.30f;
+                float3 q = cP * 0.0038f + float3(gameTime * 0.008f, 0.0f, gameTime * 0.003f);
+                q.z += sin(cP.z * 0.0020f * 6.2831f + cP.x * 0.0006f * 6.2831f) * 0.20f;
                 float n = fbmClouds(q);
                 float d = max(0.0f, n - altoThresh) * altoDensity;
                 float hF = (cP.y - cMin) / (cMax - cMin);
-                d *= smoothstep(0.0f, 0.25f, hF) * smoothstep(1.0f, 0.55f, hF);
+                d *= smoothstep(0.0f, 0.20f, hF) * smoothstep(1.0f, 0.50f, hF);
                 d *= smoothstep(7000.0f, 2000.0f, length(cP - pWorld));
 
                 if (d > 0.01f) {
                     float sigmaT = d * 0.055f;
                     float stT    = exp(-sigmaT * sZ);
-                    float ln     = smoothNoise3D((cP + celDir * 20.0f) * 0.0042f + float3(gameTime * 0.008f, 0.0f, gameTime * 0.003f)) * 0.85f;
+                    float ln     = smoothNoise3D((cP + celDir * 20.0f) * 0.0038f + float3(gameTime * 0.008f, 0.0f, gameTime * 0.003f)) * 0.85f;
                     float lT     = exp(-max(0.0f, ln - altoThresh) * altoDensity * 0.055f * 20.0f);
-                    float silverLining = hgPhase(cosSunTheta, 0.80f) * 0.20f * sunWeight;
-                    float inscatter = lT * (1.0f - exp(-d * 1.8f)) + silverLining;
-                    float3 altoAmbient = mix(cloudAmbient, float3(0.55f, 0.62f, 0.72f), 0.25f);
-                    float3 sunD  = currentSunColor  * (inscatter * phNet  * sunWeight       * 0.65f);
-                    float3 moonD = currentMoonColor * (inscatter * mPhNet * (1.0f-sunWeight) * 0.01f);
+
+                    float sunSilverLining = hgPhase(cosSunTheta, 0.80f) * 0.25f * sunWeight;
+                    float sunInscatter    = lT * (1.0f - exp(-d * 1.8f)) + sunSilverLining;
+                    float3 sunD  = currentSunColor * (sunInscatter * phNet * sunWeight * 0.70f);
+
+                    float moonSilverLining = hgPhase(cosMoonTheta, 0.78f) * 0.30f * (1.0f - sunWeight);
+                    float moonInscatter    = lT * (1.0f - exp(-d * 1.8f)) + moonSilverLining;
+                    float3 moonD = currentMoonColor * (moonInscatter * mPhNet * (1.0f - sunWeight) * 0.30f);
+
+                    // High cloud ambient scales down at night so they don't glow white!
+                    float3 altoAmbient = mix(cloudAmbient, float3(0.55f, 0.62f, 0.72f) * (sunWeight * 0.85f + 0.15f), 0.20f);
+
                     accColor += accTrans * sigmaT * ((sunD + moonD) * (1.0f - rainStrength * 0.70f) + altoAmbient) * sZ;
                     accTrans *= stT;
                 }
