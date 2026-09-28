@@ -583,16 +583,46 @@ kernel void prisma_deferred_cs(
               }
 
               bool isPuddle = false;
-              if (u.rainStrength > 0.01f && !isWater && !isEntity && !isCameraInFluid && surfNormal.y > 0.82f && rawSky > 0.95f) {
-                float puddleNoise = smoothNoise3D(float3(pWorld.xz * 0.35f, 0.0f));
-                float puddleMask = smoothstep(0.40f, 0.65f, puddleNoise) * saturate(u.rainStrength * 1.5f);
+              // Puddles form on horizontal outdoor surfaces during rain
+              // Also form on surfaces near water bodies (wet ground / wet sand effect)
+              float nearWaterDamp = 0.0f;
+              {
+                  // Check if adjacent blocks are water (creates wet ground even without rain)
+                  int3 checkPos = int3(floor(pWorld));
+                  for (int dx = -2; dx <= 2 && nearWaterDamp < 0.5f; dx++) {
+                      for (int dz = -2; dz <= 2 && nearWaterDamp < 0.5f; dz++) {
+                          uint2 adjVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos + int3(dx, 0, dz));
+                          if ((adjVox.x & 4) != 0 && (adjVox.x & 8) == 0) {
+                              float dist = length(float2(float(dx), float(dz)));
+                              nearWaterDamp = max(nearWaterDamp, saturate(1.0f - dist / 2.5f) * 0.5f);
+                          }
+                      }
+                  }
+              }
+              float wetFactor = max(u.rainStrength, nearWaterDamp);
+              if (wetFactor > 0.01f && !isWater && !isEntity && !isCameraInFluid && surfNormal.y > 0.82f && rawSky > 0.90f) {
+                // Multi-octave noise for organic puddle blob shapes (like Worley)
+                float pN1 = smoothNoise3D(float3(pWorld.xz * 0.30f, 0.0f));
+                float pN2 = smoothNoise3D(float3(pWorld.xz * 0.80f, 1.7f)) * 0.50f;
+                float pN3 = smoothNoise3D(float3(pWorld.xz * 1.80f, 3.2f)) * 0.25f;
+                float puddleNoise = (pN1 + pN2 + pN3) / 1.75f;
+                // Rain puddles need high sky exposure; near-water is dampened regardless
+                float puddleThresh = mix(0.50f, 0.38f, wetFactor);
+                float puddleMask = smoothstep(puddleThresh, puddleThresh + 0.18f, puddleNoise) * saturate(wetFactor * 1.8f);
                 if (puddleMask > 0.01f) {
-                  isPuddle = (puddleMask > 0.15f);
-                  albedo.rgb *= mix(1.0f, 0.60f, puddleMask);
-                  float2 rippleUv = pWorld.xz * 1.5f;
-                  float rip1 = sin(length(fract(rippleUv) - 0.5f) * 24.0f - u.gameTime * 18.0f);
-                  float rip2 = sin(length(fract(rippleUv + 0.43f) - 0.5f) * 20.0f - u.gameTime * 14.0f);
-                  float rippleMask = smoothstep(0.3f, 0.7f, smoothNoise3D(float3(pWorld.xz * 1.2f, 0.0f))); float2 rippleOffset = float2(rip1 + rip2) * 0.045f * puddleMask * u.rainStrength * rippleMask;
+                  isPuddle = (puddleMask > 0.12f);
+                  // Wet ground darkening + slight roughness reduction
+                  albedo.rgb *= mix(1.0f, 0.55f, puddleMask);
+                  // Circular ripple normals (rain drops), masked to puddle areas only
+                  float2 rippleUv = pWorld.xz * 1.8f;
+                  float rip1 = sin(length(fract(rippleUv) - 0.5f) * 22.0f - u.gameTime * 16.0f);
+                  float rip2 = sin(length(fract(rippleUv + float2(0.43f, 0.17f)) - 0.5f) * 18.0f - u.gameTime * 12.0f);
+                  float rip3 = sin(length(fract(rippleUv * 0.62f + float2(0.71f, 0.29f)) - 0.5f) * 14.0f - u.gameTime * 9.5f);
+                  float rippleMask = smoothstep(0.3f, 0.7f, smoothNoise3D(float3(pWorld.xz * 1.0f, 0.0f)));
+                  // Near-water surfaces: calm mirror (no rain ripples), just gentle wave from wind
+                  float rainOnly = saturate(u.rainStrength * 2.0f);
+                  float2 rippleOffset = float2(rip1 + rip2 * 0.7f + rip3 * 0.4f)
+                                       * 0.040f * puddleMask * rainOnly * rippleMask;
                   surfNormal = normalize(float3(surfNormal.x + rippleOffset.x, surfNormal.y, surfNormal.z + rippleOffset.y));
                 }
               }
@@ -752,25 +782,36 @@ kernel void prisma_deferred_cs(
                             } else if (!isEnd) {
                 float distToCam = length(pWorld - uVoxel.camPos.xyz);
                 float3 rayDir = normalize(pWorld - uVoxel.camPos.xyz);
-                
-                // Exponential distance fog (thicker to hide chunks better)
-                                float distFog = 1.0f - exp(-pow(distToCam * mix(0.0001f, 0.006f, u.rainStrength), mix(5.5f, 3.0f, u.rainStrength)));
-                float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f) * saturate(distToCam * 0.015f) * saturate(u.rainStrength * 2.0f);
-                
-                float fogFactor = saturate(distFog + heightFog);
+
+                // Clear-day atmospheric Rayleigh haze (always present, very gradual).
+                // Creates natural horizon haze on mountains even without rain.
+                // Kicks in after 80 blocks, full at ~200 blocks.
+                float clearDayFog = 1.0f - exp(-pow(distToCam * 0.0028f, 3.8f));
+
+                // Rain: thick visibility reduction starting much sooner
+                float rainFog = 1.0f - exp(-pow(distToCam * 0.006f, 3.0f));
+
+                // Height fog: mist in valleys during rain only (not clear days)
+                float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f)
+                                * saturate(distToCam * 0.015f)
+                                * saturate(u.rainStrength * 2.0f);
+
+                float fogFactor = saturate(mix(clearDayFog, rainFog, u.rainStrength) + heightFog);
                 float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
 
-                                                // Darken fog in caves (but keep it bright under trees)
-                float surfaceBoost = saturate((pWorld.y - 50.0f) * 0.05f); 
+                // Darken fog in caves (keep bright under open sky)
+                float surfaceBoost = saturate((pWorld.y - 50.0f) * 0.05f);
                 float caveDarkness = saturate(skyLevel * 4.0f + surfaceBoost);
                 fogColor *= max(caveDarkness, 0.0f);
 
+                // Mie forward scattering glare toward sun (more visible on clear days)
                 float cosSunTheta = dot(rayDir, sunDir);
                 float miePhase = (1.0f - 0.78f*0.78f) / pow(max(1.0f + 0.78f*0.78f - 2.0f*0.78f*cosSunTheta, 0.01f), 1.5f);
-                float3 mieGlare = currentSunColor * (miePhase * 0.035f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
+                float3 mieGlare = currentSunColor * (miePhase * 0.032f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
                 fogColor += mieGlare;
-                
-                fogFactor = saturate(fogFactor + u.rainStrength * 0.85f * (1.0f - exp(-distToCam * 0.04f)));
+
+                // Final rain visibility bump (heavy rain nearly opaque at distance)
+                fogFactor = saturate(fogFactor + u.rainStrength * 0.80f * (1.0f - exp(-distToCam * 0.04f)));
                 litRgb = mix(litRgb, fogColor, fogFactor);
               }
 
