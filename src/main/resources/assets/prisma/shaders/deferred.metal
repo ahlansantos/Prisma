@@ -139,16 +139,23 @@ kernel void prisma_deferred_cs(
               bool isNether = u.sunriseAlpha < -0.5f && u.sunriseAlpha > -1.5f;
               bool isEnd = u.sunriseAlpha < -1.5f;
 
-              float3 noonSunColor = float3(1.08f, 1.01f, 0.88f);
-              float3 sunsetSunColor = float3(1.50f, 0.70f, 0.25f);
-              float3 currentSunColor = mix(noonSunColor, sunsetSunColor, max(sunsetFactor, clampedSunrise));
-              float3 currentMoonColor = float3(0.24f, 0.34f, 0.54f);
+              // --- Golden Hour Sun Color (2200K sunrise/sunset -> 5500K noon) ---
+              // Noon: crisp slightly warm white. Sunrise/sunset: rich amber/orange cinematico.
+              float3 noonSunColor   = float3(1.05f, 0.98f, 0.88f);
+              // Deep golden hour: more saturated amber-red at very low sun angles
+              float goldenBoost     = smoothstep(0.30f, 0.0f, abs(sunElevation)); // 1.0 near horizon
+              float3 goldenHourColor = mix(float3(1.55f, 0.72f, 0.22f),  // warm amber
+                                          float3(1.70f, 0.45f, 0.12f),  // deep orange-red at horizon
+                                          goldenBoost * 0.6f);
+              float3 currentSunColor = mix(noonSunColor, goldenHourColor, max(sunsetFactor, clampedSunrise));
+              float3 currentMoonColor = float3(0.22f, 0.32f, 0.52f);
               float3 celestialDir = sunWeight > 0.5f ? sunDir : moonDir;
 
               float3 actualSky = float3(u.skyR, u.skyG, u.skyB);
               float3 sunriseTint = float3(u.sunriseR, u.sunriseG, u.sunriseB);
-              float3 daySkyLight = mix(float3(1.00f, 0.98f, 0.95f), sunriseTint * 1.25f, clampedSunrise);
-              float3 nightSkyLight = float3(0.08f, 0.15f, 0.35f);
+              // Cooler, more balanced daySkyLight so ambient doesn't blow out blocks
+              float3 daySkyLight = mix(float3(0.92f, 0.92f, 0.90f), sunriseTint * 1.10f, clampedSunrise);
+              float3 nightSkyLight = float3(0.06f, 0.11f, 0.28f);
               float3 activeSkyLight = mix(nightSkyLight, daySkyLight, sunWeight);
 
               if (effectiveDepth <= 0.00005f && hDepth <= 0.0001f) {
@@ -482,10 +489,12 @@ kernel void prisma_deferred_cs(
 
               // Hemispherical sky factor: vertical walls receive 60% sky, upward faces receive 100%
               float hemiSky = saturate(surfNormal.y * 0.40f + 0.60f);
-              float3 nightSkyAmbient = mix(float3(0.025f, 0.035f, 0.055f), float3(0.045f, 0.065f, 0.095f), skyLevel);
-              float3 ambientSky = max(activeSkyLight * (skyLevel * 0.85f * hemiSky), nightSkyAmbient);
+              float3 nightSkyAmbient = mix(float3(0.022f, 0.030f, 0.050f), float3(0.040f, 0.058f, 0.085f), skyLevel);
+              float3 ambientSky = max(activeSkyLight * (skyLevel * 0.72f * hemiSky), nightSkyAmbient);
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
-              float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.30f) : (currentMoonColor * 0.80f);
+              // Direct sun: 0.88x at noon (prevents washed-out), boosted to 1.30x at golden hour for dramatic rim light
+              float goldenRimBoost = 1.0f + sunsetFactor * 0.50f;
+              float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 0.88f * goldenRimBoost) : (currentMoonColor * 0.70f);
 
               float outsideShadow = 1.0f;
               float computedShadow = (u.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) ? 0.0f : 1.0f;
@@ -780,9 +789,11 @@ kernel void prisma_deferred_cs(
                       float scatteringAlbedo = 0.85f;
 
                       // Directional Sun Light for God Rays / Volumetric Sunlight
-                      // Warm atmospheric tint so beams look golden and organic instead of stark white
+                      // God rays: warm golden tint at sunrise/sunset, neutral at noon
                       float3 sunRayColor = currentSunColor * float3(1.04f, 0.95f, 0.82f);
-                      float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 1.15f) : (currentMoonColor * 0.45f);
+                      // Golden hour: extra beam intensity and warmth when sun is near horizon
+                      float goldenFogBoost = 1.0f + sunsetFactor * 1.20f;
+                      float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 1.15f * goldenFogBoost) : (currentMoonColor * 0.45f);
                       float cosThetaSun = dot(rd, celestialDir);
                       float gSun = 0.65f; // Strong forward scattering for crisp god rays
                       float gSun2 = gSun * gSun;
@@ -875,6 +886,27 @@ kernel void prisma_deferred_cs(
                   litRgb += volumetricFog;
               }
               
+              // --- ACES Filmic Tone Mapping ---
+              // Prevents hard clipping of bright values to pure white.
+              // Uses the Hill ACES approximation (fast, no matrix multiply).
+              // This is the fix for the "washed out / tudo branco" look.
+              {
+                  // Exposure pre-scale: controls overall scene brightness feel.
+                  // 0.85 = slightly underexposed = richer colors, more detail in brights.
+                  float exposure = mix(0.85f, 0.72f, sunsetFactor * sunWeight); // Even darker during golden hour so colors saturate
+                  litRgb *= exposure;
+
+                  // Hill ACES approximation:
+                  //   f(x) = (x*(2.51*x + 0.03)) / (x*(2.43*x + 0.59) + 0.14)
+                  float3 x = litRgb;
+                  litRgb = saturate((x * (2.51f * x + 0.03f)) / (x * (2.43f * x + 0.59f) + 0.14f));
+
+                  // Subtle golden hour color grade: push shadows slightly cooler, mids warmer
+                  float lumaFinal = dot(litRgb, float3(0.299f, 0.587f, 0.114f));
+                  float3 warmGrade = mix(float3(1.0f), float3(1.04f, 0.98f, 0.90f), sunsetFactor * sunWeight);
+                  litRgb = mix(litRgb, litRgb * warmGrade, 0.60f);
+              }
+
               outTexture.write(float4(litRgb, albedo.a), gid);
               return;
             }
