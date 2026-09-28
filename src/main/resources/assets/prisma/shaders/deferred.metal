@@ -921,8 +921,13 @@ kernel void prisma_deferred_cs(
                               }
                           }
 
-                          // --- 2. Volumetric Point Lights ---
-                          for (int li = 0; li < lightCount && li < 16; li++) {
+                          // --- 2. Volumetric Point Lights (3D Spatial Light Volumes) ---
+                          // Two components:
+                          //   a) Phase-dependent: HG forward lobe toward camera (current behaviour)
+                          //   b) Omnidirectional spatial radiance: light that EXISTS in the 3D volume
+                          //      regardless of view angle — this is what makes corridors light up
+                          //      from any direction (Rockstar Shaders / MHRT behaviour).
+                          for (int li = 0; li < lightCount && li < 32; li++) {
                               float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
                               float lRad = uVoxel.lights[li].posAndRadius.w;
 
@@ -979,7 +984,14 @@ kernel void prisma_deferred_cs(
                                   shadowVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, shadowTarget, 16, shadowTint);
                               }
 
-                              inScatter += (lColor * shadowTint) * (phase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis);
+                              // a) Phase-dependent HG forward lobe (view-angle dependent)
+                              float3 phaseContrib = (lColor * shadowTint) * (phase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis);
+                              // b) Omnidirectional 3D spatial radiance (g=0 isotropic, 1/(4pi))
+                              //    Makes light fill corridors/hallways from ANY view angle.
+                              //    Small weight (0.18) keeps directionality dominant.
+                              float isotropicPhase = 1.0f / (4.0f * 3.14159265f);
+                              float3 spatialContrib = (lColor * shadowTint) * (isotropicPhase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis * 0.18f);
+                              inScatter += phaseContrib + spatialContrib;
                           }
 
                           // Beer-Lambert transmittance along the ray up to this step
