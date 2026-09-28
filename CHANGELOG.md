@@ -17,6 +17,7 @@
 - **Extended Handheld Lights:** Added redstone items and blocks to handheld dynamic emission.
 
 ### Fixes & Cleanups
+- **3D HUD Depth-Only Render Pass Crash Fix:** Handled empty color attachment descriptors in Metal render pass creation, resolving a `NoSuchElementException` crash during `GameRenderer.integrate3DHudDepth` / `render3dHud`.
 - **Enhanced Crepuscular God Rays:** Increased god ray scattering and atmospheric sunlight beam presence through gaps, windows, and foliage.
 - **Block Edge & Corner Normal Reconstruction Fix:** Eliminated white lines and abnormal highlights along block corners and edges by weighting axis-snapped normals with camera view alignment and filtering fallback normals to visible front-faces.
 - **Glass Reflection & Dual-Pass Z-Fighting Fix:** Isolated glass surface classification strictly to the underlying block voxel (`insideVox`), preventing adjacent solid walls or faces pointed towards glass from triggering duplicate reflection passes and z-fighting.

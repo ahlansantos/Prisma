@@ -40,6 +40,7 @@ final class MetalRenderPass implements RenderPassBackend {
     private final MetalCommandEncoder commandEncoder;
     @Nullable
     private final String label;
+    @Nullable
     private final GpuTextureView colorTexture;
     @Nullable
     private final GpuTextureView depthTexture;
@@ -70,7 +71,7 @@ final class MetalRenderPass implements RenderPassBackend {
             final MetalDevice device,
             final MetalCommandEncoder encoder,
             final Supplier<String> label,
-            final GpuTextureView colorTexture,
+            @Nullable final GpuTextureView colorTexture,
             @Nullable final GpuTextureView depthTexture,
             final RenderPass.RenderArea renderArea,
             @Nullable final Vector4fc clearColor,
@@ -331,6 +332,9 @@ final class MetalRenderPass implements RenderPassBackend {
     }
 
     MTLPixelFormat colorAttachmentFormat() {
+        if (colorTexture == null) {
+            return MTLPixelFormat.Invalid;
+        }
         return ((MetalGpuTexture) colorTexture.texture()).mtlPixelFormat();
     }
 
@@ -355,13 +359,15 @@ final class MetalRenderPass implements RenderPassBackend {
     }
 
     private MTLRenderCommandEncoder renderEncoder() {
-        MetalGpuTextureView colorTextureView = (MetalGpuTextureView) colorTexture;
+        MetalGpuTextureView colorTextureView = colorTexture == null ? null : (MetalGpuTextureView) colorTexture;
         MetalGpuTextureView depthTextureView = depthTexture == null ? null : (MetalGpuTextureView) depthTexture;
+        int width = colorTexture != null ? colorTexture.getWidth(0) : (depthTexture != null ? depthTexture.getWidth(0) : renderArea.width());
+        int height = colorTexture != null ? colorTexture.getHeight(0) : (depthTexture != null ? depthTexture.getHeight(0) : renderArea.height());
         MTLRenderCommandEncoder encoder = commandEncoder.renderCommandEncoder(
                 colorTextureView,
                 depthTextureView,
-                colorTexture.getWidth(0),
-                colorTexture.getHeight(0),
+                width,
+                height,
                 clearColor,
                 clearDepth
         );
@@ -573,8 +579,11 @@ final class MetalRenderPass implements RenderPassBackend {
         int areaLeft = renderArea.x();
         int areaTop = renderArea.y();
         if (!scissorEnabled) {
-            if (renderArea.fillsTexture(colorTexture)) {
+            if (colorTexture != null && renderArea.fillsTexture(colorTexture)) {
                 enc.setScissorRect(0L, 0L, colorTexture.getWidth(0), colorTexture.getHeight(0));
+                return;
+            } else if (depthTexture != null && renderArea.fillsTexture(depthTexture)) {
+                enc.setScissorRect(0L, 0L, depthTexture.getWidth(0), depthTexture.getHeight(0));
                 return;
             }
             enc.setScissorRect(areaLeft, areaTop, renderArea.width(), renderArea.height());

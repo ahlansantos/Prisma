@@ -140,14 +140,14 @@ final class MetalCommandEncoder implements CommandEncoderBackend {
     }
 
     MTLRenderCommandEncoder renderCommandEncoder(
-            final MetalGpuTextureView colorTextureView,
+            @Nullable final MetalGpuTextureView colorTextureView,
             @Nullable final MetalGpuTextureView depthTextureView,
             final int viewportWidth,
             final int viewportHeight,
             @Nullable final Vector4fc clearColor,
             @Nullable final Double clearDepth
     ) {
-        MemorySegment colorAttachment = colorTextureView.nativeHandle();
+        MemorySegment colorAttachment = colorTextureView == null ? MemorySegment.NULL : colorTextureView.nativeHandle();
         MemorySegment depthAttachment = depthTextureView == null ? MemorySegment.NULL : depthTextureView.nativeHandle();
         MemorySegment normalAttachment = MemorySegment.NULL;
         MemorySegment lightDataAttachment = MemorySegment.NULL;
@@ -155,10 +155,12 @@ final class MetalCommandEncoder implements CommandEncoderBackend {
         Vector4fc clearLightData = null;
 
         if (depthTextureView != null) {
-            long w = colorTextureView.getWidth(0);
-            long h = colorTextureView.getHeight(0);
-            normalAttachment = device.mrtManager().ensureNormalTexture(w, h);
-            lightDataAttachment = device.mrtManager().ensureLightDataTexture(w, h);
+            long w = colorTextureView != null ? colorTextureView.getWidth(0) : depthTextureView.getWidth(0);
+            long h = colorTextureView != null ? colorTextureView.getHeight(0) : depthTextureView.getHeight(0);
+            if (colorTextureView != null) {
+                normalAttachment = device.mrtManager().ensureNormalTexture(w, h);
+                lightDataAttachment = device.mrtManager().ensureLightDataTexture(w, h);
+            }
             device.mrtManager().setLastDepthTexture(depthAttachment, w, h);
             if (clearColor != null) {
                 clearNormal = new Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
@@ -208,22 +210,26 @@ final class MetalCommandEncoder implements CommandEncoderBackend {
 
     @Override
     public @NonNull RenderPassBackend createRenderPass(final RenderPassDescriptor descriptor) {
-        RenderPassDescriptor.Attachment<Optional<Vector4fc>> colorAttachment = descriptor.colorAttachments().getFirst();
-        GpuTextureView colorTexture = colorAttachment.textureView();
-        MetalGpuTexture colorTex = (MetalGpuTexture) colorTexture.texture();
-        Vector4fc colorClear = colorAttachment.clearValue().orElse(null);
-        Vector4fc pendingColor = pendingColorClears.get(colorTex);
-        if (pendingColor != null && colorClear == null) {
-            if (isFullTextureView(colorTexture)) {
-                pendingColorClears.remove(colorTex);
-                colorClear = pendingColor;
+        GpuTextureView colorTexture = null;
+        Vector4fc colorClear = null;
+        if (!descriptor.colorAttachments().isEmpty()) {
+            RenderPassDescriptor.Attachment<Optional<Vector4fc>> colorAttachment = descriptor.colorAttachments().getFirst();
+            colorTexture = colorAttachment.textureView();
+            MetalGpuTexture colorTex = (MetalGpuTexture) colorTexture.texture();
+            colorClear = colorAttachment.clearValue().orElse(null);
+            Vector4fc pendingColor = pendingColorClears.get(colorTex);
+            if (pendingColor != null && colorClear == null) {
+                if (isFullTextureView(colorTexture)) {
+                    pendingColorClears.remove(colorTex);
+                    colorClear = pendingColor;
+                } else {
+                    flushPendingClear(colorTex);
+                }
             } else {
-                flushPendingClear(colorTex);
+                pendingColorClears.remove(colorTex);
             }
-        } else {
-            pendingColorClears.remove(colorTex);
+            colorTex.markContentsDirty();
         }
-        colorTex.markContentsDirty();
 
         RenderPassDescriptor.Attachment<OptionalDouble> depthAttachment = descriptor.depthAttachment();
         GpuTextureView depthTexture = null;
