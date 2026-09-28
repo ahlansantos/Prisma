@@ -220,16 +220,28 @@ kernel void prisma_deferred_cs(
               float3 pLocal = pWorld - floor(pWorld);
               float3 distMin = pLocal;
               float3 distMax = 1.0f - pLocal;
+
+              // Nearest boundary on unit cube: compare closest distances directly
               float3 blockNormal = float3(0.0f, 1.0f, 0.0f);
               float minDist = 1000.0f;
-              if (distMin.x < minDist && viewDirCam.x < -0.01f) { minDist = distMin.x; blockNormal = float3(-1.0f, 0.0f, 0.0f); }
-              if (distMax.x < minDist && viewDirCam.x >  0.01f) { minDist = distMax.x; blockNormal = float3(1.0f, 0.0f, 0.0f); }
               if (distMin.y < minDist && viewDirCam.y < -0.01f) { minDist = distMin.y; blockNormal = float3(0.0f, -1.0f, 0.0f); }
               if (distMax.y < minDist && viewDirCam.y >  0.01f) { minDist = distMax.y; blockNormal = float3(0.0f, 1.0f, 0.0f); }
-              if (distMin.z < minDist && viewDirCam.z < -0.01f) { minDist = distMin.z; blockNormal = float3(0.0f, 0.0f, -1.0f); }
-              if (distMax.z < minDist && viewDirCam.z >  0.01f) { minDist = distMax.z; blockNormal = float3(0.0f, 0.0f, 1.0f); }
+              if (distMin.x < minDist && abs(viewDirCam.x) > 0.01f) { minDist = distMin.x; blockNormal = float3(-1.0f, 0.0f, 0.0f); }
+              if (distMax.x < minDist && abs(viewDirCam.x) > 0.01f) { minDist = distMax.x; blockNormal = float3(1.0f, 0.0f, 0.0f); }
+              if (distMin.z < minDist && abs(viewDirCam.z) > 0.01f) { minDist = distMin.z; blockNormal = float3(0.0f, 0.0f, -1.0f); }
+              if (distMax.z < minDist && abs(viewDirCam.z) > 0.01f) { minDist = distMax.z; blockNormal = float3(0.0f, 0.0f, 1.0f); }
 
-              bool badDerivative = dot(dX, dX) > 0.25f || dot(dY, dY) > 0.25f;
+              // Adaptive depth derivative threshold scaled by resolution footprint:
+              // At <= 1050p, each depth texel spans more world space.
+              // Scaling the threshold prevents false-positive edge detection on slopes and flat block surfaces.
+              float distCam = length(pWorld - uVoxel.camPos.xyz);
+              float texelFootprint = max(0.06f, distCam * depthTexel.y * 2.2f);
+              float derivThreshold = max(0.40f, texelFootprint * texelFootprint * 1.6f);
+
+              bool badX = dot(dX, dX) > derivThreshold;
+              bool badY = dot(dY, dY) > derivThreshold;
+              bool badDerivative = badX && badY;
+
               float3 geomNormal = (crossLen > 1e-20f && !badDerivative) ? normalize(crossDir) : blockNormal;
               if (dot(geomNormal, pWorld - uVoxel.camPos.xyz) > 0.0f) {
                   geomNormal = -geomNormal;
