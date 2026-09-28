@@ -46,36 +46,33 @@
 static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
               if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
 
-              float2 wavePos = pWorldXZ * 1.5f;
-              float angle = 0.0f;
-              float frequency = 1.0f;
-              float wSpeed = 1.2f * speed;
-              float weight = 1.0f;
-              float waveSum = 0.0f;
-              float modTime = time * 0.65f;
-              float2 dx = float2(0.0f);
+              // Gerstner Ocean Waves — directional parallel swells (replaces isotropic trochoidal noise).
+              // Creates the realistic parallel-band ocean look from Imagem 3.
+              // Wave parameters: (direction.x, direction.z, frequency, amplitude)
+              const float4 waves[5] = {
+                float4( 1.00f,  0.20f, 0.45f, 0.28f),  // primary swell: near-east direction
+                float4( 0.85f, -0.52f, 0.80f, 0.18f),  // secondary swell: slight cross-chop
+                float4( 0.40f,  0.92f, 1.30f, 0.09f),  // high-freq ripple
+                float4(-0.70f,  0.72f, 1.90f, 0.04f),  // counter-swell chop
+                float4( 0.10f,  1.00f, 2.60f, 0.02f),  // micro-ripple
+              };
 
-              const float GOLDEN_ANGLE = 2.39996f;
+              float2 dX = float2(0.0f);  // partial derivative accumulator
+              float wTime = time * 0.65f * speed;
 
               for (int i = 0; i < 5; i++) {
-                float2 dir = float2(cos(angle), sin(angle));
-                float x = dot(dir, wavePos) * frequency + modTime * wSpeed;
-                float wave = exp(sin(x) - 1.0f);
-                float result = wave * cos(x);
-                float2 force = result * weight * dir;
-
-                dx += force;
-                wavePos -= force * 0.03f;
-                angle += GOLDEN_ANGLE;
-                waveSum += weight;
-                weight *= 0.62f;
-                frequency *= 1.55f;
-                wSpeed *= 1.12f;
+                float2 dir   = normalize(waves[i].xy);
+                float  freq  = waves[i].z * strength;
+                float  amp   = waves[i].w;
+                float  phase = wTime * (0.9f + float(i) * 0.12f);
+                float  x     = dot(dir, pWorldXZ) * freq + phase;
+                // Gerstner derivative: steepness on crests (sharper than sinusoidal)
+                float  wave  = exp(sin(x) - 1.0f);
+                float  deriv = wave * cos(x) * freq * amp;
+                dX += dir * deriv * 0.07f;
               }
 
-              float2 waveSlope = -dx / max(waveSum, 0.001f);
-              float normalMult = 0.06f * strength;
-              return normalize(float3(waveSlope.x * normalMult, 1.0f, waveSlope.y * normalMult));
+              return normalize(float3(-dX.x, 1.0f, -dX.y));
             }
 
             vertex DeferredVertexOut prisma_deferred_vs(uint vertexId [[vertex_id]]) {
@@ -674,17 +671,48 @@ kernel void prisma_deferred_cs(
                 float f0 = isMetal ? 0.85f : (isGlass ? 0.15f : (isPuddle ? 0.15f : 0.02f));
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
-                float3 underWaterColor = albedo.rgb;
-                float3 shallowColor = float3(0.08f, 0.45f, 0.65f);
-                float3 deepColor = float3(0.01f, 0.15f, 0.35f);
+                // === Crystal Clear Water: Beer-Lambert depth absorption ===
+                // Completely replace vanilla albedo for water surfaces.
+                // Extinction coefficients: red absorbed first, blue last (physically correct).
+                float3 waterExtinction = float3(0.38f, 0.14f, 0.04f) * u.waterAbsorption;
                 float3 toSurf = uVoxel.camPos.xyz - pWorld;
-                float vertDist = max(abs(toSurf.y), 0.5f);
-                float horizDist = length(toSurf.xz);
-                float depthAngle = saturate(vertDist / (vertDist + horizDist * 0.5f));
-                float3 waterVol = mix(deepColor, shallowColor, pow(depthAngle, 0.6f));
-                float3 cleanWaterTint = isWater ? mix(underWaterColor, waterVol, saturate(0.35f * u.waterAbsorption)) : underWaterColor;
-                albedo.rgb = cleanWaterTint;
-                
+                float vertDist   = max(abs(toSurf.y), 0.5f);
+                float horizDist  = length(toSurf.xz);
+                // Effective optical depth = vertical + horizontal component (view angle)
+                float waterDepth = vertDist + horizDist * 0.30f;
+                // Beer-Lambert transmittance: shallow turquoise, deep navy
+                float3 transmitted = exp(-waterExtinction * waterDepth);
+                float3 crystalShallow = float3(0.22f, 0.72f, 0.88f);  // crystal turquoise/emerald near shore
+                float3 crystalDeep   = float3(0.01f, 0.08f, 0.28f);   // deep midnight navy
+                float3 waterVol = mix(crystalDeep, crystalShallow, transmitted);
+                // Completely override vanilla texture with procedural color
+                albedo.rgb = waterVol;
+
+                // === SSR (Screen-Space Reflections) for water outside voxel grid ===
+                // When water is beyond the voxel grid (~56 blocks), voxel ray trace misses.
+                // Instead, do a screen-space raymarch in UV space for cheap distant reflections.
+                if (isWater && gridWeight < 0.50f && u.reflectionsEnabled > 0.5f) {
+                    float2 ssrTexSize = float2(outTexture.get_width(), outTexture.get_height());
+                    float3 reflDir   = reflect(-viewDir, surfNormal);
+                    // Only SSR if ray goes upward (sky reflection, most common for flat water)
+                    if (reflDir.y > 0.01f) {
+                        float3 skyRefl = evaluateSkyAndReflections(pWorld, reflDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsInReflections, u.cloudSteps, u.rainStrength, 1e6f);
+                        // SSR: step in clip space along reflect direction
+                        float ssrHit = 0.0f;
+                        float3 ssrColor = skyRefl;
+                        float4 clipRefl = uVoxel.viewProj * float4(pWorld + reflDir * 2.0f, 1.0f);
+                        float2 reflUv = (clipRefl.xy / max(clipRefl.w, 0.0001f)) * 0.5f + 0.5f;
+                        if (reflUv.x >= 0.01f && reflUv.x <= 0.99f && reflUv.y >= 0.01f && reflUv.y <= 0.99f) {
+                            // Sample the already-rendered scene at the reflected UV
+                            float4 ssrSample = outTexture.read(uint2(reflUv * ssrTexSize));
+                            // Blend screen sample with sky fallback based on ray angle
+                            float ssrStrength = saturate(1.0f - reflDir.y * 3.0f); // less SSR for steep angles (sky dominates)
+                            ssrColor = mix(skyRefl, ssrSample.rgb, ssrStrength * 0.65f);
+                        }
+                        accumulatedScene = ssrColor;
+                    }
+                }
+
                 if (isMetal) {
                     accumulatedScene = min(accumulatedScene, 1.3f);
                     accumulatedScene *= mix(float3(1.0f), albedo.rgb, 0.90f);
