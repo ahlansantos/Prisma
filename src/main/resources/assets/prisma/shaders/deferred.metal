@@ -96,7 +96,7 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
 
 kernel void prisma_deferred_cs(
               uint2 gid [[thread_position_in_grid]],
-              texture2d<float, access::write> outTexture [[texture(10)]],
+              texture2d<float, access::read_write> outTexture [[texture(10)]],
               texture2d<float> albedoTex [[texture(0)]],
               texture2d<float> normalTex [[texture(1)]],
               texture2d<float> lightDataTex [[texture(2)]],
@@ -552,7 +552,7 @@ kernel void prisma_deferred_cs(
               float3 celestialTint = mix(float3(1.0f), computedTint, gridWeight);
 
               // === Basic CSM Substitute for Distant Terrain (outside voxel grid) ===
-              // The voxel-traced shadow only works within ~56 blocks (gridWeight = 1.0).
+              // The voxel-traced shadow only works within the active voxel grid (gridWeight = 1.0).
               // Beyond that, terrain is lit uniformly → washed-out look.
               // Approximation: use the sun angle × normal geometry to estimate self-shadow.
               // Smoothly blends OUT as we enter the voxel grid (gridWeight → 1).
@@ -774,13 +774,13 @@ kernel void prisma_deferred_cs(
                     if (reflDir.y > 0.01f) {
                         float3 skyRefl = evaluateSkyAndReflections(pWorld, reflDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsInReflections, u.cloudSteps, u.rainStrength, 1e6f);
                         // SSR: step in clip space along reflect direction
-                        float ssrHit = 0.0f;
                         float3 ssrColor = skyRefl;
                         float4 clipRefl = uVoxel.viewProj * float4(pWorld + reflDir * 2.0f, 1.0f);
                         float2 reflUv = (clipRefl.xy / max(clipRefl.w, 0.0001f)) * 0.5f + 0.5f;
                         if (reflUv.x >= 0.01f && reflUv.x <= 0.99f && reflUv.y >= 0.01f && reflUv.y <= 0.99f) {
                             // Sample the already-rendered scene at the reflected UV
-                            float4 ssrSample = outTexture.read(uint2(reflUv * ssrTexSize));
+                            uint2 ssrCoord = clamp(uint2(reflUv * ssrTexSize), uint2(0), uint2(uint(ssrTexSize.x) - 1, uint(ssrTexSize.y) - 1));
+                            float4 ssrSample = outTexture.read(ssrCoord);
                             // Blend screen sample with sky fallback based on ray angle
                             float ssrStrength = saturate(1.0f - reflDir.y * 3.0f); // less SSR for steep angles (sky dominates)
                             ssrColor = mix(skyRefl, ssrSample.rgb, ssrStrength * 0.65f);
@@ -889,7 +889,10 @@ kernel void prisma_deferred_cs(
                       // The voxel grid only extends ~64 blocks around the player.
                       // Marching hundreds of meters into sky/clouds or distant horizons causes
                       // huge 20-50m steps, producing severe stipple/dither noise on clouds and distant water.
-                      float marchDist = min(tMax, 56.0f);
+                      // Dynamic fog march distance — scales with user voxel radius setting.
+                      // gridSize.x = grid diameter in voxels, so half = radius in blocks.
+                      float gridHalfDim = float(uVoxel.gridSize.x) * 0.5f;
+                      float marchDist = min(tMax, gridHalfDim);
                       // Cap steps to 24 max to prevent 5-second Metal GPU timeout crashes!
                       int numSteps = max(4, min(int(u.volFogSamples), 24));
                       float stepSize = marchDist / float(numSteps);
@@ -1033,7 +1036,6 @@ kernel void prisma_deferred_cs(
                   litRgb = saturate((x * (2.51f * x + 0.03f)) / (x * (2.43f * x + 0.59f) + 0.14f));
 
                   // Subtle golden hour color grade: push shadows slightly cooler, mids warmer
-                  float lumaFinal = dot(litRgb, float3(0.299f, 0.587f, 0.114f));
                   float3 warmGrade = mix(float3(1.0f), float3(1.04f, 0.98f, 0.90f), sunsetFactor * sunWeight);
                   litRgb = mix(litRgb, litRgb * warmGrade, 0.60f);
               }

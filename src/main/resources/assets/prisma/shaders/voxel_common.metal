@@ -495,6 +495,12 @@ struct ShadowRayResult {  float vis;  float3 tint;}; static inline float hash3D(
     return f;
 }
 
+// Henyey-Greenstein phase function — Metal does not support lambdas, so this is a free helper.
+static inline float hgPhase(float cosT, float g) {
+    float g2 = g * g;
+    return (1.0f - g2) / pow(max(1.0f + g2 - 2.0f * g * cosT, 0.01f), 1.5f);
+}
+
 static inline float4 computeVolumetricClouds(
     float3 pWorld, float3 rWorld, float gameTime, float3 hazeColor, float sunWeight, float3 sunDir, float3 moonDir, float3 currentSunColor, float3 currentMoonColor, float cloudsEnabled, float cloudSteps, float rainStrength, float maxDist
 ) {
@@ -504,14 +510,9 @@ static inline float4 computeVolumetricClouds(
     float cosMoonTheta = dot(rWorld, moonDir);
     float3 celDir = (sunWeight > 0.5f) ? sunDir : moonDir;
 
-    // Henyey-Greenstein lobe helper
-    auto hg = [](float cosT, float g) -> float {
-        float g2 = g * g;
-        return (1.0f - g2) / pow(max(1.0f + g2 - 2.0f * g * cosT, 0.01f), 1.5f);
-    };
 
-    float phNet  = max(0.80f, mix(hg(cosSunTheta,  -0.25f) * 0.70f, hg(cosSunTheta,  0.50f), 0.70f));
-    float mPhNet = max(0.80f, mix(hg(cosMoonTheta, -0.25f) * 0.70f, hg(cosMoonTheta, 0.50f), 0.70f));
+    float phNet  = max(0.80f, mix(hgPhase(cosSunTheta,  -0.25f) * 0.70f, hgPhase(cosSunTheta,  0.50f), 0.70f));
+    float mPhNet = max(0.80f, mix(hgPhase(cosMoonTheta, -0.25f) * 0.70f, hgPhase(cosMoonTheta, 0.50f), 0.70f));
 
     float3 dayCloudAmbient  = mix(float3(0.38f, 0.48f, 0.62f), hazeColor, 0.35f);
     float3 cloudAmbient     = mix(mix(float3(0.012f, 0.020f, 0.050f), dayCloudAmbient, sunWeight),
@@ -557,7 +558,7 @@ static inline float4 computeVolumetricClouds(
                     float stT    = exp(-sigmaT * sZ);
                     float ln     = smoothNoise3D((cP + celDir * 30.0f) * 0.0024f + float3(gameTime * 0.013f, 0.0f, gameTime * 0.0045f)) * 0.85f;
                     float lT     = exp(-max(0.0f, ln - cloudThreshold) * cloudDensityMult * 0.065f * 30.0f);
-                    float silverLining = hg(cosSunTheta, 0.85f) * 0.35f * sunWeight;
+                    float silverLining = hgPhase(cosSunTheta, 0.85f) * 0.35f * sunWeight;
                     float inscatter = lT * (1.0f - exp(-d * 2.8f)) + silverLining;
                     float3 sunD  = currentSunColor  * (inscatter * phNet  * sunWeight       * 0.90f);
                     float3 moonD = currentMoonColor * (inscatter * mPhNet * (1.0f-sunWeight) * 0.01f);
@@ -605,7 +606,7 @@ static inline float4 computeVolumetricClouds(
                     float stT    = exp(-sigmaT * sZ);
                     float ln     = smoothNoise3D((cP + celDir * 20.0f) * 0.0042f + float3(gameTime * 0.008f, 0.0f, gameTime * 0.003f)) * 0.85f;
                     float lT     = exp(-max(0.0f, ln - altoThresh) * altoDensity * 0.055f * 20.0f);
-                    float silverLining = hg(cosSunTheta, 0.80f) * 0.20f * sunWeight;
+                    float silverLining = hgPhase(cosSunTheta, 0.80f) * 0.20f * sunWeight;
                     float inscatter = lT * (1.0f - exp(-d * 1.8f)) + silverLining;
                     float3 altoAmbient = mix(cloudAmbient, float3(0.55f, 0.62f, 0.72f), 0.25f);
                     float3 sunD  = currentSunColor  * (inscatter * phNet  * sunWeight       * 0.65f);
