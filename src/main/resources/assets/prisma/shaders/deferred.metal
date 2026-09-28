@@ -551,21 +551,13 @@ kernel void prisma_deferred_cs(
                 }
               }
 
-              float celestialShadow = mix(outsideShadow, computedShadow, gridWeight);
-              float3 celestialTint = mix(float3(1.0f), computedTint, gridWeight);
-
-              // === Basic CSM Substitute for Distant Terrain (outside voxel grid) ===
-              // The voxel-traced shadow only works within the active voxel grid (gridWeight = 1.0).
-              // Beyond that, terrain is lit uniformly → washed-out look.
-              // Approximation: use the sun angle × normal geometry to estimate self-shadow.
-              // Smoothly blends OUT as we enter the voxel grid (gridWeight → 1).
-              if (gridWeight < 0.95f && !isEntity && !isWater && skyLevel > 0.05f && sunWeight > 0.05f) {
-                  // Low NdotL = facing away from sun = soft self-shadow
-                  float geometricShadow = mix(0.30f, 1.0f, pow(saturate(celestialNdotL * 1.5f), 0.6f));
-                  // Apply only to parts of the scene outside the voxel grid
-                  float outsideBlend = 1.0f - gridWeight;
-                  celestialShadow = mix(celestialShadow, min(celestialShadow, geometricShadow), outsideBlend * 0.70f);
-              }
+              // === Distant Terrain Lighting & Shadow (Smooth voxel grid transition) ===
+              // Eliminates the harsh black ring and z-fighting at the voxel boundary (~7 chunks).
+              // Smoothly transitions from 100% voxel ray-traced shadows inside the grid to stable terrain daylight outside.
+              float gridBlend = smoothstep(0.05f, 0.95f, gridWeight);
+              float distantTerrainShadow = saturate(celestialNdotL * 0.60f + 0.40f);
+              float celestialShadow = mix(distantTerrainShadow, computedShadow, gridBlend);
+              float3 celestialTint = mix(float3(1.0f), computedTint, gridBlend);
 
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
               // Never crush sky ambient on outdoor faces: outdoor shadow factor is at least 0.50f
