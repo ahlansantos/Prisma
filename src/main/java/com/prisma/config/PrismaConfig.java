@@ -46,6 +46,9 @@ public final class PrismaConfig {
     public volatile int rayMarchedFogSamples = 12;
     public volatile float rayMarchedFogIntensity = 1.0f;
 
+    // Point Light Limit Slider (16, 32, 64, 128, 256)
+    public volatile int maxPointLights = 64;
+
     
     private PrismaConfig() {
     }
@@ -83,7 +86,8 @@ public final class PrismaConfig {
             sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f,", caveLighting));
             sb.append("\"rayMarchedFogEnabled\":").append(rayMarchedFogEnabled).append(",");
             sb.append("\"rayMarchedFogSamples\":").append(rayMarchedFogSamples).append(",");
-            sb.append(String.format(java.util.Locale.ROOT, "\"rayMarchedFogIntensity\":%.2f", rayMarchedFogIntensity));
+            sb.append(String.format(java.util.Locale.ROOT, "\"rayMarchedFogIntensity\":%.2f,", rayMarchedFogIntensity));
+            sb.append("\"maxPointLights\":").append(maxPointLights);
             sb.append("}");
             Files.writeString(configFile, sb.toString());
         } catch (Throwable ignored) {
@@ -185,6 +189,10 @@ public final class PrismaConfig {
                 }
                 if ((val = getJsonValue(content, "rayMarchedFogIntensity")) != null) {
                     try { rayMarchedFogIntensity = Math.clamp(Float.parseFloat(val), 0.1f, 4.0f); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "maxPointLights")) != null) {
+                    // Allowed values: 16, 32, 64, 128, 256. Clamp to [16, 256].
+                    try { maxPointLights = Math.clamp(Integer.parseInt(val), 16, 256); } catch (Throwable ignored) {}
                 }
 
             }

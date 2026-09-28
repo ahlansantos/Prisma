@@ -935,11 +935,15 @@ kernel void prisma_deferred_cs(
                                   fogMultiplier = 0.03f;
                               }
 
-                              // Fast shadow ray with colored glass support (super fast, prevents GPU crash)
+                              // Fast shadow ray: fix self-occlusion on solid emissive blocks (glowstone, froglights).
+                              // Pull shadow target 0.35 blocks back from lPos toward samplePos so DDA
+                              // does not start inside the emissive voxel and immediately return 0.
                               float shadowVis = 1.0f;
                               float3 shadowTint = float3(1.0f);
-                              if (!isHandheld && dist > 0.25f) {
-                                  shadowVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, lPos, 16, shadowTint);
+                              if (!isHandheld && dist > 0.30f) {
+                                  float3 toSample = normalize(samplePos - lPos);
+                                  float3 shadowTarget = lPos + toSample * min(0.35f, dist * 0.20f);
+                                  shadowVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, shadowTarget, 16, shadowTint);
                               }
 
                               inScatter += (lColor * shadowTint) * (phase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis);

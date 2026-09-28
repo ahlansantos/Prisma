@@ -285,7 +285,7 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 60L, sunriseG);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 64L, sunriseB);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 68L, starBrightness);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 72L, 1024.0f);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 72L, (float)cfg.maxPointLights);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 76L, cfg.pointLightsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 80L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.doubleAoInReflections ? 1.0f : 0.0f);

@@ -923,7 +923,7 @@ public final class VoxelGridManager {
             }));
         }
 
-        int remaining = Math.max(0, 64 - combined.size());
+        int remaining = Math.max(0, PrismaConfig.INSTANCE.maxPointLights - combined.size());
         int limit = Math.min(sortedBase.size(), remaining);
         for (int i = 0; i < limit; i++) {
             combined.add(sortedBase.get(i));

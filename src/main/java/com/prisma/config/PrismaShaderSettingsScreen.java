@@ -68,7 +68,11 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
             
             Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
-            this.listWidget.add(new SettingsEntry(b4, null));
+            ConfigSlider bMaxLights = new ConfigSlider("Max Point Lights", 16.0, 256.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> {
+                PrismaConfig.INSTANCE.maxPointLights = v.intValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            this.listWidget.add(new SettingsEntry(b4, bMaxLights));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Volumetric Fog").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button bFog = createToggle("Ray Traced Fog", PrismaConfig.INSTANCE.rayMarchedFogEnabled, v -> PrismaConfig.INSTANCE.rayMarchedFogEnabled = v);
