@@ -110,6 +110,8 @@ public final class PrismaMRTManager implements AutoCloseable {
         float upscaleFactor = 1.0f;
 
         if (width <= 0 || height <= 0) return;
+        // Auto-detect Retina scale once (before first render, when window is ready)
+        com.prisma.config.PrismaConfig.INSTANCE.autoDetectRetinaScale();
         if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)) {
             float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
             float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);

@@ -551,6 +551,19 @@ kernel void prisma_deferred_cs(
               float celestialShadow = mix(outsideShadow, computedShadow, gridWeight);
               float3 celestialTint = mix(float3(1.0f), computedTint, gridWeight);
 
+              // === Basic CSM Substitute for Distant Terrain (outside voxel grid) ===
+              // The voxel-traced shadow only works within ~56 blocks (gridWeight = 1.0).
+              // Beyond that, terrain is lit uniformly → washed-out look.
+              // Approximation: use the sun angle × normal geometry to estimate self-shadow.
+              // Smoothly blends OUT as we enter the voxel grid (gridWeight → 1).
+              if (gridWeight < 0.95f && !isEntity && !isWater && skyLevel > 0.05f && sunWeight > 0.05f) {
+                  // Low NdotL = facing away from sun = soft self-shadow
+                  float geometricShadow = mix(0.30f, 1.0f, pow(saturate(celestialNdotL * 1.5f), 0.6f));
+                  // Apply only to parts of the scene outside the voxel grid
+                  float outsideBlend = 1.0f - gridWeight;
+                  celestialShadow = mix(celestialShadow, min(celestialShadow, geometricShadow), outsideBlend * 0.70f);
+              }
+
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
               // Never crush sky ambient on outdoor faces: outdoor shadow factor is at least 0.50f
               float shadowAmbientFactor = mix(mix(1.0f, 0.55f, skyLevel), 1.0f, celestialShadow);

@@ -138,6 +138,7 @@ public class PrismaShaderSettingsScreen extends Screen {
             
             ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 1.0, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
                 PrismaConfig.INSTANCE.metalFxResolutionScale = v.floatValue();
+                PrismaConfig.INSTANCE.hasCustomMetalFxScale = true;
                 PrismaConfig.INSTANCE.save();
             });
             ConfigSlider bEasuQ = new ConfigSlider("Intermediate Scale (EASU Input)", 0.25, 1.0, PrismaConfig.INSTANCE.easuResolutionScale, true, v -> {

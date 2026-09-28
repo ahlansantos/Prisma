@@ -49,8 +49,35 @@ public final class PrismaConfig {
     // Point Light Limit Slider (16, 32, 64, 128, 256)
     public volatile int maxPointLights = 64;
 
-    
+    // Internal: whether the user has explicitly set the MetalFX scale via the UI
+    public volatile boolean hasCustomMetalFxScale = false;
+
     private PrismaConfig() {
+    }
+
+    /**
+     * Auto-detect a good MetalFX render scale based on the primary display resolution.
+     * Called once at startup if the user hasn't explicitly customized the scale.
+     * - Native 4K / ProMotion XDR (>= 3200px wide): 0.40  → render 1280×800 → upscale to native
+     * - Standard Retina (>= 2560px wide):            0.50  → render 1280×800 → upscale to 2560×1600
+     * - 1080p / 1440p (<= 1920px wide):              0.75  → lighter upscale
+     */
+    public void autoDetectRetinaScale() {
+        if (hasCustomMetalFxScale) return;
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc == null) return;
+            int fw = mc.getWindow().getWidth();
+            if (fw >= 3200) {
+                metalFxResolutionScale = 0.40f;
+            } else if (fw >= 2560) {
+                metalFxResolutionScale = 0.50f;
+            } else if (fw >= 1920) {
+                metalFxResolutionScale = 0.65f;
+            } else {
+                metalFxResolutionScale = 0.75f;
+            }
+        } catch (Throwable ignored) {}
     }
 
     public void save() {
