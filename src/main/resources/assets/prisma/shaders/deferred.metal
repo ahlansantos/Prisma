@@ -345,49 +345,18 @@ kernel void prisma_deferred_cs(
               float distToSurface = length(pSurfaceRel);
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
 
-              float realWaterDepth = 0.0f;
               if (!isEntity && !isCameraInFluid) {
-                // In water-only pass, detect true horizontal water surface.
                 if (u.waterOnlyPass > 0.5f) {
-                  int colX = int(floor(pWorld.x));
-                  int colZ = int(floor(pWorld.z));
-                  int startY = int(floor(pWorld.y - 0.05f));
+                  int3 vPos = int3(floor(pWorld));
+                  uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
+                  uint2 vBelow = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos - int3(0, 1, 0));
+                  
+                  bool isWaterCurrent = ((vCur.x & 4) != 0 && (vCur.x & 8) == 0);
+                  bool isWaterBelow   = ((vBelow.x & 4) != 0 && (vBelow.x & 8) == 0);
+                  bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
 
-                  int topWaterY = -1;
-                  for (int y = startY; y <= startY + 24; y++) {
-                    int3 checkPos = int3(colX, y, colZ);
-                    uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos);
-                    if ((v.x & 4) != 0 && (v.x & 8) == 0) {
-                      topWaterY = y;
-                    } else if (topWaterY != -1) {
-                      break;
-                    }
-                  }
-
-                  if (topWaterY != -1 && nWorld.y > 0.40f) {
-                    float waterSurfaceY = float(topWaterY) + 0.8875f;
-                    float depthFromSurface = waterSurfaceY - pWorld.y;
-
-                    // Ensure this is genuinely submerged floor or water, never a dry bank above water level
-                    if (depthFromSurface > 0.05f) {
-                      isWater = true;
-                      realWaterDepth = max(0.12f, depthFromSurface);
-
-                      // Place water position on the water surface plane
-                      if (uVoxel.camPos.y > waterSurfaceY && viewDir.y < -1e-4f) {
-                        float tWater = (waterSurfaceY - uVoxel.camPos.y) / viewDir.y;
-                        if (tWater > 0.0f && tWater < distToSurface) {
-                          pWorld = uVoxel.camPos.xyz + viewDir * tWater;
-                          pSurfaceRel = pWorld - uVoxel.camPos.xyz;
-                          distToSurface = tWater;
-                        } else {
-                          pWorld.y = waterSurfaceY;
-                        }
-                      } else {
-                        pWorld.y = waterSurfaceY;
-                      }
-                      nWorld = float3(0.0f, 1.0f, 0.0f);
-                    }
+                  if (!isSolidBlock && (isWaterCurrent || isWaterBelow) && nWorld.y > 0.45f) {
+                    isWater = true;
                   }
                 }
                 uint reflectType = (insideVox.x >> 12) & 0x0Fu;
@@ -478,11 +447,13 @@ kernel void prisma_deferred_cs(
               // --- Analytical Point Lights (deterministic, no noise) ---
               PointLightResult ptRes = PointLightResult{float3(0.0f), 0.0f, 0.0f};
               float3 pointLights = float3(0.0f);
-              if (uVoxel.camRight.w > 0.5f) {
-                  int lightCount = int(uVoxel.gridSize.w);
+              
+              int lightCount = int(uVoxel.gridSize.w);
+              if (lightCount > 0) {
                   float3 rayOrigin = pWorld + surfNormal * 0.05f;
+                  bool ptShadowsEnabled = (uVoxel.camRight.w > 0.5f);
+                  int rayCount = ptShadowsEnabled ? int(u.shadowRayCount) : 0;
                   
-                  int rayCount = int(u.shadowRayCount);
                   float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
                   float dAngle = ign * 6.2831853f;
                   
@@ -513,34 +484,39 @@ kernel void prisma_deferred_cs(
                       float3 bitangent = cross(L, tangent);
                       
                       for (int si = 0; si < numSamples; si++) {
-                          float rRadius = sqrt((float(si) + 0.5f) / float(numSamples)) * radius;
-                          float theta = float(si) * 2.399963f + dAngle;
-                          float2 disk = float2(cos(theta), sin(theta)) * rRadius;
-                          float3 offset = (tangent * disk.x + bitangent * disk.y);
-                          
-                          float3 jitteredLPos = lPos + offset;
-                          float3 jitteredL = jitteredLPos - pWorld;
-                          float jitteredDist = length(jitteredL);
-                          float3 targetPos = rayOrigin + (jitteredL / jitteredDist) * jitteredDist;
-                          
-                          ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                          
-                          bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f) || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
-                          bool canCastPtPlayerShadow = (!isHandheld && uVoxel.shadowParams.w > 0.5f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f);
-                          if (isFirstPerson) {
-                              canCastPtPlayerShadow = canCastPtPlayerShadow && (nWorld.y > 0.55f && rayOrigin.y <= uVoxel.playerPos.y + 0.6f);
-                          }
-                          
-                          if (canCastPtPlayerShadow && sr.vis > 0.0f) {
-                              float3 ptL = normalize(targetPos - rayOrigin);
-                              PlayerHit hit; hit.hitDist = 1e6f;
-                              tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                              if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
-                                  sr.vis = 0.0f;
+                          if (ptShadowsEnabled) {
+                              float rRadius = sqrt((float(si) + 0.5f) / float(numSamples)) * radius;
+                              float theta = float(si) * 2.399963f + dAngle;
+                              float2 disk = float2(cos(theta), sin(theta)) * rRadius;
+                              float3 offset = (tangent * disk.x + bitangent * disk.y);
+                              
+                              float3 jitteredLPos = lPos + offset;
+                              float3 jitteredL = jitteredLPos - pWorld;
+                              float jitteredDist = length(jitteredL);
+                              float3 targetPos = rayOrigin + (jitteredL / jitteredDist) * jitteredDist;
+                              
+                              ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                              
+                              bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f) || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
+                              bool canCastPtPlayerShadow = (!isHandheld && uVoxel.shadowParams.w > 0.5f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f);
+                              if (isFirstPerson) {
+                                  canCastPtPlayerShadow = canCastPtPlayerShadow && (nWorld.y > 0.55f && rayOrigin.y <= uVoxel.playerPos.y + 0.6f);
                               }
+                              
+                              if (canCastPtPlayerShadow && sr.vis > 0.0f) {
+                                  float3 ptL = normalize(targetPos - rayOrigin);
+                                  PlayerHit hit; hit.hitDist = 1e6f;
+                                  tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                                  if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
+                                      sr.vis = 0.0f;
+                                  }
+                              }
+                              totalVis += sr.vis;
+                              totalTint += sr.tint;
+                          } else {
+                              totalVis += 1.0f;
+                              totalTint += float3(1.0f);
                           }
-                          totalVis += sr.vis;
-                          totalTint += sr.tint;
                       }
                       
                       float visibility = totalVis / float(numSamples);
@@ -818,9 +794,22 @@ kernel void prisma_deferred_cs(
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
                 if (isWater) {
-                    float realDepth = realWaterDepth;
+                    // === Continuous Smooth Water Depth (Seabed to Surface Level) ===
+                    int3 basePos = int3(floor(pWorld));
+                    int depthCount = 0;
+                    for (int dy = 0; dy <= 24; dy++) {
+                        uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos + int3(0, dy + 1, 0));
+                        if ((v.x & 4) != 0 && (v.x & 8) == 0) {
+                            depthCount++;
+                        } else {
+                            break;
+                        }
+                    }
 
-                    // Beer-Lambert spectral absorption: red absorbed fastest, blue last
+                    float surfaceY = float(basePos.y + depthCount) + 0.88f;
+                    float realDepth = max(0.08f, surfaceY - pWorld.y);
+
+                    // Beer-Lambert spectral absorption
                     float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
@@ -833,8 +822,7 @@ kernel void prisma_deferred_cs(
                     float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
                     float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
 
-                    // Shallow water (depth <= 1.5 blocks): extra transparent (~0.08 to 0.25 opacity)
-                    // Deep ocean: rich oceanic midnight blue
+                    // Shallow water (depth <= 1.0) is EXTRA transparent
                     float waterOpacity = saturate((1.0f - transmitted.b * 0.75f) * mix(0.40f, 1.0f, depthFactor));
 
                     // Neutralize vanilla water blue wash so Prisma's crystal Beer-Lambert colors shine through:
@@ -844,11 +832,9 @@ kernel void prisma_deferred_cs(
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
-                    // Wave slopes catch celestial sunlight/moonlight:
                     float waveSlope = saturate(dot(surfNormal, celestialDir) * 1.6f);
                     float3 waveLight = celestialDirectCol * (waveSlope * 0.35f);
 
-                    // Specular micro-glint highlights along wave crests:
                     float3 halfVec = normalize(celestialDir - viewDir);
                     float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 32.0f);
                     float3 waveGlint = celestialDirectCol * (waveSpec * 0.65f);
