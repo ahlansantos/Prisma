@@ -343,15 +343,24 @@ kernel void prisma_deferred_cs(
 
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
-                  int3 vPos = int3(floor(pWorld - geomNormal * 0.05f));
+                  // The depth buffer records the SEABED or SIDE-BLOCK surface hit by the translucent mesh.
+                  // pWorld is therefore ON or just below the water surface.
+                  // 
+                  // CORRECT approach: step TOWARD camera (i.e. along +geomNormal) so we land
+                  // inside the water voxel, not into the seabed below it.
+                  // For top-faces: geomNormal = (0,+1,0) → stepping up = water voxel.
+                  // For side-faces (falling water): geomNormal = side → stepping outward = water voxel.
+                  float3 waterCheckPt = pWorld + geomNormal * 0.10f;
+                  int3 vPos = int3(floor(waterCheckPt));
                   uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
-                  uint2 vBelow = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos - int3(0, 1, 0));
+                  // Also probe one voxel further up in case of precision issues
+                  uint2 vAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos + int3(0, 1, 0));
                   
                   bool isWaterCurrent = ((vCur.x & 4) != 0 && (vCur.x & 8) == 0);
-                  bool isWaterBelow   = ((vBelow.x & 4) != 0 && (vBelow.x & 8) == 0);
+                  bool isWaterAbove   = ((vAbove.x & 4) != 0 && (vAbove.x & 8) == 0);
                   bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
 
-                  if (!isSolidBlock && (isWaterCurrent || isWaterBelow)) {
+                  if (!isSolidBlock && (isWaterCurrent || isWaterAbove)) {
                     isWater = true;
                   }
                 }
@@ -825,16 +834,8 @@ kernel void prisma_deferred_cs(
                     // Shallow water (depth <= 1.0) is EXTRA transparent
                     float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.15f, 1.0f, depthFactor));
 
-                    // Create a blurred seabed effect (refraction blur)
-                    float2 tSize = 1.0f / float2(albedoTex.get_width(), albedoTex.get_height());
-                    float3 blurAlbedo = albedo.rgb;
-                    blurAlbedo += albedoTex.sample(smp, uv + float2(tSize.x * 3.0f, tSize.y * 3.0f)).rgb;
-                    blurAlbedo += albedoTex.sample(smp, uv + float2(-tSize.x * 3.0f, -tSize.y * 3.0f)).rgb;
-                    blurAlbedo += albedoTex.sample(smp, uv + float2(tSize.x * 3.0f, -tSize.y * 3.0f)).rgb;
-                    blurAlbedo += albedoTex.sample(smp, uv + float2(-tSize.x * 3.0f, tSize.y * 3.0f)).rgb;
-                    blurAlbedo /= 5.0f;
-
-                    float3 seabedFiltered = blurAlbedo * transmitted;
+                    // Seabed tinted by Beer-Lambert absorption (keeps seabed texture sharp and natural)
+                    float3 seabedFiltered = albedo.rgb * transmitted;
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
