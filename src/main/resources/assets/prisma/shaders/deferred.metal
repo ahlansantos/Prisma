@@ -175,8 +175,8 @@ kernel void prisma_deferred_cs(
               float3 goldenHourColor = mix(float3(1.55f, 0.72f, 0.22f),  // warm amber
                                           float3(1.70f, 0.45f, 0.12f),  // deep orange-red at horizon
                                           goldenBoost * 0.6f);
-              float3 currentSunColor = mix(noonSunColor, goldenHourColor, max(sunsetFactor, clampedSunrise));
-              float3 currentMoonColor = float3(0.22f, 0.32f, 0.52f);
+              float3 currentSunColor = mix(noonSunColor, goldenHourColor, max(sunsetFactor, clampedSunrise)) * (1.0f - u.rainStrength * 0.98f);
+              float3 currentMoonColor = float3(0.22f, 0.32f, 0.52f) * (1.0f - u.rainStrength * 0.95f);
               float3 celestialDir = sunWeight > 0.5f ? sunDir : moonDir;
 
               float3 actualSky = float3(u.skyR, u.skyG, u.skyB);
@@ -184,7 +184,7 @@ kernel void prisma_deferred_cs(
               // Cooler, more balanced daySkyLight so ambient doesn't blow out blocks
               float3 daySkyLight = mix(float3(0.92f, 0.92f, 0.90f), sunriseTint * 1.10f, clampedSunrise);
               float3 nightSkyLight = float3(0.06f, 0.11f, 0.28f);
-              float3 activeSkyLight = mix(nightSkyLight, daySkyLight, sunWeight);
+              float3 activeSkyLight = mix(nightSkyLight, daySkyLight, sunWeight) * (1.0f - u.rainStrength * 0.65f);
 
               if (effectiveDepth <= 0.00005f && hDepth <= 0.0001f) {
                 if (isNether || isEnd) {
