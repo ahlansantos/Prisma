@@ -95,42 +95,34 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
             }
 
             // =========================================================================
-            // AgX Tone Mapping (Industry Standard: Blender 4.0+ / Film Color Science)
-            // Replaces ACES to eliminate crushed shadows (open soft toe) and clipping.
+            // Luma-Preserving Filmic Tone Mapping (BSL / Complementary / Bliss Style)
+            // Tones luminance alone and preserves true chromaticity:
+            // - Blue sky stays deep azure, grass stays rich lush green, sunset stays fiery amber
+            // - ZERO grey wash, ZERO desaturation veil
+            // - Soft open toe: deep shadows and caves never crush to pitch black
+            // - Extended shoulder: bright sun specular rolls off smoothly without clipping
             // =========================================================================
-            static inline float3 agxInset(float3 c) {
-                return float3(
-                    c.r * 0.842479f + c.g * 0.078434f + c.b * 0.079224f,
-                    c.r * 0.042328f + c.g * 0.878469f + c.b * 0.079166f,
-                    c.r * 0.042376f + c.g * 0.078434f + c.b * 0.879143f
-                );
-            }
+            static inline float3 lumaPreservingFilmic(float3 col, float exposure, float saturationBoost) {
+                col = max(col * exposure, float3(0.0f));
+                // Rec. 709 perceived luminance
+                float luma = dot(col, float3(0.2126f, 0.7152f, 0.0722f));
+                if (luma < 1e-5f) return float3(0.0f);
 
-            static inline float3 agxOutset(float3 c) {
-                return float3(
-                    c.r * 1.196879f - c.g * 0.098021f - c.b * 0.099030f,
-                   -c.r * 0.052897f + c.g * 1.151903f - c.b * 0.098961f,
-                   -c.r * 0.052972f - c.g * 0.098043f + c.b * 1.151074f
-                );
-            }
+                // Extended Filmic curve on luminance only:
+                // Smooth open toe with zero black crush, linear midtone contrast, soft highlight shoulder
+                float whitePoint = 4.2f;
+                float lumaToned = (luma * (1.0f + luma / (whitePoint * whitePoint))) / (1.0f + luma);
 
-            static inline float3 applyAgX(float3 val) {
-                val = max(val, float3(1e-6f));
-                float3 agx = agxInset(val);
+                // Re-apply original chromaticity (preserves 100% of real color vibrancy)
+                float3 tonedColor = col * (lumaToned / luma);
 
-                // AgX Log2 Encoding (-10.0 to +6.5 EV)
-                const float minEv = -10.0f;
-                const float maxEv = 6.5f;
-                agx = clamp((log2(agx) - minEv) / (maxEv - minEv), 0.0f, 1.0f);
+                // Dynamic saturation: lush vibrant colors in midtones,
+                // natural highlight desaturation only on blazing specular reflections (luma > 2.0)
+                float highlightDesat = smoothstep(1.8f, 4.0f, luma);
+                float sat = mix(saturationBoost, 0.90f, highlightDesat);
+                tonedColor = mix(float3(lumaToned), tonedColor, sat);
 
-                // AgX Soft-Toe Sigmoid Curve: smooth Hermite curve in log space
-                // Preserves deep shadow details without harsh ACES crushing,
-                // and extends highlight headroom gracefully.
-                float3 s = agx * agx * (3.0f - 2.0f * agx);
-
-                // Outset back to linear display space
-                float3 linearDisplay = max(float3(0.0f), agxOutset(s));
-                return linearDisplay;
+                return saturate(tonedColor);
             }
 
 kernel void prisma_deferred_cs(
@@ -1077,16 +1069,17 @@ kernel void prisma_deferred_cs(
                   litRgb += volumetricFog;
               }
               
-              // --- AgX Tone Mapping ---
-              // Replaces ACES to eliminate harsh shadow crushing (open soft toe)
-              // and maintain rich, unclipped color saturation in mid-day and golden hour.
+              // --- Luma-Preserving Filmic Tone Mapping ---
+              // Preserves Minecraft's vibrant colors (lush green grass, deep blue sky, rich sunset)
+              // with zero grey veil and no harsh black crushing in shadows.
               {
-                  float exposure = mix(1.05f, 0.88f, sunsetFactor * sunWeight);
-                  litRgb = applyAgX(litRgb * exposure);
+                  float exposure = mix(0.96f, 0.85f, sunsetFactor * sunWeight);
+                  float saturationBoost = mix(1.08f, 1.15f, sunsetFactor * sunWeight);
+                  litRgb = lumaPreservingFilmic(litRgb, exposure, saturationBoost);
 
-                  // Subtle golden hour warmth: rich warm mids without color skewing
-                  float3 warmGrade = mix(float3(1.0f), float3(1.03f, 0.98f, 0.92f), sunsetFactor * sunWeight);
-                  litRgb = mix(litRgb, litRgb * warmGrade, 0.50f);
+                  // Subtle golden hour warm grade on midtones
+                  float3 warmGrade = mix(float3(1.0f), float3(1.04f, 0.98f, 0.90f), sunsetFactor * sunWeight);
+                  litRgb = mix(litRgb, litRgb * warmGrade, 0.40f);
               }
 
               outTexture.write(float4(litRgb, albedo.a), gid);
