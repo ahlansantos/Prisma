@@ -148,7 +148,7 @@ fragment float4 prisma_postprocess_fs(
   // Extract Bloom using Vogel Disk (Golden Angle)
   float3 bloomSum = float3(0.0f);
   float bloomWeight = 0.0f;
-  float radius = 0.05f;
+  float radius = 0.065f;
   int samples = 24;
   float goldenAngle = 2.400000333f;
   float randomRot = fract(sin(dot(in.position.xy, float2(12.9898f, 78.233f))) * 43758.5453f) * 6.283185f;
@@ -161,8 +161,8 @@ fragment float4 prisma_postprocess_fs(
       
       float3 s = hdrTex.sample(smp, in.uv + offset).rgb;
       
-      float knee = 0.35f;
-      float threshold = 1.05f;
+      float knee = 0.40f;
+      float threshold = 0.80f;
       float l = postLuma(s);
       float rq = clamp(l - threshold + knee, 0.0f, knee * 2.0f);
       rq = (rq * rq) / (4.0f * knee + 0.001f);
@@ -175,7 +175,7 @@ fragment float4 prisma_postprocess_fs(
   
   if (bloomWeight > 0.0f) {
       float3 bloom = bloomSum / bloomWeight;
-      color += bloom * 0.32f;
+      color += bloom * 0.65f;
   }
   
   
@@ -187,9 +187,22 @@ fragment float4 prisma_postprocess_fs(
   // Note: Tonemapping is handled cleanly in deferred compute shader via Luma-Preserving Filmic.
   // Duplicating ACES here was causing double-tonemapping, crushed shadows, and white edge halos.
 
+  // Cinematic vignette – stronger, oval shape
   float2 vUv = in.uv * 2.0f - 1.0f;
-  float vignette = 1.0f - dot(vUv, vUv) * 0.15f;
-  color *= smoothstep(0.0f, 1.0f, vignette);
+  vUv.x *= (u.texelSize.y / u.texelSize.x); // correct aspect ratio
+  float vignetteDist = dot(vUv * float2(0.90f, 1.10f), vUv * float2(0.90f, 1.10f));
+  float vignette = 1.0f - smoothstep(0.40f, 1.10f, vignetteDist);
+  color *= vignette;
+
+  // Cinematic film grain – subtle, time-varying, luminance-aware
+  float2 grainUv = in.uv * float2(hdrTex.get_width(), hdrTex.get_height());
+  float grainAngle = fract(sin(dot(grainUv + fract(u.time * 0.37f), float2(12.9898f, 78.233f))) * 43758.5453f);
+  float grain = (grainAngle - 0.5f) * 0.045f; // ±2.25% grain
+  float luma = postLuma(color);
+  // Grain is stronger in midtones, weaker in deep shadows and bright highlights (cinematic)
+  float grainMask = smoothstep(0.0f, 0.15f, luma) * (1.0f - smoothstep(0.70f, 1.0f, luma));
+  color += grain * grainMask;
+
   }
 
   

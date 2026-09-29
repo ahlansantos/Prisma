@@ -343,24 +343,21 @@ kernel void prisma_deferred_cs(
 
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
-                  // The depth buffer records the SEABED or SIDE-BLOCK surface hit by the translucent mesh.
-                  // pWorld is therefore ON or just below the water surface.
-                  // 
-                  // CORRECT approach: step TOWARD camera (i.e. along +geomNormal) so we land
-                  // inside the water voxel, not into the seabed below it.
-                  // For top-faces: geomNormal = (0,+1,0) → stepping up = water voxel.
-                  // For side-faces (falling water): geomNormal = side → stepping outward = water voxel.
-                  float3 waterCheckPt = pWorld + geomNormal * 0.10f;
-                  int3 vPos = int3(floor(waterCheckPt));
-                  uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
-                  // Also probe one voxel further up in case of precision issues
-                  uint2 vAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos + int3(0, 1, 0));
-                  
-                  bool isWaterCurrent = ((vCur.x & 4) != 0 && (vCur.x & 8) == 0);
-                  bool isWaterAbove   = ((vAbove.x & 4) != 0 && (vAbove.x & 8) == 0);
-                  bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
-
-                  if (!isSolidBlock && (isWaterCurrent || isWaterAbove)) {
+                  // Water detection: scan a 3-voxel column upward from the surface hit point.
+                  // pWorld sits at or just below the water surface (depth buffer records geometry).
+                  // We step slightly toward the camera (+geomNormal) to avoid entering the seabed,
+                  // then check 3 voxels vertically to be robust against depth-buffer precision noise.
+                  float3 waterCheckPt = pWorld + geomNormal * 0.12f;
+                  int3 vBase = int3(floor(waterCheckPt));
+                  bool foundWaterVoxel = false;
+                  for (int wy = 0; wy <= 2; wy++) {
+                      uint2 wV = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vBase + int3(0, wy, 0));
+                      bool wIsWater = ((wV.x & 4) != 0 && (wV.x & 8) == 0);
+                      bool wIsSolid = ((wV.x & 1) != 0 && (wV.x & 4) == 0);
+                      if (wIsWater) { foundWaterVoxel = true; break; }
+                      if (wIsSolid && wy > 0) break; // stop if we hit a ceiling block
+                  }
+                  if (foundWaterVoxel) {
                     isWater = true;
                   }
                 }
@@ -818,31 +815,32 @@ kernel void prisma_deferred_cs(
                         }
                     }
 
-                    // ── Spatial depth blur ─────────────────────────────────────────────────────
-                    // realDepth is an integer voxel count so adjacent water columns jump 1→2→3,
-                    // producing hard blocky colour bands at their boundaries.
-                    // We blur by sampling worldDepthTex at 8 neighbouring screen pixels,
-                    // reconstructing their seabed Y, and averaging the depth factors.
-                    float waterSurfaceVoxY = float(waterColPos.y) + 1.0f;
-                    float blurredDepthFactor = smoothstep(0.1f, 8.0f, realDepth);
-                    float blurTotalW = 1.0f;
-                    // 8-tap ring at ~6px radius – enough to span one block width at typical distances
-                    const float2 bOff[8] = {
-                        float2(-6, 0), float2(6, 0), float2(0, -6), float2(0, 6),
-                        float2(-4,-4), float2(4,-4), float2(-4, 4), float2(4, 4)
-                    };
-                    for (int bi = 0; bi < 8; bi++) {
-                        float2 nUv = depthUv + bOff[bi] * depthTexel;
-                        if (nUv.x < 0.001f || nUv.x > 0.999f || nUv.y < 0.001f || nUv.y > 0.999f) continue;
-                        uint2 nGid = uint2(nUv * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
-                        float nD = worldDepthTex.read(nGid);
-                        if (nD < 0.00005f) continue;
-                        float3 nPos = reconstructWorldPos(nUv, nD, uVoxel.camPos.xyz, uVoxel.invViewProj);
-                        float nDepth = max(1.0f, waterSurfaceVoxY - floor(nPos.y));
-                        blurredDepthFactor += smoothstep(0.1f, 8.0f, nDepth);
-                        blurTotalW += 1.0f;
+                    // ── Spatial depth blur via voxel grid ──────────────────────────────────────
+                    // realDepth is an integer count, so adjacent water columns jump 1→2→3
+                    // producing hard blocky colour bands. We blur by averaging depthFactor
+                    // from the 4 cardinal XZ neighbours in the voxel grid itself – reliable
+                    // because it uses the same data source as realDepth.
+                    float blurredDepthFactor;
+                    {
+                        float totalDF = smoothstep(0.1f, 8.0f, realDepth);
+                        float totalW  = 1.0f;
+                        const int3 nbOff[4] = {int3(1,0,0), int3(-1,0,0), int3(0,0,1), int3(0,0,-1)};
+                        for (int bi = 0; bi < 4; bi++) {
+                            int3 nbCol = waterColPos + nbOff[bi];
+                            // Only blend with a neighbour that is itself a water column
+                            uint2 nbSurf = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, nbCol);
+                            if ((nbSurf.x & 4) == 0) continue;
+                            float nbDepth = 1.0f;
+                            for (int dy = 1; dy <= 8; dy++) {
+                                uint2 nbV = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, nbCol - int3(0, dy, 0));
+                                if ((nbV.x & 4) != 0 && (nbV.x & 8) == 0) nbDepth += 1.0f;
+                                else break;
+                            }
+                            totalDF += smoothstep(0.1f, 8.0f, nbDepth);
+                            totalW  += 1.0f;
+                        }
+                        blurredDepthFactor = totalDF / totalW;
                     }
-                    blurredDepthFactor /= blurTotalW;
                     // ──────────────────────────────────────────────────────────────────────────
 
                     // Beer-Lambert spectral absorption (use true depth for physically correct tint)
@@ -1131,8 +1129,8 @@ kernel void prisma_deferred_cs(
               // Preserves Minecraft's vibrant colors (lush green grass, deep blue sky, rich sunset)
               // with zero grey veil and no harsh black crushing in shadows.
               {
-                  float exposure = mix(1.10f, 0.95f, sunsetFactor * sunWeight);
-                  float saturationBoost = mix(1.15f, 1.25f, sunsetFactor * sunWeight);
+                  float exposure = mix(1.18f, 1.00f, sunsetFactor * sunWeight);
+                  float saturationBoost = mix(1.28f, 1.40f, sunsetFactor * sunWeight);
                   litRgb = lumaPreservingFilmic(litRgb, exposure, saturationBoost);
 
                   // Subtle golden hour warm grade on midtones

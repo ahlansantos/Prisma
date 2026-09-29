@@ -514,7 +514,7 @@ static inline float4 computeVolumetricClouds(
     float phNet  = clamp(mix(hgPhase(cosSunTheta,  -0.20f) * 0.60f, hgPhase(cosSunTheta,  0.45f), 0.65f), 0.75f, 2.6f);
     float mPhNet = clamp(mix(hgPhase(cosMoonTheta, -0.20f) * 0.60f, hgPhase(cosMoonTheta, 0.45f), 0.65f), 0.75f, 2.6f);
 
-    float3 dayCloudAmbient  = mix(float3(0.38f, 0.48f, 0.62f), hazeColor, 0.35f);
+    float3 dayCloudAmbient  = mix(float3(0.52f, 0.60f, 0.72f), hazeColor, 0.45f);
     float3 cloudAmbient     = mix(mix(float3(0.06f, 0.08f, 0.14f), dayCloudAmbient, sunWeight), // boosted night ambient
                                   mix(float3(0.06f, 0.08f, 0.12f), float3(0.22f, 0.24f, 0.28f), sunWeight),
                                   rainStrength);
@@ -573,7 +573,9 @@ static inline float4 computeVolumetricClouds(
                     float moonInscatter        = (lT * (1.0f - exp(-d * 2.8f)) * moonForwardBodyShade) + moonSilverLining;
                     float3 moonD = currentMoonColor * (moonInscatter * min(mPhNet, 2.5f) * (1.0f - sunWeight) * 0.16f);
 
-                    float3 S = (sunD + moonD) * (1.0f - rainStrength * 0.75f) + cloudAmbient;
+                    // Sky bounce: warms the cloud underside (hF=0 is bottom, hF=1 is top)
+                    float3 skyBounce = mix(float3(0.14f, 0.20f, 0.28f), hazeColor * 0.45f, sunWeight) * (1.0f - hF) * 0.20f;
+                    float3 S = (sunD + moonD) * (1.0f - rainStrength * 0.75f) + cloudAmbient + skyBounce;
                     
                     // CORRECT integration: analytically solves accumulation preventing blowout at large sZ (low step counts)
                     accColor += accTrans * S * (1.0f - stT);
