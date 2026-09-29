@@ -154,6 +154,7 @@ public class PrismaShaderSettingsScreen extends Screen {
         }
         else if (this.currentTab == Tab.PRESETS) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Presets").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            this.listWidget.add(new SettingsEntry(Component.literal("Recomendado: rode o Minecraft em 1152x720").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
             
             Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (45-60 FPS)"), (b) -> {
                 PrismaConfig.INSTANCE.shadowRayCount = 2;

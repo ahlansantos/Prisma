@@ -344,7 +344,8 @@ kernel void prisma_deferred_cs(
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
                   // Push slightly into the block surface to avoid floating-point boundary noise (Z-fighting)
-                  float3 checkPt = pWorld - nWorld * 0.05f;
+                  // We MUST use geomNormal (perfect cube normal), not nWorld (which can be bumped by textures)
+                  float3 checkPt = pWorld - geomNormal * 0.05f;
                   int3 vPos = int3(floor(checkPt));
                   
                   uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
@@ -356,11 +357,14 @@ kernel void prisma_deferred_cs(
                   bool isWaterAbove   = ((vAbove.x & 4) != 0 && (vAbove.x & 8) == 0);
                   bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
                   
-                  // Ignore steep vertical sides of solid blocks (like shores)
+                  // Avoid triggering water on the steep vertical sides of solid blocks (like shore walls)
                   bool isShoreSide = isSolidBlock && (abs(geomNormal.y) < 0.1f);
 
                   if (!isShoreSide) {
-                      if (isWaterCurrent || isWaterBelow || (isSolidBlock && isWaterAbove)) {
+                      // 1. isWaterCurrent: perfect hit inside water volume
+                      // 2. !isSolidBlock && isWaterBelow: precision pushed us UP into Air, water is below
+                      // 3. isSolidBlock && isWaterAbove: precision pushed us DOWN into Seabed, water is above
+                      if (isWaterCurrent || (!isSolidBlock && isWaterBelow) || (isSolidBlock && isWaterAbove)) {
                           isWater = true;
                       }
                   }
