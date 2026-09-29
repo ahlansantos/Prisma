@@ -823,11 +823,11 @@ kernel void prisma_deferred_cs(
                     float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
 
                     // Shallow water (depth <= 1.0) is EXTRA transparent
-                    float waterOpacity = saturate((1.0f - transmitted.b * 0.75f) * mix(0.40f, 1.0f, depthFactor));
+                    float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.10f, 1.0f, depthFactor));
 
-                    // Neutralize vanilla water blue wash so Prisma's crystal Beer-Lambert colors shine through:
+                    // Completely neutralize vanilla water blue wash so only Prisma's crystal Beer-Lambert colors shine through:
                     float vanillaLuma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f));
-                    float3 neutralSeabed = mix(albedo.rgb, float3(vanillaLuma), 0.55f);
+                    float3 neutralSeabed = float3(vanillaLuma);
                     float3 seabedFiltered = neutralSeabed * transmitted;
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
