@@ -578,7 +578,7 @@ kernel void prisma_deferred_cs(
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
               // Direct sun: 0.88x at noon (prevents washed-out), boosted to 1.30x at golden hour for dramatic rim light
               float goldenRimBoost = 1.0f + sunsetFactor * 0.50f;
-              float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 0.88f * goldenRimBoost) : (currentMoonColor * 0.70f);
+              float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 0.78f * goldenRimBoost) : (currentMoonColor * 0.70f);
 
               float outsideShadow = 1.0f;
               float computedShadow = (u.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) ? 0.0f : 1.0f;
