@@ -63,7 +63,7 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
               for (int i = 0; i < 5; i++) {
                 float2 dir   = normalize(waves[i].xy);
                 float  freq  = waves[i].z;
-                float  amp   = waves[i].w * strength * 0.4f; // Relaxed amplitude
+                float  amp   = waves[i].w * strength * 0.15f; // Extremely relaxed amplitude
                 float  phase = wTime * (0.9f + float(i) * 0.12f);
                 float  x     = dot(dir, pWorldXZ) * freq + phase;
                 // Gerstner derivative: steepness on crests (sharper than sinusoidal)
@@ -794,29 +794,28 @@ kernel void prisma_deferred_cs(
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
                 if (isWater) {
-                    // === Continuous Smooth Water Depth (Seabed to Surface Level) ===
-                    int3 basePos = int3(floor(pWorld));
-                    int depthCount = 0;
-                    for (int dy = 0; dy <= 24; dy++) {
-                        uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos + int3(0, dy + 1, 0));
-                        if ((v.x & 4) != 0 && (v.x & 8) == 0) {
-                            depthCount++;
+                    // === Physically-Based Water Depth (Vertical Voxel Count) ===
+                    // Count physical water voxels straight DOWN from the surface to the seabed.
+                    int3 waterColPos = int3(floor(pWorld));
+                    float realDepth = 1.0f;
+                    for (int dy = 1; dy <= 24; dy++) {
+                        int3 checkBelow = waterColPos - int3(0, dy, 0);
+                        uint2 belowVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkBelow);
+                        if ((belowVox.x & 4) != 0 && (belowVox.x & 8) == 0) {
+                            realDepth += 1.0f;
                         } else {
                             break;
                         }
                     }
 
-                    float surfaceY = float(basePos.y + depthCount) + 0.88f;
-                    float realDepth = max(0.08f, surfaceY - pWorld.y);
-
                     // Beer-Lambert spectral absorption
                     float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
-                    // Shallow water: clear natural azure
-                    float3 crystalShallow = float3(0.08f, 0.55f, 0.70f);
+                    // Shallow water: crystal clear turquoise
+                    float3 crystalShallow = float3(0.18f, 0.76f, 0.85f);
                     // Deep ocean: rich oceanic midnight navy
-                    float3 crystalDeep   = float3(0.01f, 0.04f, 0.15f);
+                    float3 crystalDeep   = float3(0.01f, 0.06f, 0.22f);
 
                     // Smooth transition from shallow to deep
                     float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
