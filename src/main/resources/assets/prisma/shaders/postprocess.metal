@@ -161,21 +161,21 @@ fragment float4 prisma_postprocess_fs(
       
       float3 s = hdrTex.sample(smp, in.uv + offset).rgb;
       
-      float knee = 0.3f;
-      float threshold = 1.25f;
+      float knee = 0.35f;
+      float threshold = 1.05f;
       float l = postLuma(s);
       float rq = clamp(l - threshold + knee, 0.0f, knee * 2.0f);
       rq = (rq * rq) / (4.0f * knee + 0.001f);
       float3 extracted = s * max(rq, l - threshold) / max(l, 0.001f);
       
-      float w = 1.0f / (1.0f + r * 15.0f);
+      float w = 1.0f / (1.0f + r * 12.0f);
       bloomSum += extracted * w;
       bloomWeight += w;
   }
   
   if (bloomWeight > 0.0f) {
       float3 bloom = bloomSum / bloomWeight;
-      color += bloom * 0.18f;
+      color += bloom * 0.32f;
   }
   
   

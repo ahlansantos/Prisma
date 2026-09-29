@@ -683,13 +683,8 @@ public final class PrismaMRTManager implements AutoCloseable {
                 
 
         if (this.prevViewProj == null) this.prevViewProj = new org.joml.Matrix4f(viewProj);
-        else this.prevViewProj.set(viewProj);
-
         if (this.prevInvViewProj == null) this.prevInvViewProj = new org.joml.Matrix4f(invViewProj);
-        else this.prevInvViewProj.set(invViewProj);
-
         if (this.prevCamPos == null) this.prevCamPos = new org.joml.Vector3f(camPosX, camPosY, camPosZ);
-        else this.prevCamPos.set(camPosX, camPosY, camPosZ);
         
         MemorySegment postProcessInput = hdrTarget;
         if (waterOnlyPass && "VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
@@ -726,6 +721,12 @@ public final class PrismaMRTManager implements AutoCloseable {
                 this.prevCamPos.x, this.prevCamPos.y, this.prevCamPos.z,
                 encoder.fence()
         );
+
+        if (waterOnlyPass) {
+            this.prevViewProj.set(viewProj);
+            this.prevInvViewProj.set(invViewProj);
+            this.prevCamPos.set(camPosX, camPosY, camPosZ);
+        }
         
         swapReservoirs();
     }

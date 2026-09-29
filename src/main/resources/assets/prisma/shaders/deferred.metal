@@ -62,14 +62,14 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
 
               for (int i = 0; i < 5; i++) {
                 float2 dir   = normalize(waves[i].xy);
-                float  freq  = waves[i].z * strength;
-                float  amp   = waves[i].w;
+                float  freq  = waves[i].z;
+                float  amp   = waves[i].w * strength;
                 float  phase = wTime * (0.9f + float(i) * 0.12f);
                 float  x     = dot(dir, pWorldXZ) * freq + phase;
                 // Gerstner derivative: steepness on crests (sharper than sinusoidal)
                 float  wave  = exp(sin(x) - 1.0f);
-                float  deriv = wave * cos(x) * freq * amp;
-                dX += dir * deriv * 0.55f;
+                float  deriv = wave * cos(x) * freq * amp * 2.2f;
+                dX += dir * deriv;
               }
 
               return normalize(float3(-dX.x, 1.0f, -dX.y));
@@ -343,38 +343,51 @@ kernel void prisma_deferred_cs(
 
               float realWaterDepth = 0.0f;
               if (!isEntity && !isCameraInFluid) {
-                // In water-only pass, detect true horizontal water surface along view ray.
-                // Reconstruct the exact water surface plane intersection above the seabed.
+                // In water-only pass, detect true horizontal water surface.
                 if (u.waterOnlyPass > 0.5f) {
                   int3 basePos = int3(floor(pWorld));
-                  int topWaterY = -1;
-                  for (int dy = 0; dy <= 24; dy++) {
-                    int3 checkPos = basePos + int3(0, dy + 1, 0);
-                    uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos);
-                    if ((v.x & 4) != 0 && (v.x & 8) == 0) {
-                      topWaterY = checkPos.y;
-                    } else {
-                      break;
-                    }
-                  }
+                  uint2 voxAtPos = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos);
+                  uint2 voxAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos + int3(0, 1, 0));
+                  
+                  bool waterAt = ((voxAtPos.x & 4) != 0 && (voxAtPos.x & 8) == 0);
+                  bool waterAbove = ((voxAbove.x & 4) != 0 && (voxAbove.x & 8) == 0);
 
-                  if (topWaterY != -1) {
-                    float candidateSurfaceY = float(topWaterY) + 0.8875f;
-                    if (uVoxel.camPos.y > candidateSurfaceY && viewDir.y < -1e-4f) {
-                      float tWater = (candidateSurfaceY - uVoxel.camPos.y) / viewDir.y;
-                      if (tWater > 0.0f && tWater < distToSurface) {
-                        float3 pWater = uVoxel.camPos.xyz + viewDir * tWater;
-                        int3 checkVox = int3(floor(pWater.x), topWaterY, floor(pWater.z));
-                        uint2 wVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkVox);
-                        if ((wVox.x & 4) != 0 && (wVox.x & 8) == 0) {
-                          isWater = true;
-                          realWaterDepth = max(0.08f, candidateSurfaceY - pWorld.y);
-                          pWorld = pWater;
+                  // Water is present at floor or directly above seabed, facing upward
+                  if ((waterAt || waterAbove) && nWorld.y > 0.40f) {
+                    int depthCount = waterAt ? 1 : 0;
+                    for (int dy = 1; dy <= 24; dy++) {
+                      int3 checkPos = basePos + int3(0, dy + (waterAt ? 0 : 1), 0);
+                      uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos);
+                      if ((v.x & 4) != 0 && (v.x & 8) == 0) {
+                        depthCount++;
+                      } else {
+                        break;
+                      }
+                    }
+
+                    float surfaceY = float(basePos.y + (waterAt ? 0 : 1) + depthCount - 1) + 0.8875f;
+                    float depthFromSurface = surfaceY - pWorld.y;
+
+                    // Ensure this is genuinely submerged floor or water, never a dry bank above water level
+                    if (depthFromSurface > 0.05f) {
+                      isWater = true;
+                      realWaterDepth = max(0.10f, depthFromSurface);
+
+                      // Place reflection origin on the water surface plane to prevent underwater self-intersection
+                      float waterSurfaceY = surfaceY;
+                      if (uVoxel.camPos.y > waterSurfaceY && viewDir.y < -1e-4f) {
+                        float tWater = (waterSurfaceY - uVoxel.camPos.y) / viewDir.y;
+                        if (tWater > 0.0f && tWater < distToSurface) {
+                          pWorld = uVoxel.camPos.xyz + viewDir * tWater;
                           pSurfaceRel = pWorld - uVoxel.camPos.xyz;
                           distToSurface = tWater;
-                          nWorld = float3(0.0f, 1.0f, 0.0f);
+                        } else {
+                          pWorld.y = max(pWorld.y, waterSurfaceY);
                         }
+                      } else {
+                        pWorld.y = max(pWorld.y, waterSurfaceY);
                       }
+                      nWorld = float3(0.0f, 1.0f, 0.0f);
                     }
                   }
                 }
@@ -809,36 +822,39 @@ kernel void prisma_deferred_cs(
                     float realDepth = realWaterDepth;
 
                     // Beer-Lambert spectral absorption: red absorbed fastest, blue last
-                    float3 waterExtinction = float3(0.32f, 0.10f, 0.025f) * u.waterAbsorption;
+                    float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
-                    // Shallow water: crystal clear vibrant turquoise
-                    float3 crystalShallow = float3(0.12f, 0.72f, 0.82f);
+                    // Shallow water: crystal clear, vibrant turquoise
+                    float3 crystalShallow = float3(0.15f, 0.78f, 0.88f);
                     // Deep ocean: rich oceanic midnight navy
                     float3 crystalDeep   = float3(0.01f, 0.04f, 0.18f);
-                    float3 waterBodyColor = mix(crystalDeep, crystalShallow, transmitted);
 
-                    // Smooth physical opacity curve based on water column depth:
-                    // Shallow water (0.5 to 1.5 blocks): ~0.20 to 0.40 opacity -> seabed is 70%+ clear & transparent!
-                    // Deep water (4.0+ blocks): ~0.85 to 0.95 opacity -> deep oceanic blue!
-                    float waterOpacity = saturate(1.0f - exp(-0.40f * realDepth));
+                    // Smooth transition from shallow to deep
+                    float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
+                    float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
 
-                    // Neutralize vanilla water blue wash from albedo so Prisma's Beer-Lambert colors shine through:
+                    // Shallow water (depth <= 1.5 blocks): extra transparent (~0.08 to 0.25 opacity)
+                    // Deep ocean: rich oceanic midnight blue
+                    float waterOpacity = saturate((1.0f - transmitted.b * 0.75f) * mix(0.40f, 1.0f, depthFactor));
+
+                    // Neutralize vanilla water blue wash so Prisma's crystal Beer-Lambert colors shine through:
                     float vanillaLuma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f));
-                    float3 neutralSeabed = mix(albedo.rgb, float3(vanillaLuma), 0.50f);
+                    float3 neutralSeabed = mix(albedo.rgb, float3(vanillaLuma), 0.55f);
                     float3 seabedFiltered = neutralSeabed * transmitted;
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
-                    float waveSlope = saturate(dot(surfNormal, celestialDir) * 1.5f);
-                    float3 waveLight = celestialDirectCol * (waveSlope * 0.28f);
+                    // Wave slopes catch celestial sunlight/moonlight:
+                    float waveSlope = saturate(dot(surfNormal, celestialDir) * 1.6f);
+                    float3 waveLight = celestialDirectCol * (waveSlope * 0.35f);
 
-                    // Wave crest highlights (specular micro-glint along wave ridges):
+                    // Specular micro-glint highlights along wave crests:
                     float3 halfVec = normalize(celestialDir - viewDir);
-                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 28.0f);
-                    float3 waveGlint = celestialDirectCol * (waveSpec * 0.45f);
+                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 32.0f);
+                    float3 waveGlint = celestialDirectCol * (waveSpec * 0.65f);
 
-                    albedo.rgb += (waveLight + waveGlint) * (1.0f - waterOpacity * 0.4f);
+                    albedo.rgb += (waveLight + waveGlint) * (1.0f - waterOpacity * 0.3f);
 
                     // For water outside the voxel grid, reflect the sky cleanly
                     if (gridWeight < 0.50f && u.reflectionsEnabled > 0.5f) {
