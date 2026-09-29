@@ -63,7 +63,7 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
               for (int i = 0; i < 5; i++) {
                 float2 dir   = normalize(waves[i].xy);
                 float  freq  = waves[i].z;
-                float  amp   = waves[i].w * strength;
+                float  amp   = waves[i].w * strength * 0.4f; // Relaxed amplitude
                 float  phase = wTime * (0.9f + float(i) * 0.12f);
                 float  x     = dot(dir, pWorldXZ) * freq + phase;
                 // Gerstner derivative: steepness on crests (sharper than sinusoidal)
@@ -813,10 +813,10 @@ kernel void prisma_deferred_cs(
                     float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
-                    // Shallow water: crystal clear, vibrant turquoise
-                    float3 crystalShallow = float3(0.15f, 0.78f, 0.88f);
+                    // Shallow water: clear natural azure
+                    float3 crystalShallow = float3(0.08f, 0.55f, 0.70f);
                     // Deep ocean: rich oceanic midnight navy
-                    float3 crystalDeep   = float3(0.01f, 0.04f, 0.18f);
+                    float3 crystalDeep   = float3(0.01f, 0.04f, 0.15f);
 
                     // Smooth transition from shallow to deep
                     float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
@@ -832,14 +832,13 @@ kernel void prisma_deferred_cs(
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
-                    float waveSlope = saturate(dot(surfNormal, celestialDir) * 1.6f);
-                    float3 waveLight = celestialDirectCol * (waveSlope * 0.35f);
-
+                    // (Diffuse wave shading is automatically handled by baseLighting via surfNormal)
+                    // We only add the intense specular sun/moon glint to the reflections!
                     float3 halfVec = normalize(celestialDir - viewDir);
-                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 32.0f);
-                    float3 waveGlint = celestialDirectCol * (waveSpec * 0.65f);
-
-                    albedo.rgb += (waveLight + waveGlint) * (1.0f - waterOpacity * 0.3f);
+                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 90.0f);
+                    float3 waveGlint = celestialDirectCol * (waveSpec * 1.5f) * celestialShadow * skyLevel;
+                    
+                    accumulatedScene += waveGlint;
 
                     // Smooth transition from local voxel reflections to distant sky reflections outside grid
                     if (u.reflectionsEnabled > 0.5f && gridWeight < 0.85f) {
@@ -867,7 +866,7 @@ kernel void prisma_deferred_cs(
                 baseLighting = max(baseLighting, float3(emStr));
               }
 
-              float3 baseLit = isWater ? albedo.rgb : (albedo.rgb * baseLighting);
+              float3 baseLit = albedo.rgb * baseLighting;
               float3 litRgb = baseLit;
               if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
                 litRgb = mix(baseLit, reflectionCol, reflectFactor);
