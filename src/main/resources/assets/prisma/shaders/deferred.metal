@@ -357,16 +357,11 @@ kernel void prisma_deferred_cs(
                   bool isWaterAbove   = ((vAbove.x & 4) != 0 && (vAbove.x & 8) == 0);
                   bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
                   
-                  // Avoid triggering water on the steep vertical sides of solid blocks (like shore walls)
-                  bool isShoreSide = isSolidBlock && (abs(geomNormal.y) < 0.1f);
-
-                  if (!isShoreSide) {
-                      // 1. isWaterCurrent: perfect hit inside water volume
-                      // 2. !isSolidBlock && isWaterBelow: precision pushed us UP into Air, water is below
-                      // 3. isSolidBlock && isWaterAbove: precision pushed us DOWN into Seabed, water is above
-                      if (isWaterCurrent || (!isSolidBlock && isWaterBelow) || (isSolidBlock && isWaterAbove)) {
-                          isWater = true;
-                      }
+                  // 1. isWaterCurrent: perfect hit inside water volume
+                  // 2. !isSolidBlock && isWaterBelow: precision pushed us UP into Air, water is below
+                  // 3. isSolidBlock && isWaterAbove: precision pushed us DOWN into Seabed, water is above
+                  if (isWaterCurrent || (!isSolidBlock && isWaterBelow) || (isSolidBlock && isWaterAbove)) {
+                      isWater = true;
                   }
                 }
                 uint reflectType = (insideVox.x >> 12) & 0x0Fu;
