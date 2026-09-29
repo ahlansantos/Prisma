@@ -818,7 +818,34 @@ kernel void prisma_deferred_cs(
                         }
                     }
 
-                    // Beer-Lambert spectral absorption
+                    // ── Spatial depth blur ─────────────────────────────────────────────────────
+                    // realDepth is an integer voxel count so adjacent water columns jump 1→2→3,
+                    // producing hard blocky colour bands at their boundaries.
+                    // We blur by sampling worldDepthTex at 8 neighbouring screen pixels,
+                    // reconstructing their seabed Y, and averaging the depth factors.
+                    float waterSurfaceVoxY = float(waterColPos.y) + 1.0f;
+                    float blurredDepthFactor = smoothstep(0.1f, 8.0f, realDepth);
+                    float blurTotalW = 1.0f;
+                    // 8-tap ring at ~6px radius – enough to span one block width at typical distances
+                    const float2 bOff[8] = {
+                        float2(-6, 0), float2(6, 0), float2(0, -6), float2(0, 6),
+                        float2(-4,-4), float2(4,-4), float2(-4, 4), float2(4, 4)
+                    };
+                    for (int bi = 0; bi < 8; bi++) {
+                        float2 nUv = depthUv + bOff[bi] * depthTexel;
+                        if (nUv.x < 0.001f || nUv.x > 0.999f || nUv.y < 0.001f || nUv.y > 0.999f) continue;
+                        uint2 nGid = uint2(nUv * float2(worldDepthTex.get_width(), worldDepthTex.get_height()));
+                        float nD = worldDepthTex.read(nGid);
+                        if (nD < 0.00005f) continue;
+                        float3 nPos = reconstructWorldPos(nUv, nD, uVoxel.camPos.xyz, uVoxel.invViewProj);
+                        float nDepth = max(1.0f, waterSurfaceVoxY - floor(nPos.y));
+                        blurredDepthFactor += smoothstep(0.1f, 8.0f, nDepth);
+                        blurTotalW += 1.0f;
+                    }
+                    blurredDepthFactor /= blurTotalW;
+                    // ──────────────────────────────────────────────────────────────────────────
+
+                    // Beer-Lambert spectral absorption (use true depth for physically correct tint)
                     float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
@@ -827,15 +854,17 @@ kernel void prisma_deferred_cs(
                     // Deep ocean: rich oceanic midnight navy
                     float3 crystalDeep   = float3(0.01f, 0.06f, 0.22f);
 
-                    // Smooth transition from shallow to deep
-                    float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
-                    float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
+                    // Use BLURRED depth factor so colour gradient is soft across column boundaries
+                    float3 waterBodyColor = mix(crystalShallow, crystalDeep, blurredDepthFactor);
 
-                    // Shallow water (depth <= 1.0) is EXTRA transparent
-                    float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.15f, 1.0f, depthFactor));
+                    // Shallow water: very transparent, so you see seabed clearly
+                    float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.07f, 1.0f, blurredDepthFactor));
 
-                    // Seabed tinted by Beer-Lambert absorption (keeps seabed texture sharp and natural)
+                    // Seabed tinted by Beer-Lambert absorption + a faint cyan overlay in shallow areas
+                    // so the bottom looks teal/cyan rather than raw seabed colour.
                     float3 seabedFiltered = albedo.rgb * transmitted;
+                    float3 cyanOverlay = float3(0.12f, 0.72f, 0.82f);
+                    seabedFiltered = mix(seabedFiltered, cyanOverlay * seabedFiltered, 0.40f * (1.0f - blurredDepthFactor));
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
