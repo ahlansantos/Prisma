@@ -706,27 +706,35 @@ kernel void prisma_deferred_cs(
                       }
                   }
               }
-              float wetFactor = max(u.rainStrength, nearWaterDamp);
+              // Near-water ground simply darkens to simulate wet sand/dirt. No puddles/reflections.
+              if (nearWaterDamp > 0.01f && !isWater && !isEntity && !isCameraInFluid && surfNormal.y > 0.82f) {
+                  float pN = smoothNoise3D(float3(pWorld.xz * 0.80f, 1.7f));
+                  float dampMask = smoothstep(0.2f, 0.8f, pN) * nearWaterDamp;
+                  albedo.rgb *= mix(1.0f, 0.75f, dampMask);
+              }
+
+              // Rain creates actual puddles (reflective)
+              float wetFactor = u.rainStrength;
               if (wetFactor > 0.01f && !isWater && !isEntity && !isCameraInFluid && surfNormal.y > 0.82f && rawSky > 0.90f) {
                 // Multi-octave noise for organic puddle blob shapes (like Worley)
                 float pN1 = smoothNoise3D(float3(pWorld.xz * 0.30f, 0.0f));
                 float pN2 = smoothNoise3D(float3(pWorld.xz * 0.80f, 1.7f)) * 0.50f;
                 float pN3 = smoothNoise3D(float3(pWorld.xz * 1.80f, 3.2f)) * 0.25f;
                 float puddleNoise = (pN1 + pN2 + pN3) / 1.75f;
-                // Rain puddles need high sky exposure; near-water is dampened regardless
+                
                 float puddleThresh = mix(0.50f, 0.38f, wetFactor);
                 float puddleMask = smoothstep(puddleThresh, puddleThresh + 0.18f, puddleNoise) * saturate(wetFactor * 1.8f);
                 if (puddleMask > 0.01f) {
                   isPuddle = (puddleMask > 0.12f);
-                  // Wet ground darkening + slight roughness reduction
                   albedo.rgb *= mix(1.0f, 0.55f, puddleMask);
-                  // Circular ripple normals (rain drops), masked to puddle areas only
+                  
+                  // Circular ripple normals (rain drops)
                   float2 rippleUv = pWorld.xz * 1.8f;
                   float rip1 = sin(length(fract(rippleUv) - 0.5f) * 22.0f - u.gameTime * 16.0f);
                   float rip2 = sin(length(fract(rippleUv + float2(0.43f, 0.17f)) - 0.5f) * 18.0f - u.gameTime * 12.0f);
                   float rip3 = sin(length(fract(rippleUv * 0.62f + float2(0.71f, 0.29f)) - 0.5f) * 14.0f - u.gameTime * 9.5f);
                   float rippleMask = smoothstep(0.3f, 0.7f, smoothNoise3D(float3(pWorld.xz * 1.0f, 0.0f)));
-                  // Near-water surfaces: calm mirror (no rain ripples), just gentle wave from wind
+                  
                   float rainOnly = saturate(u.rainStrength * 2.0f);
                   float2 rippleOffset = float2(rip1 + rip2 * 0.7f + rip3 * 0.4f)
                                        * 0.040f * puddleMask * rainOnly * rippleMask;

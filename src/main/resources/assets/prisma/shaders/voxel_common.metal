@@ -421,8 +421,7 @@ static inline float computeSSAO(
     scale = mix(0.20f, 1.0f, scale * scale);
     float3 samplePos = pWorld + nWorld * 0.03f + normalize(dirHemi) * (radius * scale);
 
-    float3 sampleRel = samplePos - camPos;
-    float4 clip = viewProj * float4(sampleRel, 1.0f);
+    float4 clip = viewProj * float4(samplePos, 1.0f);
     if (clip.w <= 0.0001f) continue;
     float2 sUv = (clip.xy / clip.w) * 0.5f + 0.5f;
     if (sUv.x < 0.0f || sUv.x > 1.0f || sUv.y < 0.0f || sUv.y > 1.0f) continue;
