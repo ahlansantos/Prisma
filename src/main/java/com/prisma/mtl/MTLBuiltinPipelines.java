@@ -491,7 +491,7 @@ public final class MTLBuiltinPipelines {
     
 
 
-    public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, MemorySegment depthTexture, boolean fxaaEnabled, boolean motionBlurEnabled, float sunAngle, Matrix4fc viewProj, Matrix4fc prevViewProj, Matrix4fc invViewProj, float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ, MTLFence globalFence) {
+    public static void encodePostProcessPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment sourceHdrTexture, MemorySegment depthTexture, boolean fxaaEnabled, boolean motionBlurEnabled, boolean isFinalPass, Matrix4fc viewProj, Matrix4fc prevViewProj, Matrix4fc invViewProj, float camPosX, float camPosY, float camPosZ, float prevCamPosX, float prevCamPosY, float prevCamPosZ, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
             MTLRenderCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(sourceHdrTexture)) {
@@ -534,7 +534,7 @@ public final class MTLBuiltinPipelines {
                 float t = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
                 uniforms.set(ValueLayout.JAVA_FLOAT, 12L, t);
                 
-                uniforms.set(ValueLayout.JAVA_FLOAT, 16L, sunAngle);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 16L, isFinalPass ? 1.0f : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 20L, camPosX);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 24L, camPosY);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 28L, camPosZ);

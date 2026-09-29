@@ -69,7 +69,7 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
                 // Gerstner derivative: steepness on crests (sharper than sinusoidal)
                 float  wave  = exp(sin(x) - 1.0f);
                 float  deriv = wave * cos(x) * freq * amp;
-                dX += dir * deriv * 0.07f;
+                dX += dir * deriv * 0.55f;
               }
 
               return normalize(float3(-dX.x, 1.0f, -dX.y));
@@ -341,26 +341,41 @@ kernel void prisma_deferred_cs(
               float distToSurface = length(pSurfaceRel);
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
 
+              float realWaterDepth = 0.0f;
               if (!isEntity && !isCameraInFluid) {
-                // In water-only pass, only translucent water or stained glass should be processed
+                // In water-only pass, detect true horizontal water surface along view ray.
+                // Reconstruct the exact water surface plane intersection above the seabed.
                 if (u.waterOnlyPass > 0.5f) {
-                  // In Minecraft, translucent water renders over the opaque seabed.
-                  // Since translucent rendering doesn't write depth, worldDepthTex contains the seabed position!
-                  // A pixel is water if:
-                  // 1. The voxel directly at this position is water (currVox.x & 4 != 0), OR
-                  // 2. The voxel directly ABOVE the seabed is water (voxAbove.x & 4 != 0).
-                  // Crucially, the dry shoreline (grass/sand above water level) has AIR above it,
-                  // so voxAbove is AIR -> dry shore is NEVER marked as water!
                   int3 basePos = int3(floor(pWorld));
-                  uint2 voxAtPos = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos);
-                  uint2 voxAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos + int3(0, 1, 0));
-                  
-                  bool waterAt = ((voxAtPos.x & 4) != 0 && (voxAtPos.x & 8) == 0);
-                  bool waterAbove = ((voxAbove.x & 4) != 0 && (voxAbove.x & 8) == 0);
+                  int topWaterY = -1;
+                  for (int dy = 0; dy <= 24; dy++) {
+                    int3 checkPos = basePos + int3(0, dy + 1, 0);
+                    uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos);
+                    if ((v.x & 4) != 0 && (v.x & 8) == 0) {
+                      topWaterY = checkPos.y;
+                    } else {
+                      break;
+                    }
+                  }
 
-                  // Submerged floor or water body: normal points generally up and water is present
-                  if ((waterAt || waterAbove) && nWorld.y > 0.30f) {
-                    isWater = true;
+                  if (topWaterY != -1) {
+                    float candidateSurfaceY = float(topWaterY) + 0.8875f;
+                    if (uVoxel.camPos.y > candidateSurfaceY && viewDir.y < -1e-4f) {
+                      float tWater = (candidateSurfaceY - uVoxel.camPos.y) / viewDir.y;
+                      if (tWater > 0.0f && tWater < distToSurface) {
+                        float3 pWater = uVoxel.camPos.xyz + viewDir * tWater;
+                        int3 checkVox = int3(floor(pWater.x), topWaterY, floor(pWater.z));
+                        uint2 wVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkVox);
+                        if ((wVox.x & 4) != 0 && (wVox.x & 8) == 0) {
+                          isWater = true;
+                          realWaterDepth = max(0.08f, candidateSurfaceY - pWorld.y);
+                          pWorld = pWater;
+                          pSurfaceRel = pWorld - uVoxel.camPos.xyz;
+                          distToSurface = tWater;
+                          nWorld = float3(0.0f, 1.0f, 0.0f);
+                        }
+                      }
+                    }
                   }
                 }
                 uint reflectType = (insideVox.x >> 12) & 0x0Fu;
@@ -600,41 +615,11 @@ kernel void prisma_deferred_cs(
                 }
               }
 
-              // === Cascaded Directional Shadow (CSM for Distant Terrain) ===
-              // Marches along the sun ray in depth space to trace real shadows cast by distant mountains and terrain!
-              float distantCsmShadow = saturate(celestialNdotL * 0.70f + 0.30f);
-              if (gridWeight < 0.95f && celestialNdotL > 0.02f && sunWeight > 0.05f && !isWater && !isEntity) {
-                  float distCam = length(pWorld - uVoxel.camPos.xyz);
-                  float3 shadowRayOrigin = pWorld + nWorld * 0.15f;
-                  float maxMarchDist = min(64.0f, distCam * 0.60f + 16.0f);
-                  float marchStep = maxMarchDist / 6.0f;
-                  float occluded = 0.0f;
-
-                  for (int s = 1; s <= 6; s++) {
-                      float3 pSample = shadowRayOrigin + celestialDir * (float(s) * marchStep);
-                      float4 clipP = uVoxel.viewProj * float4(pSample, 1.0f);
-                      if (clipP.w <= 0.1f) break;
-                      float2 uvP = (clipP.xy / clipP.w) * 0.5f + 0.5f;
-                      if (uvP.x < 0.01f || uvP.x > 0.99f || uvP.y < 0.01f || uvP.y > 0.99f) break;
-
-                      float occDepth = worldDepthTex.sample(smp, uvP);
-                      if (occDepth > 0.00005f) {
-                          float4 occClip = float4(uvP.x * 2.0f - 1.0f, uvP.y * 2.0f - 1.0f, occDepth, 1.0f);
-                          float4 occWorldRel = uVoxel.invViewProj * occClip;
-                          float3 occWorld = occWorldRel.xyz / max(occWorldRel.w, 1e-5f) + uVoxel.camPos.xyz;
-                          float heightDelta = occWorld.y - pSample.y;
-                          // If mountain surface is above the sun ray, it casts a shadow!
-                          if (heightDelta > 0.30f && heightDelta < 32.0f) {
-                              occluded = 0.82f;
-                              break;
-                          }
-                      }
-                  }
-                  distantCsmShadow = mix(distantCsmShadow, 0.18f, occluded);
-              }
-
+              // === Distant Terrain Lighting & Shadow (Smooth voxel grid transition) ===
+              // Eliminates the harsh black ring and z-fighting at the voxel boundary (~7 chunks).
+              float distantTerrainShadow = saturate(celestialNdotL * 0.60f + 0.40f);
               float gridBlend = smoothstep(0.05f, 0.95f, gridWeight);
-              float celestialShadow = mix(distantCsmShadow, computedShadow, gridBlend);
+              float celestialShadow = mix(distantTerrainShadow, computedShadow, gridBlend);
               float3 celestialTint = mix(float3(1.0f), computedTint, gridBlend);
 
               float3 directCelestial = celestialDirectCol * (celestialNdotL * skyLevel * 0.80f * celestialShadow) * celestialTint;
@@ -821,54 +806,39 @@ kernel void prisma_deferred_cs(
                 float fresnel = f0 + (1.0f - f0) * pow(1.0f - NdotV, 5.0f);
 
                 if (isWater) {
-                    // === Continuous Smooth Water Depth (Seabed to Surface Level) ===
-                    // ZERO CAMERA DISTANCE DEPENDENCY.
-                    // Count water voxels sitting above this seabed position to find the real surface level.
-                    int3 basePos = int3(floor(pWorld));
-                    int depthCount = 0;
-                    for (int dy = 0; dy <= 24; dy++) {
-                        uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos + int3(0, dy + 1, 0));
-                        if ((v.x & 4) != 0 && (v.x & 8) == 0) {
-                            depthCount++;
-                        } else {
-                            break;
-                        }
-                    }
-
-                    // Continuous smooth depth: measures the exact float distance from water surface to floor
-                    // Smoothly interpolates without integer stepping or banding!
-                    float surfaceY = float(basePos.y + depthCount) + 0.88f;
-                    float realDepth = max(0.08f, surfaceY - pWorld.y);
+                    float realDepth = realWaterDepth;
 
                     // Beer-Lambert spectral absorption: red absorbed fastest, blue last
-                    float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
+                    float3 waterExtinction = float3(0.32f, 0.10f, 0.025f) * u.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
-                    // Shallow water: crystal clear, barely tinted turquoise
-                    float3 crystalShallow = float3(0.18f, 0.78f, 0.88f);
+                    // Shallow water: crystal clear vibrant turquoise
+                    float3 crystalShallow = float3(0.12f, 0.72f, 0.82f);
                     // Deep ocean: rich oceanic midnight navy
-                    float3 crystalDeep   = float3(0.01f, 0.05f, 0.20f);
+                    float3 crystalDeep   = float3(0.01f, 0.04f, 0.18f);
                     float3 waterBodyColor = mix(crystalDeep, crystalShallow, transmitted);
 
-                    // Shallow water (depth <= 1.0) is EXTRA transparent:
-                    // waterOpacity is very small (~0.05 - 0.10), making the floor 90%+ transparent and clear!
-                    float depthFactor = smoothstep(0.05f, 6.0f, realDepth);
-                    float waterOpacity = saturate((1.0f - transmitted.b) * 0.55f * depthFactor);
-                    float3 seabedFiltered = albedo.rgb * transmitted;
+                    // Smooth physical opacity curve based on water column depth:
+                    // Shallow water (0.5 to 1.5 blocks): ~0.20 to 0.40 opacity -> seabed is 70%+ clear & transparent!
+                    // Deep water (4.0+ blocks): ~0.85 to 0.95 opacity -> deep oceanic blue!
+                    float waterOpacity = saturate(1.0f - exp(-0.40f * realDepth));
+
+                    // Neutralize vanilla water blue wash from albedo so Prisma's Beer-Lambert colors shine through:
+                    float vanillaLuma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f));
+                    float3 neutralSeabed = mix(albedo.rgb, float3(vanillaLuma), 0.50f);
+                    float3 seabedFiltered = neutralSeabed * transmitted;
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
-                    // Gerstner wave slope directly modulates sunlight across the water surface,
-                    // so waves are clearly visible dancing on the water even looking straight down!
-                    float waveSlope = saturate(dot(surfNormal, celestialDir));
-                    float3 waveLight = celestialDirectCol * (waveSlope * 0.24f);
+                    float waveSlope = saturate(dot(surfNormal, celestialDir) * 1.5f);
+                    float3 waveLight = celestialDirectCol * (waveSlope * 0.28f);
 
                     // Wave crest highlights (specular micro-glint along wave ridges):
                     float3 halfVec = normalize(celestialDir - viewDir);
-                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 24.0f);
-                    float3 waveGlint = celestialDirectCol * (waveSpec * 0.35f);
+                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 28.0f);
+                    float3 waveGlint = celestialDirectCol * (waveSpec * 0.45f);
 
-                    albedo.rgb += (waveLight + waveGlint) * (1.0f - waterOpacity * 0.5f);
+                    albedo.rgb += (waveLight + waveGlint) * (1.0f - waterOpacity * 0.4f);
 
                     // For water outside the voxel grid, reflect the sky cleanly
                     if (gridWeight < 0.50f && u.reflectionsEnabled > 0.5f) {
@@ -941,10 +911,10 @@ kernel void prisma_deferred_cs(
                 float caveDarkness = saturate(skyLevel * 4.0f + surfaceBoost);
                 fogColor *= max(caveDarkness, 0.0f);
 
-                // Mie forward scattering glare toward sun (more visible on clear days)
+                // Mie forward scattering glare toward sun (subtle, smooth, non-noisy)
                 float cosSunTheta = dot(rayDir, sunDir);
-                float miePhase = (1.0f - 0.78f*0.78f) / pow(max(1.0f + 0.78f*0.78f - 2.0f*0.78f*cosSunTheta, 0.01f), 1.5f);
-                float3 mieGlare = currentSunColor * (miePhase * 0.032f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
+                float miePhase = min(5.0f, (1.0f - 0.70f*0.70f) / pow(max(1.0f + 0.70f*0.70f - 2.0f*0.70f*cosSunTheta, 0.06f), 1.5f));
+                float3 mieGlare = currentSunColor * (miePhase * 0.003f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
                 fogColor += mieGlare;
 
                 // Final rain visibility bump (heavy rain nearly opaque at distance)

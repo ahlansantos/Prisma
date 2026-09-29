@@ -692,7 +692,7 @@ public final class PrismaMRTManager implements AutoCloseable {
         else this.prevCamPos.set(camPosX, camPosY, camPosZ);
         
         MemorySegment postProcessInput = hdrTarget;
-        if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)  && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
+        if (waterOnlyPass && "VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
             long finalWidth = colorTex.getWidth(0);
             long finalHeight = colorTex.getHeight(0);
             float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
@@ -717,8 +717,8 @@ public final class PrismaMRTManager implements AutoCloseable {
                 postProcessInput,
                 worldDepth,
                 false,
-                com.prisma.config.PrismaConfig.INSTANCE.motionBlurEnabled,
-                sunAngle,
+                waterOnlyPass && com.prisma.config.PrismaConfig.INSTANCE.motionBlurEnabled,
+                waterOnlyPass,
                 viewProj,
                 this.prevViewProj,
                 invViewProj,

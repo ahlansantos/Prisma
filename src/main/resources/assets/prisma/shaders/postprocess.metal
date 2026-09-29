@@ -28,7 +28,7 @@ struct PostUniforms {
   float motionBlurEnabled;
   float time;
   
-  float sunAngle;
+  float isFinalPass;
   packed_float3 camPos;
   
   packed_float3 prevCamPos;
@@ -144,6 +144,7 @@ fragment float4 prisma_postprocess_fs(
       }
   }
 
+  if (u.isFinalPass > 0.5f) {
   // Extract Bloom using Vogel Disk (Golden Angle)
   float3 bloomSum = float3(0.0f);
   float bloomWeight = 0.0f;
@@ -161,7 +162,7 @@ fragment float4 prisma_postprocess_fs(
       float3 s = hdrTex.sample(smp, in.uv + offset).rgb;
       
       float knee = 0.3f;
-      float threshold = 1.15f;
+      float threshold = 1.25f;
       float l = postLuma(s);
       float rq = clamp(l - threshold + knee, 0.0f, knee * 2.0f);
       rq = (rq * rq) / (4.0f * knee + 0.001f);
@@ -174,7 +175,7 @@ fragment float4 prisma_postprocess_fs(
   
   if (bloomWeight > 0.0f) {
       float3 bloom = bloomSum / bloomWeight;
-      color += bloom * 0.45f;
+      color += bloom * 0.18f;
   }
   
   
@@ -187,8 +188,9 @@ fragment float4 prisma_postprocess_fs(
   // Duplicating ACES here was causing double-tonemapping, crushed shadows, and white edge halos.
 
   float2 vUv = in.uv * 2.0f - 1.0f;
-  float vignette = 1.0f - dot(vUv, vUv) * 0.30f;
+  float vignette = 1.0f - dot(vUv, vUv) * 0.15f;
   color *= smoothstep(0.0f, 1.0f, vignette);
+  }
 
   
   
