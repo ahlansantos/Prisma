@@ -678,26 +678,7 @@ kernel void prisma_deferred_cs(
               bool isPuddle = false;
               // Puddles form on horizontal outdoor surfaces during rain
               // Also form on surfaces near water bodies (wet ground / wet sand effect)
-              float nearWaterDamp = 0.0f;
-              {
-                  // Check if adjacent blocks are water (creates wet ground even without rain)
-                  int3 checkPos = int3(floor(pWorld));
-                  for (int dx = -2; dx <= 2 && nearWaterDamp < 0.5f; dx++) {
-                      for (int dz = -2; dz <= 2 && nearWaterDamp < 0.5f; dz++) {
-                          uint2 adjVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos + int3(dx, 0, dz));
-                          if ((adjVox.x & 4) != 0 && (adjVox.x & 8) == 0) {
-                              float dist = length(float2(float(dx), float(dz)));
-                              nearWaterDamp = max(nearWaterDamp, saturate(1.0f - dist / 2.5f) * 0.5f);
-                          }
-                      }
-                  }
-              }
-              // Near-water ground simply darkens to simulate wet sand/dirt. No puddles/reflections.
-              if (nearWaterDamp > 0.01f && !isWater && !isEntity && !isCameraInFluid && surfNormal.y > 0.82f) {
-                  float pN = smoothNoise3D(float3(pWorld.xz * 0.80f, 1.7f));
-                  float dampMask = smoothstep(0.2f, 0.8f, pN) * nearWaterDamp;
-                  albedo.rgb *= mix(1.0f, 0.75f, dampMask);
-              }
+
 
               // Rain creates actual puddles (reflective)
               float wetFactor = u.rainStrength;
