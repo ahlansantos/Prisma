@@ -343,8 +343,10 @@ kernel void prisma_deferred_cs(
 
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
-                  // Reconstruct exactly where the water surface is, fighting depth precision issues.
-                  int3 vPos = int3(floor(pWorld));
+                  // Push slightly into the block surface to avoid floating-point boundary noise (Z-fighting)
+                  float3 checkPt = pWorld - nWorld * 0.05f;
+                  int3 vPos = int3(floor(checkPt));
+                  
                   uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
                   uint2 vBelow = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos - int3(0, 1, 0));
                   uint2 vAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos + int3(0, 1, 0));
@@ -355,7 +357,7 @@ kernel void prisma_deferred_cs(
                   bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
                   
                   // Ignore steep vertical sides of solid blocks (like shores)
-                  bool isShoreSide = isSolidBlock && (abs(geomNormal.y) < 0.2f);
+                  bool isShoreSide = isSolidBlock && (abs(geomNormal.y) < 0.1f);
 
                   if (!isShoreSide) {
                       if (isWaterCurrent || isWaterBelow || (isSolidBlock && isWaterAbove)) {
@@ -823,33 +825,7 @@ kernel void prisma_deferred_cs(
                         }
                     }
 
-                    // ── Spatial depth blur via voxel grid ──────────────────────────────────────
-                    // realDepth is an integer count, so adjacent water columns jump 1→2→3
-                    // producing hard blocky colour bands. We blur by averaging depthFactor
-                    // from the 4 cardinal XZ neighbours in the voxel grid itself – reliable
-                    // because it uses the same data source as realDepth.
-                    float blurredDepthFactor;
-                    {
-                        float totalDF = smoothstep(0.1f, 8.0f, realDepth);
-                        float totalW  = 1.0f;
-                        const int3 nbOff[4] = {int3(1,0,0), int3(-1,0,0), int3(0,0,1), int3(0,0,-1)};
-                        for (int bi = 0; bi < 4; bi++) {
-                            int3 nbCol = waterColPos + nbOff[bi];
-                            // Only blend with a neighbour that is itself a water column
-                            uint2 nbSurf = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, nbCol);
-                            if ((nbSurf.x & 4) == 0) continue;
-                            float nbDepth = 1.0f;
-                            for (int dy = 1; dy <= 8; dy++) {
-                                uint2 nbV = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, nbCol - int3(0, dy, 0));
-                                if ((nbV.x & 4) != 0 && (nbV.x & 8) == 0) nbDepth += 1.0f;
-                                else break;
-                            }
-                            totalDF += smoothstep(0.1f, 8.0f, nbDepth);
-                            totalW  += 1.0f;
-                        }
-                        blurredDepthFactor = totalDF / totalW;
-                    }
-                    // ──────────────────────────────────────────────────────────────────────────
+                    float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
 
                     // Beer-Lambert spectral absorption (use true depth for physically correct tint)
                     float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
@@ -861,16 +837,16 @@ kernel void prisma_deferred_cs(
                     float3 crystalDeep   = float3(0.01f, 0.06f, 0.22f);
 
                     // Use BLURRED depth factor so colour gradient is soft across column boundaries
-                    float3 waterBodyColor = mix(crystalShallow, crystalDeep, blurredDepthFactor);
+                    float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
 
                     // Shallow water: very transparent, so you see seabed clearly
-                    float waterOpacity = saturate((1.0f - transmitted.b * 0.85f) * mix(0.18f, 1.0f, blurredDepthFactor));
+                    float waterOpacity = saturate((1.0f - transmitted.b * 0.85f) * mix(0.18f, 1.0f, depthFactor));
 
                     // Seabed tinted by Beer-Lambert absorption + a faint cyan overlay in shallow areas
                     // so the bottom looks teal/cyan rather than raw seabed colour.
                     float3 seabedFiltered = albedo.rgb * transmitted;
                     float3 cyanOverlay = float3(0.12f, 0.72f, 0.82f);
-                    seabedFiltered = mix(seabedFiltered, cyanOverlay * seabedFiltered, 0.40f * (1.0f - blurredDepthFactor));
+                    seabedFiltered = mix(seabedFiltered, cyanOverlay * seabedFiltered, 0.40f * (1.0f - depthFactor));
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===

@@ -65,7 +65,7 @@ public class PrismaShaderSettingsScreen extends Screen {
         } else if (this.currentTab == Tab.LIGHTING) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Illumination").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button bVxao = createToggle("Double AO", PrismaConfig.INSTANCE.doubleAoEnabled, v -> PrismaConfig.INSTANCE.doubleAoEnabled = v);
-            ConfigSlider bVxaoStrength = new ConfigSlider("Double AO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, false, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
+            ConfigSlider bVxaoStrength = new ConfigSlider("Double AO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, true, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
             
             Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
