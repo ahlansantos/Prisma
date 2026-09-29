@@ -515,8 +515,8 @@ static inline float4 computeVolumetricClouds(
     float mPhNet = clamp(mix(hgPhase(cosMoonTheta, -0.20f) * 0.60f, hgPhase(cosMoonTheta, 0.45f), 0.65f), 0.75f, 2.6f);
 
     float3 dayCloudAmbient  = mix(float3(0.38f, 0.48f, 0.62f), hazeColor, 0.35f);
-    float3 cloudAmbient     = mix(mix(float3(0.012f, 0.020f, 0.050f), dayCloudAmbient, sunWeight),
-                                  mix(float3(0.04f, 0.06f, 0.09f), float3(0.22f, 0.24f, 0.28f), sunWeight),
+    float3 cloudAmbient     = mix(mix(float3(0.06f, 0.08f, 0.14f), dayCloudAmbient, sunWeight), // boosted night ambient
+                                  mix(float3(0.06f, 0.08f, 0.12f), float3(0.22f, 0.24f, 0.28f), sunWeight),
                                   rainStrength);
     float  cloudThreshold   = mix(0.38f, 0.18f, rainStrength);
     float  cloudDensityMult = mix(7.5f,  12.0f, rainStrength);
@@ -562,11 +562,10 @@ static inline float4 computeVolumetricClouds(
                     float lT     = exp(-max(0.0f, ln - cloudThreshold) * cloudDensityMult * 0.065f * 30.0f);
 
                     // Sun Direct Scattering + Silver Lining:
-                    // When facing the sun, backlit cloud bodies remain shaded while edges catch delicate silver lining
                     float forwardBodyShade = mix(1.0f, 0.35f, smoothstep(0.1f, 0.85f, cosSunTheta));
                     float sunSilverLining  = min(0.25f, hgPhase(cosSunTheta, 0.75f) * 0.040f * sunWeight);
                     float sunInscatter     = (lT * (1.0f - exp(-d * 2.8f)) * forwardBodyShade) + sunSilverLining;
-                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.5f) * sunWeight * 0.28f);
+                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.5f) * sunWeight * 0.22f);
 
                     // Moon Direct Scattering + Lunar Silver Lining
                     float moonForwardBodyShade = mix(1.0f, 0.35f, smoothstep(0.1f, 0.85f, cosMoonTheta));
@@ -574,7 +573,10 @@ static inline float4 computeVolumetricClouds(
                     float moonInscatter        = (lT * (1.0f - exp(-d * 2.8f)) * moonForwardBodyShade) + moonSilverLining;
                     float3 moonD = currentMoonColor * (moonInscatter * min(mPhNet, 2.5f) * (1.0f - sunWeight) * 0.16f);
 
-                    accColor += accTrans * sigmaT * ((sunD + moonD) * (1.0f - rainStrength * 0.75f) + cloudAmbient) * sZ;
+                    float3 S = (sunD + moonD) * (1.0f - rainStrength * 0.75f) + cloudAmbient;
+                    
+                    // CORRECT integration: analytically solves accumulation preventing blowout at large sZ (low step counts)
+                    accColor += accTrans * S * (1.0f - stT);
                     accTrans *= stT;
                 }
                 cP += rWorld * sZ;

@@ -21,7 +21,8 @@ public class PrismaShaderSettingsScreen extends Screen {
     public enum Tab {
         LIGHTING("Lighting"),
         WATER_CLOUDS("Water & Clouds"),
-        PERFORMANCE("Performance");
+        PERFORMANCE("Performance"),
+        PRESETS("Presets");
         
         public final String name;
         Tab(String name) { this.name = name; }
@@ -45,7 +46,7 @@ public class PrismaShaderSettingsScreen extends Screen {
         int h = 20;
 
         // Tabs at the top
-        int tabW = 100;
+        int tabW = 85;
         int startX = this.width / 2 - (Tab.values().length * tabW) / 2;
         for (int i = 0; i < Tab.values().length; i++) {
             Tab t = Tab.values()[i];
@@ -125,27 +126,8 @@ public class PrismaShaderSettingsScreen extends Screen {
         }
         else if (this.currentTab == Tab.PERFORMANCE) {
             this.listWidget.add(new SettingsEntry(Component.literal("Performance").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            
-            Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (45-60 FPS)"), (b) -> {
-                PrismaConfig.INSTANCE.shadowRayCount = 2;
-                PrismaConfig.INSTANCE.sunShadowsEnabled = true;
-                PrismaConfig.INSTANCE.pointLightsEnabled = true;
-                PrismaConfig.INSTANCE.maxPointLights = 48;
-                PrismaConfig.INSTANCE.voxelRadius = 4;
-                PrismaConfig.INSTANCE.doubleAoEnabled = true;
-                PrismaConfig.INSTANCE.cloudQualitySteps = 15;
-                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.65f;
-                PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
-                PrismaConfig.INSTANCE.unsharpMaskStrength = 0.5f;
-                PrismaConfig.INSTANCE.save();
-                this.minecraft.setScreenAndShow(new PrismaShaderSettingsScreen(this.parent, Tab.PERFORMANCE));
-            }).bounds(0, 0, 310, 20).build();
-            this.listWidget.add(new SettingsEntry(presetM1, null));
-
             ConfigSlider vrad = new ConfigSlider("Voxel Grid Radius", 2.0, 16.0, PrismaConfig.INSTANCE.voxelRadius, false, v -> PrismaConfig.INSTANCE.voxelRadius = v.intValue());
             this.listWidget.add(new SettingsEntry(vrad, null));
-
-
 
             this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
@@ -169,6 +151,30 @@ public class PrismaShaderSettingsScreen extends Screen {
             });
             this.listWidget.add(new SettingsEntry(bUnsharp, null));         
 
+        }
+        else if (this.currentTab == Tab.PRESETS) {
+            this.listWidget.add(new SettingsEntry(Component.literal("Global Presets").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            
+            Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (45-60 FPS)"), (b) -> {
+                PrismaConfig.INSTANCE.shadowRayCount = 2;
+                PrismaConfig.INSTANCE.sunShadowsEnabled = true;
+                PrismaConfig.INSTANCE.pointLightsEnabled = true;
+                PrismaConfig.INSTANCE.maxPointLights = 48;
+                PrismaConfig.INSTANCE.voxelRadius = 4;
+                PrismaConfig.INSTANCE.doubleAoEnabled = true;
+                PrismaConfig.INSTANCE.cloudQualitySteps = 15;
+                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.65f;
+                PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
+                PrismaConfig.INSTANCE.unsharpMaskStrength = 0.5f;
+                
+                // Emulate 1152x720 by using a base scale of ~0.45 if running on full 2560x1600 Retina display
+                // If running at 1920x1080, scale would be ~0.60
+                // We'll set the resolution scale to 0.65 explicitly as requested.
+                
+                PrismaConfig.INSTANCE.save();
+                this.minecraft.setScreenAndShow(new PrismaShaderSettingsScreen(this.parent, Tab.PRESETS));
+            }).bounds(0, 0, 310, 20).build();
+            this.listWidget.add(new SettingsEntry(presetM1, null));
         }
         this.addRenderableWidget(this.listWidget);
     }

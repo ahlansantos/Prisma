@@ -104,24 +104,19 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
             // =========================================================================
             static inline float3 lumaPreservingFilmic(float3 col, float exposure, float saturationBoost) {
                 if (isnan(col.x) || isnan(col.y) || isnan(col.z) || isinf(col.x) || isinf(col.y) || isinf(col.z)) return float3(0.0f);
-                col = max(col * exposure, float3(0.0f));
-                // Rec. 709 perceived luminance
-                float luma = dot(col, float3(0.2126f, 0.7152f, 0.0722f));
-                if (luma < 1e-5f || isnan(luma)) return float3(0.0f);
+                col = max(col * exposure * 0.85f, float3(0.0f)); // slightly adjust exposure for ACES
 
-                // Extended Filmic curve on luminance only:
-                // Smooth open toe with zero black crush, linear midtone contrast, soft highlight shoulder
-                float whitePoint = 4.2f;
-                float lumaToned = (luma * (1.0f + luma / (whitePoint * whitePoint))) / (1.0f + luma);
+                // ACES fitted curve
+                float a = 2.51f;
+                float b = 0.03f;
+                float c = 2.43f;
+                float d = 0.59f;
+                float e = 0.14f;
+                float3 tonedColor = saturate((col * (a * col + b)) / (col * (c * col + d) + e));
 
-                // Re-apply original chromaticity (preserves 100% of real color vibrancy)
-                float3 tonedColor = col * (lumaToned / luma);
-
-                // Dynamic saturation: lush vibrant colors in midtones,
-                // natural highlight desaturation only on blazing specular reflections (luma > 2.0)
-                float highlightDesat = smoothstep(1.8f, 4.0f, luma);
-                float sat = mix(saturationBoost, 0.90f, highlightDesat);
-                tonedColor = mix(float3(lumaToned), tonedColor, sat);
+                // Apply dynamic saturation
+                float luma = dot(tonedColor, float3(0.2126f, 0.7152f, 0.0722f));
+                tonedColor = mix(float3(luma), tonedColor, saturationBoost);
 
                 return saturate(tonedColor);
             }
@@ -348,7 +343,7 @@ kernel void prisma_deferred_cs(
 
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
-                  int3 vPos = int3(floor(pWorld));
+                  int3 vPos = int3(floor(pWorld - geomNormal * 0.05f));
                   uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
                   uint2 vBelow = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos - int3(0, 1, 0));
                   
@@ -356,7 +351,7 @@ kernel void prisma_deferred_cs(
                   bool isWaterBelow   = ((vBelow.x & 4) != 0 && (vBelow.x & 8) == 0);
                   bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
 
-                  if (!isSolidBlock && (isWaterCurrent || isWaterBelow) && nWorld.y > 0.45f) {
+                  if (!isSolidBlock && (isWaterCurrent || isWaterBelow)) {
                     isWater = true;
                   }
                 }
@@ -377,10 +372,15 @@ kernel void prisma_deferred_cs(
 
               float3 surfNormal = isEntity ? geomNormal : normalize(mix(geomNormal, nWorld, 0.70f));
               if (isWater) {
-                float baseWaterY = (uVoxel.camPos.y >= pWorld.y) ? 1.0f : -1.0f;
-                float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
-                surfNormal = normalize(float3(waveNorm.x, baseWaterY * waveNorm.y, waveNorm.z));
-                nWorld = float3(0.0f, baseWaterY, 0.0f);
+                if (abs(geomNormal.y) > 0.45f) {
+                    float baseWaterY = (uVoxel.camPos.y >= pWorld.y) ? 1.0f : -1.0f;
+                    float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
+                    surfNormal = normalize(float3(waveNorm.x, baseWaterY * waveNorm.y, waveNorm.z));
+                    nWorld = float3(0.0f, baseWaterY, 0.0f);
+                } else {
+                    surfNormal = geomNormal;
+                    nWorld = geomNormal;
+                }
               }
               if (isGlass || isMetal) {
                 if (abs(nWorld.y) > 0.65f) {
@@ -823,12 +823,18 @@ kernel void prisma_deferred_cs(
                     float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
 
                     // Shallow water (depth <= 1.0) is EXTRA transparent
-                    float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.10f, 1.0f, depthFactor));
+                    float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.15f, 1.0f, depthFactor));
 
-                    // Completely neutralize vanilla water blue wash so only Prisma's crystal Beer-Lambert colors shine through:
-                    float vanillaLuma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f));
-                    float3 neutralSeabed = float3(vanillaLuma);
-                    float3 seabedFiltered = neutralSeabed * transmitted;
+                    // Create a blurred seabed effect (refraction blur)
+                    float2 tSize = 1.0f / float2(albedoTex.get_width(), albedoTex.get_height());
+                    float3 blurAlbedo = albedo.rgb;
+                    blurAlbedo += albedoTex.sample(smp, uv + float2(tSize.x * 3.0f, tSize.y * 3.0f)).rgb;
+                    blurAlbedo += albedoTex.sample(smp, uv + float2(-tSize.x * 3.0f, -tSize.y * 3.0f)).rgb;
+                    blurAlbedo += albedoTex.sample(smp, uv + float2(tSize.x * 3.0f, -tSize.y * 3.0f)).rgb;
+                    blurAlbedo += albedoTex.sample(smp, uv + float2(-tSize.x * 3.0f, tSize.y * 3.0f)).rgb;
+                    blurAlbedo /= 5.0f;
+
+                    float3 seabedFiltered = blurAlbedo * transmitted;
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
