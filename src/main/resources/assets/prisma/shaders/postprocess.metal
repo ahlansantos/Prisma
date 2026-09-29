@@ -187,14 +187,7 @@ fragment float4 prisma_postprocess_fs(
   // Note: Tonemapping is handled cleanly in deferred compute shader via Luma-Preserving Filmic.
   // Duplicating ACES here was causing double-tonemapping, crushed shadows, and white edge halos.
 
-  // Cinematic film grain – subtle, time-varying, luminance-aware
-  float2 grainUv = in.uv * float2(hdrTex.get_width(), hdrTex.get_height());
-  float grainAngle = fract(sin(dot(grainUv + fract(u.time * 0.37f), float2(12.9898f, 78.233f))) * 43758.5453f);
-  float grain = (grainAngle - 0.5f) * 0.045f; // ±2.25% grain
-  float luma = postLuma(color);
-  // Grain is stronger in midtones, weaker in deep shadows and bright highlights (cinematic)
-  float grainMask = smoothstep(0.0f, 0.15f, luma) * (1.0f - smoothstep(0.70f, 1.0f, luma));
-  color += grain * grainMask;
+  // Film grain removed per user request
 
   }
 
