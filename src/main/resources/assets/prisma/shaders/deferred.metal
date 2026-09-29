@@ -103,10 +103,11 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
             // - Extended shoulder: bright sun specular rolls off smoothly without clipping
             // =========================================================================
             static inline float3 lumaPreservingFilmic(float3 col, float exposure, float saturationBoost) {
+                if (isnan(col.x) || isnan(col.y) || isnan(col.z) || isinf(col.x) || isinf(col.y) || isinf(col.z)) return float3(0.0f);
                 col = max(col * exposure, float3(0.0f));
                 // Rec. 709 perceived luminance
                 float luma = dot(col, float3(0.2126f, 0.7152f, 0.0722f));
-                if (luma < 1e-5f) return float3(0.0f);
+                if (luma < 1e-5f || isnan(luma)) return float3(0.0f);
 
                 // Extended Filmic curve on luminance only:
                 // Smooth open toe with zero black crush, linear midtone contrast, soft highlight shoulder
@@ -500,7 +501,7 @@ kernel void prisma_deferred_cs(
                               bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f) || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
                               bool canCastPtPlayerShadow = (!isHandheld && uVoxel.shadowParams.w > 0.5f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f);
                               if (isFirstPerson) {
-                                  canCastPtPlayerShadow = canCastPtPlayerShadow && (nWorld.y > 0.55f && rayOrigin.y <= uVoxel.playerPos.y + 0.6f);
+                                  canCastPtPlayerShadow = canCastPtPlayerShadow && (rayOrigin.y <= uVoxel.playerPos.y + 1.4f);
                               }
                               
                               if (canCastPtPlayerShadow && sr.vis > 0.0f) {
@@ -565,7 +566,7 @@ kernel void prisma_deferred_cs(
                   
                   bool canCastPlayerShadow = (uVoxel.shadowParams.w > 0.5f && length(rayStart.xz - uVoxel.playerPos.xz) < 12.0f);
                   if (isFirstPerson) {
-                      canCastPlayerShadow = canCastPlayerShadow && (nWorld.y > 0.55f && rayStart.y <= uVoxel.playerPos.y + 0.6f);
+                      canCastPlayerShadow = canCastPlayerShadow && (rayStart.y <= uVoxel.playerPos.y + 1.4f);
                   }
                   
                   int rayCount = int(u.shadowRayCount);
@@ -1094,8 +1095,8 @@ kernel void prisma_deferred_cs(
               // Preserves Minecraft's vibrant colors (lush green grass, deep blue sky, rich sunset)
               // with zero grey veil and no harsh black crushing in shadows.
               {
-                  float exposure = mix(0.96f, 0.85f, sunsetFactor * sunWeight);
-                  float saturationBoost = mix(1.08f, 1.15f, sunsetFactor * sunWeight);
+                  float exposure = mix(1.10f, 0.95f, sunsetFactor * sunWeight);
+                  float saturationBoost = mix(1.15f, 1.25f, sunsetFactor * sunWeight);
                   litRgb = lumaPreservingFilmic(litRgb, exposure, saturationBoost);
 
                   // Subtle golden hour warm grade on midtones

@@ -124,7 +124,24 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(b5, b6));
         }
         else if (this.currentTab == Tab.PERFORMANCE) {
-                        this.listWidget.add(new SettingsEntry(Component.literal("Performance").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            this.listWidget.add(new SettingsEntry(Component.literal("Performance").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            
+            Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (45-60 FPS)"), (b) -> {
+                PrismaConfig.INSTANCE.shadowRayCount = 2;
+                PrismaConfig.INSTANCE.sunShadowsEnabled = true;
+                PrismaConfig.INSTANCE.pointLightsEnabled = true;
+                PrismaConfig.INSTANCE.maxPointLights = 48;
+                PrismaConfig.INSTANCE.voxelRadius = 4;
+                PrismaConfig.INSTANCE.doubleAoEnabled = true;
+                PrismaConfig.INSTANCE.cloudQualitySteps = 15;
+                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.65f;
+                PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
+                PrismaConfig.INSTANCE.unsharpMaskStrength = 0.5f;
+                PrismaConfig.INSTANCE.save();
+                this.minecraft.setScreenAndShow(new PrismaShaderSettingsScreen(this.parent, Tab.PERFORMANCE));
+            }).bounds(0, 0, 310, 20).build();
+            this.listWidget.add(new SettingsEntry(presetM1, null));
+
             ConfigSlider vrad = new ConfigSlider("Voxel Grid Radius", 2.0, 16.0, PrismaConfig.INSTANCE.voxelRadius, false, v -> PrismaConfig.INSTANCE.voxelRadius = v.intValue());
             this.listWidget.add(new SettingsEntry(vrad, null));
 
