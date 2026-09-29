@@ -173,10 +173,59 @@ fragment float4 prisma_postprocess_fs(
       bloomWeight += w;
   }
   
+
   if (bloomWeight > 0.0f) {
       float3 bloom = bloomSum / bloomWeight;
-      color += bloom * 0.65f;
+      color += bloom * 1.50f;
+      
+      // Procedural Ghosting Lens Flare (Anamorphic/Cinematic)
+      float2 ghostVec = -(in.uv * 2.0f - 1.0f) * 0.45f;
+      float3 ghostSum = float3(0.0f);
+      float3 flareColors[4] = { float3(1.0, 0.5, 0.2), float3(0.3, 0.6, 1.0), float3(0.1, 0.9, 0.3), float3(0.8, 0.2, 1.0) };
+      for (int k = 1; k <= 4; k++) {
+          float2 guv = saturate(in.uv + ghostVec * float(k));
+          float3 g = hdrTex.sample(smp, guv).rgb;
+          float gl = postLuma(g);
+          if (gl > 0.95f) {
+              float weight = (5.0f - float(k)) * 0.08f;
+              ghostSum += (g - 0.95f) * flareColors[k-1] * weight;
+          }
+      }
+      // Halo
+      float2 haloVec = normalize(ghostVec) * 0.40f;
+      float2 huv = saturate(in.uv + haloVec);
+      float3 h = hdrTex.sample(smp, huv).rgb;
+      if (postLuma(h) > 0.95f) {
+          ghostSum += (h - 0.95f) * float3(0.2, 0.4, 1.0) * 0.15f;
+      }
+      color += ghostSum;
   }
+
+  
+  // Color Grading: Saturation and Contrast
+  float luma = postLuma(color);
+  color = mix(float3(luma), color, 1.25f);
+  color = color * color * (3.0f - 2.0f * color);
+  
+  float2 vUv = in.uv * 2.0f - 1.0f;
+  float dist = length(vUv);
+  float vignette = 1.0f - smoothstep(0.80f, 1.6f, dist) * 0.45f;
+  
+  // Subtle Chromatic Aberration on edges
+  float2 caOffset = vUv * 0.003f;
+  float r_ca = hdrTex.sample(smp, in.uv - caOffset).r;
+  float b_ca = hdrTex.sample(smp, in.uv + caOffset).b;
+  // Apply tonemapping curve to CA samples to match
+  r_ca = r_ca * r_ca * (3.0f - 2.0f * r_ca);
+  b_ca = b_ca * b_ca * (3.0f - 2.0f * b_ca);
+  
+  color.r = mix(color.r, r_ca, smoothstep(0.5f, 1.5f, dist));
+  color.b = mix(color.b, b_ca, smoothstep(0.5f, 1.5f, dist));
+  
+  color *= vignette;
+  color = saturate(color);
+
+
   
   
   
