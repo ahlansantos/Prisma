@@ -564,7 +564,7 @@ static inline float4 computeVolumetricClouds(
                     float forwardBodyShade = mix(1.0f, 0.35f, smoothstep(0.1f, 0.85f, cosSunTheta));
                     float sunSilverLining  = min(0.25f, hgPhase(cosSunTheta, 0.75f) * 0.040f * sunWeight);
                     float sunInscatter     = (lT * (1.0f - exp(-d * 2.8f)) * forwardBodyShade) + sunSilverLining;
-                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.5f) * sunWeight * 0.28f);
+                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.5f) * sunWeight * 0.18f);
 
                     // Moon Direct Scattering + Lunar Silver Lining
                     float moonForwardBodyShade = mix(1.0f, 0.35f, smoothstep(0.1f, 0.85f, cosMoonTheta));
@@ -623,7 +623,7 @@ static inline float4 computeVolumetricClouds(
                     float forwardBodyShade = mix(1.0f, 0.40f, smoothstep(0.1f, 0.85f, cosSunTheta));
                     float sunSilverLining  = min(0.20f, hgPhase(cosSunTheta, 0.70f) * 0.040f * sunWeight);
                     float sunInscatter     = (lT * (1.0f - exp(-d * 1.8f)) * forwardBodyShade) + sunSilverLining;
-                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.2f) * sunWeight * 0.22f);
+                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.2f) * sunWeight * 0.14f);
 
                     float moonForwardBodyShade = mix(1.0f, 0.40f, smoothstep(0.1f, 0.85f, cosMoonTheta));
                     float moonSilverLining     = min(0.16f, hgPhase(cosMoonTheta, 0.68f) * 0.040f * (1.0f - sunWeight));

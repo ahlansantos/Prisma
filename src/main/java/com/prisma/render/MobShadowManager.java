@@ -23,6 +23,9 @@ public final class MobShadowManager {
 
     public static int classifyMob(final LivingEntity entity) {
         String path = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getPath();
+        if (path.equals("armor_stand") && entity.hasCustomName() && entity.getCustomName().getString().equalsIgnoreCase("verity")) {
+            return 11;
+        }
         return switch (path) {
             case "zombie", "husk", "drowned", "zombie_villager" -> 0;
             case "skeleton", "wither_skeleton", "stray", "bogged" -> 1;
