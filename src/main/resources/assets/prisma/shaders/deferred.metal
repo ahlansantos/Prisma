@@ -343,16 +343,24 @@ kernel void prisma_deferred_cs(
 
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
+                  // Reconstruct exactly where the water surface is, fighting depth precision issues.
                   int3 vPos = int3(floor(pWorld));
                   uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
                   uint2 vBelow = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos - int3(0, 1, 0));
+                  uint2 vAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos + int3(0, 1, 0));
                   
                   bool isWaterCurrent = ((vCur.x & 4) != 0 && (vCur.x & 8) == 0);
                   bool isWaterBelow   = ((vBelow.x & 4) != 0 && (vBelow.x & 8) == 0);
+                  bool isWaterAbove   = ((vAbove.x & 4) != 0 && (vAbove.x & 8) == 0);
                   bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
+                  
+                  // Ignore steep vertical sides of solid blocks (like shores)
+                  bool isShoreSide = isSolidBlock && (abs(geomNormal.y) < 0.2f);
 
-                  if (!isSolidBlock && (isWaterCurrent || isWaterBelow) && nWorld.y > 0.45f) {
-                    isWater = true;
+                  if (!isShoreSide) {
+                      if (isWaterCurrent || isWaterBelow || (isSolidBlock && isWaterAbove)) {
+                          isWater = true;
+                      }
                   }
                 }
                 uint reflectType = (insideVox.x >> 12) & 0x0Fu;
@@ -796,8 +804,14 @@ kernel void prisma_deferred_cs(
 
                 if (isWater) {
                     // === Physically-Based Water Depth (Vertical Voxel Count) ===
-                    // Count physical water voxels straight DOWN from the surface to the seabed.
+                    // Ensure waterColPos points to the actual water block, even if pWorld dropped into seabed
                     int3 waterColPos = int3(floor(pWorld));
+                    uint2 wcpVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, waterColPos);
+                    if (((wcpVox.x & 1) != 0 && (wcpVox.x & 4) == 0)) {
+                        waterColPos += int3(0, 1, 0); // push it up into the water block
+                    }
+
+                    // Count physical water voxels straight DOWN from the surface to the seabed.
                     float realDepth = 1.0f;
                     for (int dy = 1; dy <= 24; dy++) {
                         int3 checkBelow = waterColPos - int3(0, dy, 0);
@@ -850,7 +864,7 @@ kernel void prisma_deferred_cs(
                     float3 waterBodyColor = mix(crystalShallow, crystalDeep, blurredDepthFactor);
 
                     // Shallow water: very transparent, so you see seabed clearly
-                    float waterOpacity = saturate((1.0f - transmitted.b * 0.90f) * mix(0.07f, 1.0f, blurredDepthFactor));
+                    float waterOpacity = saturate((1.0f - transmitted.b * 0.85f) * mix(0.18f, 1.0f, blurredDepthFactor));
 
                     // Seabed tinted by Beer-Lambert absorption + a faint cyan overlay in shallow areas
                     // so the bottom looks teal/cyan rather than raw seabed colour.
