@@ -539,7 +539,7 @@ static inline float4 computeVolumetricClouds(
             tm = max(tm, 0.0f);
             float3 sPos = pWorld + rWorld * tm;
             float  mL   = length((pWorld + rWorld * tM) - sPos);
-            float  sC   = max(8.0f, min(cloudSteps, 36.0f));
+            float  sC   = max(6.0f, min(cloudSteps, 20.0f));
             float  sZ   = mL / sC;
             float3 cP   = sPos;
 
@@ -596,7 +596,7 @@ static inline float4 computeVolumetricClouds(
             tm = max(tm, 0.0f);
             float3 sPos = pWorld + rWorld * tm;
             float  mL   = length((pWorld + rWorld * tM) - sPos);
-            float  sC   = max(4.0f, min(cloudSteps * 0.50f, 20.0f));
+            float  sC   = max(4.0f, min(cloudSteps * 0.40f, 10.0f));
             float  sZ   = mL / sC;
             float3 cP   = sPos;
             float  altoThresh  = cloudThreshold + 0.08f;

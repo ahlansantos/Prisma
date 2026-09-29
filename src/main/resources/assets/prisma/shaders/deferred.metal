@@ -153,6 +153,10 @@ kernel void prisma_deferred_cs(
               float hDepth = handDepthTex.read(depthGid);
               // In Reverse-Z: larger value = closer. Use the closer depth (larger value).
               float rawDepth = max(wDepth, hDepth);
+              if (u.waterOnlyPass > 0.5f && rawDepth <= 0.00005f) {
+                outTexture.write(float4(albedo.rgb, albedo.a), gid);
+                return;
+              }
               bool isHandPixel = (hDepth > wDepth + 0.0001f && hDepth > 0.0001f);
               float effectiveDepth = rawDepth;
               
@@ -345,36 +349,31 @@ kernel void prisma_deferred_cs(
               if (!isEntity && !isCameraInFluid) {
                 // In water-only pass, detect true horizontal water surface.
                 if (u.waterOnlyPass > 0.5f) {
-                  int3 basePos = int3(floor(pWorld));
-                  uint2 voxAtPos = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos);
-                  uint2 voxAbove = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, basePos + int3(0, 1, 0));
-                  
-                  bool waterAt = ((voxAtPos.x & 4) != 0 && (voxAtPos.x & 8) == 0);
-                  bool waterAbove = ((voxAbove.x & 4) != 0 && (voxAbove.x & 8) == 0);
+                  int colX = int(floor(pWorld.x));
+                  int colZ = int(floor(pWorld.z));
+                  int startY = int(floor(pWorld.y - 0.05f));
 
-                  // Water is present at floor or directly above seabed, facing upward
-                  if ((waterAt || waterAbove) && nWorld.y > 0.40f) {
-                    int depthCount = waterAt ? 1 : 0;
-                    for (int dy = 1; dy <= 24; dy++) {
-                      int3 checkPos = basePos + int3(0, dy + (waterAt ? 0 : 1), 0);
-                      uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos);
-                      if ((v.x & 4) != 0 && (v.x & 8) == 0) {
-                        depthCount++;
-                      } else {
-                        break;
-                      }
+                  int topWaterY = -1;
+                  for (int y = startY; y <= startY + 24; y++) {
+                    int3 checkPos = int3(colX, y, colZ);
+                    uint2 v = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, checkPos);
+                    if ((v.x & 4) != 0 && (v.x & 8) == 0) {
+                      topWaterY = y;
+                    } else if (topWaterY != -1) {
+                      break;
                     }
+                  }
 
-                    float surfaceY = float(basePos.y + (waterAt ? 0 : 1) + depthCount - 1) + 0.8875f;
-                    float depthFromSurface = surfaceY - pWorld.y;
+                  if (topWaterY != -1 && nWorld.y > 0.40f) {
+                    float waterSurfaceY = float(topWaterY) + 0.8875f;
+                    float depthFromSurface = waterSurfaceY - pWorld.y;
 
                     // Ensure this is genuinely submerged floor or water, never a dry bank above water level
                     if (depthFromSurface > 0.05f) {
                       isWater = true;
-                      realWaterDepth = max(0.10f, depthFromSurface);
+                      realWaterDepth = max(0.12f, depthFromSurface);
 
-                      // Place reflection origin on the water surface plane to prevent underwater self-intersection
-                      float waterSurfaceY = surfaceY;
+                      // Place water position on the water surface plane
                       if (uVoxel.camPos.y > waterSurfaceY && viewDir.y < -1e-4f) {
                         float tWater = (waterSurfaceY - uVoxel.camPos.y) / viewDir.y;
                         if (tWater > 0.0f && tWater < distToSurface) {
@@ -382,10 +381,10 @@ kernel void prisma_deferred_cs(
                           pSurfaceRel = pWorld - uVoxel.camPos.xyz;
                           distToSurface = tWater;
                         } else {
-                          pWorld.y = max(pWorld.y, waterSurfaceY);
+                          pWorld.y = waterSurfaceY;
                         }
                       } else {
-                        pWorld.y = max(pWorld.y, waterSurfaceY);
+                        pWorld.y = waterSurfaceY;
                       }
                       nWorld = float3(0.0f, 1.0f, 0.0f);
                     }
@@ -764,15 +763,15 @@ kernel void prisma_deferred_cs(
                 float3 specPoints = float3(0.0f);
 
                 for (int b = 0; b < maxBounces; b++) {
-                    int steps = (b == 0) ? 80 : 30;
-                    float cloudsRefl = (b == 0) ? u.cloudsInReflections : 0.0f;
+                    int steps = (b == 0) ? 40 : 18;
+                    float cloudsRefl = (b == 0) ? (u.cloudsInReflections * 0.5f) : 0.0f;
                     float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, cloudsRefl, u.cloudSteps, u.rainStrength, 1e6f) * skyLevel;
                     
-                                        VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.doubleAoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel, u.shadowRayCount);
+                    VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.doubleAoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel, u.shadowRayCount);
                     
                     float reflDist = vxr.hitDist;
                     float rawReflFog = saturate(1.0f - exp(-pow(reflDist * 0.003f, 3.5f)));
-                    float3 reflFogColor = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
+                    float3 reflFogColor = actualSky * (sunWeight * 0.85f + 0.15f);
                     
                     float reflY = currentRayOrigin.y + currentRayDir.y * reflDist;
                     float reflSkyLvl = saturate((reflY - 24.0f) / 64.0f);
@@ -856,12 +855,12 @@ kernel void prisma_deferred_cs(
 
                     albedo.rgb += (waveLight + waveGlint) * (1.0f - waterOpacity * 0.3f);
 
-                    // For water outside the voxel grid, reflect the sky cleanly
-                    if (gridWeight < 0.50f && u.reflectionsEnabled > 0.5f) {
+                    // Smooth transition from local voxel reflections to distant sky reflections outside grid
+                    if (u.reflectionsEnabled > 0.5f && gridWeight < 0.85f) {
                         float3 reflDir = reflect(-viewDir, surfNormal);
                         if (reflDir.y > -0.1f) {
-                            float3 skyRefl = evaluateSkyAndReflections(pWorld, reflDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsInReflections, u.cloudSteps, u.rainStrength, 1e6f);
-                            accumulatedScene = skyRefl;
+                            float3 skyRefl = actualSky * (sunWeight * 0.85f + 0.15f);
+                            accumulatedScene = mix(skyRefl, accumulatedScene, smoothstep(0.05f, 0.80f, gridWeight));
                         }
                     }
                 }
@@ -882,7 +881,7 @@ kernel void prisma_deferred_cs(
                 baseLighting = max(baseLighting, float3(emStr));
               }
 
-              float3 baseLit = albedo.rgb * baseLighting;
+              float3 baseLit = isWater ? albedo.rgb : (albedo.rgb * baseLighting);
               float3 litRgb = baseLit;
               if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
                 litRgb = mix(baseLit, reflectionCol, reflectFactor);
@@ -970,8 +969,8 @@ kernel void prisma_deferred_cs(
                       // gridSize.x = grid diameter in voxels, so half = radius in blocks.
                       float gridHalfDim = float(uVoxel.gridSize.x) * 0.5f;
                       float marchDist = min(tMax, gridHalfDim);
-                      // Cap steps to 24 max to prevent 5-second Metal GPU timeout crashes!
-                      int numSteps = max(4, min(int(u.volFogSamples), 24));
+                      // Cap steps to 12 max — 2x2 Bayer jitter delivers 4x perceived samples smoothly on M1 Air!
+                      int numSteps = max(4, min(int(u.volFogSamples), 12));
                       float stepSize = marchDist / float(numSteps);
 
                       // World-space anchored step alignment + 2x2 Spatial Bayer Jitter:
