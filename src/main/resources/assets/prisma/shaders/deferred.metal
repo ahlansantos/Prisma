@@ -343,21 +343,15 @@ kernel void prisma_deferred_cs(
 
               if (!isEntity && !isCameraInFluid) {
                 if (u.waterOnlyPass > 0.5f) {
-                  // Water detection: scan a 3-voxel column upward from the surface hit point.
-                  // pWorld sits at or just below the water surface (depth buffer records geometry).
-                  // We step slightly toward the camera (+geomNormal) to avoid entering the seabed,
-                  // then check 3 voxels vertically to be robust against depth-buffer precision noise.
-                  float3 waterCheckPt = pWorld + geomNormal * 0.12f;
-                  int3 vBase = int3(floor(waterCheckPt));
-                  bool foundWaterVoxel = false;
-                  for (int wy = 0; wy <= 2; wy++) {
-                      uint2 wV = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vBase + int3(0, wy, 0));
-                      bool wIsWater = ((wV.x & 4) != 0 && (wV.x & 8) == 0);
-                      bool wIsSolid = ((wV.x & 1) != 0 && (wV.x & 4) == 0);
-                      if (wIsWater) { foundWaterVoxel = true; break; }
-                      if (wIsSolid && wy > 0) break; // stop if we hit a ceiling block
-                  }
-                  if (foundWaterVoxel) {
+                  int3 vPos = int3(floor(pWorld));
+                  uint2 vCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos);
+                  uint2 vBelow = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, vPos - int3(0, 1, 0));
+                  
+                  bool isWaterCurrent = ((vCur.x & 4) != 0 && (vCur.x & 8) == 0);
+                  bool isWaterBelow   = ((vBelow.x & 4) != 0 && (vBelow.x & 8) == 0);
+                  bool isSolidBlock   = ((vCur.x & 1) != 0 && (vCur.x & 4) == 0);
+
+                  if (!isSolidBlock && (isWaterCurrent || isWaterBelow) && nWorld.y > 0.45f) {
                     isWater = true;
                   }
                 }

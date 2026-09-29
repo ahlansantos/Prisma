@@ -187,13 +187,6 @@ fragment float4 prisma_postprocess_fs(
   // Note: Tonemapping is handled cleanly in deferred compute shader via Luma-Preserving Filmic.
   // Duplicating ACES here was causing double-tonemapping, crushed shadows, and white edge halos.
 
-  // Cinematic vignette – stronger, oval shape
-  float2 vUv = in.uv * 2.0f - 1.0f;
-  vUv.x *= (u.texelSize.y / u.texelSize.x); // correct aspect ratio
-  float vignetteDist = dot(vUv * float2(0.90f, 1.10f), vUv * float2(0.90f, 1.10f));
-  float vignette = 1.0f - smoothstep(0.40f, 1.10f, vignetteDist);
-  color *= vignette;
-
   // Cinematic film grain – subtle, time-varying, luminance-aware
   float2 grainUv = in.uv * float2(hdrTex.get_width(), hdrTex.get_height());
   float grainAngle = fract(sin(dot(grainUv + fract(u.time * 0.37f), float2(12.9898f, 78.233f))) * 43758.5453f);

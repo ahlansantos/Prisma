@@ -565,7 +565,7 @@ static inline float4 computeVolumetricClouds(
                     float forwardBodyShade = mix(1.0f, 0.35f, smoothstep(0.1f, 0.85f, cosSunTheta));
                     float sunSilverLining  = min(0.25f, hgPhase(cosSunTheta, 0.75f) * 0.040f * sunWeight);
                     float sunInscatter     = (lT * (1.0f - exp(-d * 2.8f)) * forwardBodyShade) + sunSilverLining;
-                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.5f) * sunWeight * 0.22f);
+                    float3 sunD  = currentSunColor * (sunInscatter * min(phNet, 2.5f) * sunWeight * 0.28f);
 
                     // Moon Direct Scattering + Lunar Silver Lining
                     float moonForwardBodyShade = mix(1.0f, 0.35f, smoothstep(0.1f, 0.85f, cosMoonTheta));
@@ -577,8 +577,7 @@ static inline float4 computeVolumetricClouds(
                     float3 skyBounce = mix(float3(0.14f, 0.20f, 0.28f), hazeColor * 0.45f, sunWeight) * (1.0f - hF) * 0.20f;
                     float3 S = (sunD + moonD) * (1.0f - rainStrength * 0.75f) + cloudAmbient + skyBounce;
                     
-                    // CORRECT integration: analytically solves accumulation preventing blowout at large sZ (low step counts)
-                    accColor += accTrans * S * (1.0f - stT);
+                    accColor += accTrans * sigmaT * S * sZ;
                     accTrans *= stT;
                 }
                 cP += rWorld * sZ;
