@@ -470,10 +470,10 @@ kernel void prisma_deferred_cs(
 
               float4 currentClip = uVoxel.viewProj * float4(motionWorld, 1.0f);
               float4 prevClip = uVoxel.prevViewProj * float4(motionWorld, 1.0f);
-              float2 currentUv = (currentClip.xy / max(currentClip.w, 0.0001f)) * 0.5f + 0.5f;
-              float2 prevUv = (prevClip.xy / max(prevClip.w, 0.0001f)) * 0.5f + 0.5f;
-              // Motion vector in pixels (MetalFX requires pixel-space, Y points DOWN in texture space)
-              float2 velocity = (currentUv - prevUv) * float2(float(velocityTex.get_width()), -float(velocityTex.get_height()));
+              float2 currentUv = float2(currentClip.x, -currentClip.y) / max(currentClip.w, 0.0001f) * 0.5f + 0.5f;
+              float2 prevUv = float2(prevClip.x, -prevClip.y) / max(prevClip.w, 0.0001f) * 0.5f + 0.5f;
+              // Motion vector from current to previous in pixel space
+              float2 velocity = (prevUv - currentUv) * float2(float(velocityTex.get_width()), float(velocityTex.get_height()));
               velocityTex.write(float4(velocity, 0.0f, 0.0f), gid);
 
               // Write dummy reservoir (kept for compatibility)
