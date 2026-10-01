@@ -382,38 +382,6 @@ kernel void prisma_deferred_cs(
               
               float3 surfNormal = isEntity ? geomNormal : normalize(mix(geomNormal, nWorld, 0.70f));
               
-              // === Procedural Auto-PBR (Screen-Space Albedo Bump Mapping) ===
-              if (!isEntity && !isWater && u.waterOnlyPass < 0.5f) {
-                  float lumC = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f));
-                  
-                  uint2 gR = min(gid + uint2(1, 0), uint2(outTexture.get_width() - 1, outTexture.get_height() - 1));
-                  uint2 gT = min(gid + uint2(0, 1), uint2(outTexture.get_width() - 1, outTexture.get_height() - 1));
-                  
-                  float lumR = dot(albedoTex.read(gR).rgb, float3(0.299f, 0.587f, 0.114f));
-                  float lumT = dot(albedoTex.read(gT).rgb, float3(0.299f, 0.587f, 0.114f));
-                  
-                  float depthR = worldDepthTex.read(gR);
-                  float depthT = worldDepthTex.read(gT);
-                  
-                  if (abs(depthR - effectiveDepth) < 0.005f && abs(depthT - effectiveDepth) < 0.005f) {
-                      float dx = (lumR - lumC);
-                      float dy = (lumT - lumC);
-                      
-                      float3 tX = cross(surfNormal, float3(0.0f, 1.0f, 0.0f));
-                      if (length_squared(tX) < 0.01f) tX = cross(surfNormal, float3(1.0f, 0.0f, 0.0f));
-                      tX = normalize(tX);
-                      float3 tY = normalize(cross(surfNormal, tX));
-                      
-                      // Apply bump!
-                      surfNormal = normalize(surfNormal + tX * dx * 1.5f + tY * dy * 1.5f);
-                  }
-                  
-                  // Procedural Specular
-                  if (lumC > 0.85f && abs(lumR - lumC) < 0.02f) {
-                      isMetal = true; // Bright smooth surfaces become slightly metallic/reflective
-                  }
-              }
-
               if (isWater) {
 
                 if (abs(geomNormal.y) > 0.45f) {
@@ -668,26 +636,7 @@ kernel void prisma_deferred_cs(
                   computedShadow = totalVis / float(numSamples);
                   computedTint = totalTint / float(numSamples);
                   
-                  // Caustics for refracted sunlight
-                  if (u.waterOnlyPass < 0.5f) {
-                      uint2 aboveVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(pWorld)) + int3(0, 1, 0));
-                      bool isUnderWater = ((aboveVox.x & 4) != 0 && (aboveVox.x & 8) == 0);
-                      if (isUnderWater) {
-                          float2 uv = pWorld.xz * 1.8f + celestialDir.xz * 3.0f;
-                          float t = u.gameTime * 2.5f;
-                          float2 p = uv;
-                          float c = 0.0f;
-                          for(int i = 0; i < 3; i++) {
-                              p += float2(sin(t + p.y), cos(t + p.x)) * 0.5f;
-                              c += abs(sin(p.x + p.y));
-                              p *= 1.4f;
-                          }
-                          float caustics = pow(max(0.0f, 1.0f - c * 0.33f), 4.0f) * 4.5f;
-                          computedTint += computedTint * caustics * computedShadow;
-                      }
-                  }
-
-                computedShadow = mix(computedShadow, 1.0f, u.rainStrength * 0.85f);
+                  computedShadow = mix(computedShadow, 1.0f, u.rainStrength * 0.85f);
                 }
               }
 

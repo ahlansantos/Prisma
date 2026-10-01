@@ -142,6 +142,38 @@ fragment float4 prisma_postprocess_fs(
           }
           color = mix(color, mbColor / float(mbSamples), saturate(velLen * 50.0f));
       }
+      
+      // === Auto-Focus Depth of Field (Bokeh) ===
+      float focusDepthRaw = depthTex.read(uint2(depthTex.get_width() / 2, depthTex.get_height() / 2));
+      float focusDist = 1000.0f;
+      if (focusDepthRaw > 0.00005f) {
+          float4 fClip = float4(0.0f, 0.0f, focusDepthRaw, 1.0f);
+          float4 fRel = u.invViewProj * fClip;
+          focusDist = length(fRel.xyz / max(fRel.w, 0.00001f));
+      }
+      
+      float pixelDist = length(worldRel.xyz);
+      // CoC starts growing after 3 blocks of distance difference
+      float coc = clamp(abs(pixelDist - focusDist) * 0.04f - 0.15f, 0.0f, 1.0f);
+      
+      if (coc > 0.01f) {
+          float3 dofSum = float3(0.0f);
+          float dofWeight = 0.0f;
+          float dofRadius = 0.015f * coc;
+          float randomRot = fract(sin(dot(in.position.xy, float2(12.9898f, 78.233f))) * 43758.5453f) * 6.283185f;
+          
+          for (int i = 1; i <= 16; i++) {
+              float r = sqrt(float(i) + 0.5f) / sqrt(16.0f);
+              float theta = float(i) * 2.400000333f + randomRot;
+              float2 offset = float2(cos(theta), sin(theta)) * r * dofRadius;
+              offset.y *= (u.texelSize.x / u.texelSize.y);
+              
+              dofSum += hdrTex.sample(smp, saturate(in.uv + offset)).rgb;
+              dofWeight += 1.0f;
+          }
+          color = mix(color, dofSum / dofWeight, coc);
+      }
+
   }
 
   if (u.isFinalPass > 0.5f) {
