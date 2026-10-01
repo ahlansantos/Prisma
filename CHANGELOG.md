@@ -1,5 +1,31 @@
 # Changelog
 
+## [26.3-Preview.3]
+
+### Features & Improvements
+- **MetalFX Temporal Scaler:** Upgraded the MetalFX Spatial upscaler to **MetalFX Temporal** using native engine motion vectors, significantly reducing path-tracing noise and stabilizing the image (eliminates a large portion of the noise, but not all of it).
+- **VX RTAO (Ray-Traced Ambient Occlusion):** Replaced the old static Double AO with true Voxel Ray-Traced Ambient Occlusion. Features soft occlusion that properly passes through slabs, leaves, and tall grass.
+- **VX RTGI (Voxel Ray-Traced Global Illumination):** Restored 1-bounce Global Illumination! Fully separated into its own UI toggle. It now interacts perfectly with MetalFX Temporal for colored bounces.
+- **Player Voxelization & Shadow (3D Layers & Slim Models):** The raytracer now maps all 3D skin layers (Hat, Jacket, etc.) into the grid, and fully supports Slim (Alex) vs Classic (Steve) skin shadows and reflections.
+- **Post-Processing Control:** Added a dedicated UI tab with sliders to precisely adjust Lens Flare, Vignette, and Chromatic Aberration intensity.
+- **Physical Water Raytracing & Depth:** Water and fluids are now correctly inserted into the 3D Voxel Grid, allowing them to cast volumetric shadows, reflect in mirrors, and block ambient light. Shallow water is clear, deep water fades to navy.
+- **Glossy / Blurry Reflections:** Quartz, Prismarine, and Sea Lanterns now feature beautiful frosted/glossy ray-traced reflections.
+- **Luma-Preserving Filmic Tone Mapping:** Luminance-only curve that preserves 100% of real RGB chromaticity. Eliminates the grey, washed-out veil while keeping lush green grass and rich golden sunsets.
+- **Retina MetalFX Auto-Detect:** Prisma automatically selects the best MetalFX render scale for your display on first launch: 0.40 for M4 Max native 3.4K, 0.50 for standard Retina, 0.75 for 1080p.
+
+### Fixes
+- **RTGI Point Light Injection:** Point lights (torches, lanterns) now accurately bounce and contribute fully to the Global Illumination raymarcher, curing dark rooms with up to 32 concurrent lights per bounce.
+- **Strict Profile Presets:** M1 Air Low strictly disables VXGI and enforces a baseline 35-60 FPS performance without rogue resolution overrides.
+- **GI Light Leaks & Motion Vectors:** Pitch-black rooms no longer leak phantom Global Illumination from dark walls. Also inverted and correctly mapped motion vectors, fixing all edge smearing and ghosting.
+
+> **Known Limitations:**
+> - Very noisy at lower internal rendering resolutions.
+> - Noticeable blur and ghosting when rotating the camera quickly or observing fast-moving objects under low MFX resolutions.
+> - RTAO may occasionally treat partial blocks (like leaves or slabs) as full solid blocks.
+> - RTGI currently suffers from significant noise and ghosting, especially during movement.
+
+---
+
 ## [26.3-Preview.2 - Hotfix]
 
 ### Features & Improvements
