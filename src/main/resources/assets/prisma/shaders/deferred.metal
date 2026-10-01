@@ -280,10 +280,9 @@ kernel void prisma_deferred_cs(
 
               float3 nWorld = geomNormal;
               float3 absN = abs(geomNormal);
-              float3 weightedN = absN * (abs(viewDirCam) + 0.20f);
-              if (weightedN.y >= weightedN.x && weightedN.y >= weightedN.z) {
+              if (absN.y >= absN.x && absN.y >= absN.z) {
                   nWorld = float3(0.0f, sign(geomNormal.y), 0.0f);
-              } else if (weightedN.x >= weightedN.z) {
+              } else if (absN.x >= absN.z) {
                   nWorld = float3(sign(geomNormal.x), 0.0f, 0.0f);
               } else {
                   nWorld = float3(0.0f, 0.0f, sign(geomNormal.z));
