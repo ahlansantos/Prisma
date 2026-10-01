@@ -520,7 +520,7 @@ public final class MTLBuiltinPipelines {
             encoder.setFragmentTexture(depthTexture, 1L);
             encoder.setFragmentSamplerState(presentLinearSampler, 0L);
             try (MemoryStack stack = MemoryStack.stackPush();){
-                int size = 240;
+                int size = 256;
                 MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, size)).reinterpret((long)size);
                         boolean isVXR = "VXR Default".equals(PrismaConfig.INSTANCE.shaderPack);
 
@@ -548,6 +548,12 @@ public final class MTLBuiltinPipelines {
                 if (viewProj != null) viewProj.get(48, bb);
                 if (prevViewProj != null) prevViewProj.get(112, bb);
                 if (invViewProj != null) invViewProj.get(176, bb);
+                
+                com.prisma.config.PrismaConfig cfg = com.prisma.config.PrismaConfig.INSTANCE;
+                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 240L, cfg.bloomStrength);
+                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 244L, cfg.lensFlareStrength);
+                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 248L, cfg.vignetteStrength);
+                uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 252L, cfg.chromaticAberrationStrength);
                 
                 encoder.setFragmentBytes(uniforms, (long)size, 0L);
             }

@@ -37,6 +37,10 @@ struct PostUniforms {
   float4x4 viewProj;
   float4x4 prevViewProj;
   float4x4 invViewProj;
+  float bloomStrength;
+  float lensFlareStrength;
+  float vignetteStrength;
+  float chromaticAberrationStrength;
 };
 
 static inline float postLuma(float3 c) {
@@ -198,7 +202,7 @@ fragment float4 prisma_postprocess_fs(
       if (postLuma(h) > 0.95f) {
           ghostSum += (h - 0.95f) * float3(0.2, 0.4, 1.0) * 0.15f;
       }
-      color += ghostSum;
+      color += ghostSum * u.lensFlareStrength;
   }
 
   
@@ -209,10 +213,10 @@ fragment float4 prisma_postprocess_fs(
   
   float2 vUv = in.uv * 2.0f - 1.0f;
   float dist = length(vUv);
-  float vignette = 1.0f - smoothstep(0.80f, 1.6f, dist) * 0.45f;
+  float vignette = mix(1.0f, 1.0f - smoothstep(0.80f, 1.6f, dist) * 0.45f, u.vignetteStrength);
   
   // Subtle Chromatic Aberration on edges
-  float2 caOffset = vUv * 0.003f;
+  float2 caOffset = vUv * 0.003f * u.chromaticAberrationStrength;
   float r_ca = hdrTex.sample(smp, in.uv - caOffset).r;
   float b_ca = hdrTex.sample(smp, in.uv + caOffset).b;
   // Apply tonemapping curve to CA samples to match

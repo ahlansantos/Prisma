@@ -10,6 +10,11 @@ public final class PrismaConfig {
 
         public volatile int voxelRadius = 6;
     public volatile float caveLighting = 0.05f;
+    public volatile float bloomStrength = 1.0f;
+    public volatile float lensFlareStrength = 1.0f;
+    public volatile float vignetteStrength = 1.0f;
+    public volatile float chromaticAberrationStrength = 1.0f;
+
     public volatile boolean doubleAoEnabled = false;
     public volatile float doubleAoStrength = 1.0f;
     public volatile String shaderPack = "VXR Default";
@@ -112,7 +117,11 @@ public final class PrismaConfig {
             sb.append("\"easuResolutionScale\":").append(easuResolutionScale).append(",");
             sb.append("\"unsharpMaskStrength\":").append(unsharpMaskStrength).append(",");
             sb.append("\"shadowRayCount\":").append(shadowRayCount).append(",");
-            sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f,", caveLighting));
+            sb.append(String.format(java.util.Locale.ROOT, ""caveLighting":%.2f,", caveLighting));
+            sb.append(String.format(java.util.Locale.ROOT, ""bloomStrength":%.2f,", bloomStrength));
+            sb.append(String.format(java.util.Locale.ROOT, ""lensFlareStrength":%.2f,", lensFlareStrength));
+            sb.append(String.format(java.util.Locale.ROOT, ""vignetteStrength":%.2f,", vignetteStrength));
+            sb.append(String.format(java.util.Locale.ROOT, ""chromaticAberrationStrength":%.2f,", chromaticAberrationStrength));
             sb.append("\"rayMarchedFogEnabled\":").append(rayMarchedFogEnabled).append(",");
             sb.append("\"rayMarchedFogSamples\":").append(rayMarchedFogSamples).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"rayMarchedFogIntensity\":%.2f,", rayMarchedFogIntensity));
@@ -209,6 +218,18 @@ public final class PrismaConfig {
 
                 if ((val = getJsonValue(content, "caveLighting")) != null) {
                     try { caveLighting = Float.parseFloat(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "bloomStrength")) != null) {
+                    try { bloomStrength = Float.parseFloat(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "lensFlareStrength")) != null) {
+                    try { lensFlareStrength = Float.parseFloat(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "vignetteStrength")) != null) {
+                    try { vignetteStrength = Float.parseFloat(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "chromaticAberrationStrength")) != null) {
+                    try { chromaticAberrationStrength = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "motionBlurEnabled")) != null) {
                     try { motionBlurEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}

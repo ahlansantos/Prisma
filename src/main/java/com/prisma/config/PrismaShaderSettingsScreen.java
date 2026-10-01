@@ -134,6 +134,22 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
             this.listWidget.add(new SettingsEntry(b1, null));
+            
+            ConfigSlider sBloom = new ConfigSlider("Bloom", 0.0, 3.0, PrismaConfig.INSTANCE.bloomStrength, true, v -> {
+                PrismaConfig.INSTANCE.bloomStrength = v.floatValue();
+            });
+            ConfigSlider sLens = new ConfigSlider("Lens Flare", 0.0, 3.0, PrismaConfig.INSTANCE.lensFlareStrength, true, v -> {
+                PrismaConfig.INSTANCE.lensFlareStrength = v.floatValue();
+            });
+            this.listWidget.add(new SettingsEntry(sBloom, sLens));
+            
+            ConfigSlider sVignette = new ConfigSlider("Vignette", 0.0, 2.0, PrismaConfig.INSTANCE.vignetteStrength, true, v -> {
+                PrismaConfig.INSTANCE.vignetteStrength = v.floatValue();
+            });
+            ConfigSlider sChromatic = new ConfigSlider("Chromatic Aberration", 0.0, 2.0, PrismaConfig.INSTANCE.chromaticAberrationStrength, true, v -> {
+                PrismaConfig.INSTANCE.chromaticAberrationStrength = v.floatValue();
+            });
+            this.listWidget.add(new SettingsEntry(sVignette, sChromatic));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Temporal Upscaling (MetalFX Temporal + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             
