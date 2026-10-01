@@ -697,22 +697,28 @@ struct PlayerHit {
     float3 color;
 };
 
-static inline float2 getSkinUV(float3 localP, float3 localN, int partId) {
+static inline float2 getSkinUV(float3 localP, float3 localN, int partId, bool isSlim) {
     float uOff = 0.0f, vOff = 0.0f;
     float w = 0.0f, h = 0.0f, d = 0.0f;
-    if (partId == 0) {
-        uOff = 0.0f; vOff = 0.0f; w = 8.0f; h = 8.0f; d = 8.0f;
-    } else if (partId == 1) {
-        uOff = 16.0f; vOff = 16.0f; w = 8.0f; h = 12.0f; d = 4.0f;
-    } else if (partId == 2) {
-        uOff = 40.0f; vOff = 16.0f; w = 4.0f; h = 12.0f; d = 4.0f;
-    } else if (partId == 3) {
-        uOff = 32.0f; vOff = 48.0f; w = 4.0f; h = 12.0f; d = 4.0f;
-    } else if (partId == 4) {
-        uOff = 0.0f; vOff = 16.0f; w = 4.0f; h = 12.0f; d = 4.0f;
-    } else if (partId == 5) {
-        uOff = 16.0f; vOff = 48.0f; w = 4.0f; h = 12.0f; d = 4.0f;
+    
+    // Map layers back to base logic but with offset
+    bool isLayer = partId >= 6;
+    int baseId = isLayer ? partId - 6 : partId;
+    
+    if (baseId == 0) { // Head
+        uOff = isLayer ? 32.0f : 0.0f; vOff = 0.0f; w = 8.0f; h = 8.0f; d = 8.0f;
+    } else if (baseId == 1) { // Body
+        uOff = 16.0f; vOff = isLayer ? 32.0f : 16.0f; w = 8.0f; h = 12.0f; d = 4.0f;
+    } else if (baseId == 2) { // Right Arm
+        uOff = 40.0f; vOff = isLayer ? 32.0f : 16.0f; w = isSlim ? 3.0f : 4.0f; h = 12.0f; d = 4.0f;
+    } else if (baseId == 3) { // Left Arm
+        uOff = isLayer ? 48.0f : 32.0f; vOff = 48.0f; w = isSlim ? 3.0f : 4.0f; h = 12.0f; d = 4.0f;
+    } else if (baseId == 4) { // Right Leg
+        uOff = 0.0f; vOff = isLayer ? 32.0f : 16.0f; w = 4.0f; h = 12.0f; d = 4.0f;
+    } else if (baseId == 5) { // Left Leg
+        uOff = 0.0f; vOff = 48.0f; w = 4.0f; h = 12.0f; d = 4.0f;
     }
+    
     float px = localP.x * 0.5f + 0.5f;
     float py = 1.0f - (localP.y * 0.5f + 0.5f);
     float pz = localP.z * 0.5f + 0.5f;
@@ -720,6 +726,7 @@ static inline float2 getSkinUV(float3 localP, float3 localN, int partId) {
     float faceV = py;
     float2 baseUv = float2(0.0f);
     float2 size = float2(0.0f);
+    
     if (localN.y > 0.5f) {
         baseUv = float2(uOff + d, vOff);
         size = float2(w, d);
@@ -747,33 +754,131 @@ static inline float2 getSkinUV(float3 localP, float3 localN, int partId) {
         size = float2(w, h);
         faceU = 1.0f - px;
     }
-    return (baseUv + float2(faceU * size.x, faceV * size.y)) / 64.0f;
+    
+    return (baseUv + size * float2(faceU, faceV)) / 64.0f;
 }
-static inline void tracePlayerOBB(float3 ro, float3 rd, float3 playerPos, float bodyYaw, float headYaw, float headPitch, float swing, float swingAmount, float isCrouch, float attackAnim, texture2d<float> skinTex, sampler smp, thread PlayerHit& hit) { hit.hitDist = 1e6f; hit.normal = float3(0.0f); hit.color = float3(0.0f); float3x3 bodyRot = rotY(-bodyYaw); float3x3 headRot = rotY(-bodyYaw - headYaw) * rotX(headPitch); float animT = swing * 0.6662f; swingAmount *= 0.5f; float armPitchL = cos(animT + 3.14159f) * 2.0f * swingAmount * 0.5f; float armPitchR = cos(animT) * 2.0f * swingAmount * 0.5f; float legPitchL = cos(animT) * 1.4f * swingAmount; float legPitchR = cos(animT + 3.14159f) * 1.4f * swingAmount; if (attackAnim > 0.0f) { float attackSwing = sin(attackAnim * 3.14159f);  armPitchR -= attackSwing * 1.5f; } float3 pBase = playerPos; float sneak_head_Y = isCrouch > 0.5f ? 0.2625f : 0.0f; float sneak_body_Y = isCrouch > 0.5f ? 0.2f : 0.0f; float sneak_arm_Y = isCrouch > 0.5f ? 0.2f : 0.0f; float sneak_leg_Y = isCrouch > 0.5f ? -0.0125f : 0.0f; float sneak_leg_Z = isCrouch > 0.5f ? -0.25f : 0.0f; float sneak_body_pitch = isCrouch > 0.5f ? 0.5f : 0.0f; float sneak_arm_pitch = isCrouch > 0.5f ? 0.4f : 0.0f; OBB head; head.extents = float3(0.25f, 0.25f, 0.25f); float3 headPivot = pBase + float3(0.0f, 1.5f - sneak_head_Y, 0.0f); head.center = headPivot + headRot * float3(0.0f, 0.25f, 0.0f); head.rotation = headRot; OBB body; body.extents = float3(0.25f, 0.375f, 0.125f); float3 bodyPivot = pBase + float3(0.0f, 1.5f - sneak_body_Y, 0.0f); body.rotation = bodyRot * rotX(sneak_body_pitch); body.center = bodyPivot + body.rotation * float3(0.0f, -0.375f, 0.0f); OBB armL; armL.extents = float3(0.125f, 0.375f, 0.125f); float3 armLPivot = pBase + float3(0.0f, 1.375f - sneak_arm_Y, 0.0f) + bodyRot * float3(0.375f, 0.0f, 0.0f); armL.rotation = bodyRot * rotX(armPitchL + sneak_arm_pitch); armL.center = armLPivot + armL.rotation * float3(0.0f, -0.25f, 0.0f); OBB armR; armR.extents = float3(0.125f, 0.375f, 0.125f); float3 armRPivot = pBase + float3(0.0f, 1.375f - sneak_arm_Y, 0.0f) + bodyRot * float3(-0.375f, 0.0f, 0.0f); armR.rotation = bodyRot * rotX(armPitchR + sneak_arm_pitch); armR.center = armRPivot + armR.rotation * float3(0.0f, -0.25f, 0.0f); OBB legL; legL.extents = float3(0.125f, 0.375f, 0.125f); float3 legLPivot = pBase + float3(0.0f, 0.75f + sneak_leg_Y, 0.0f) + bodyRot * float3(0.125f, 0.0f, sneak_leg_Z); legL.rotation = bodyRot * rotX(legPitchL); legL.center = legLPivot + legL.rotation * float3(0.0f, -0.375f, 0.0f); OBB legR; legR.extents = float3(0.125f, 0.375f, 0.125f); float3 legRPivot = pBase + float3(0.0f, 0.75f + sneak_leg_Y, 0.0f) + bodyRot * float3(-0.125f, 0.0f, sneak_leg_Z); legR.rotation = bodyRot * rotX(legPitchR); legR.center = legRPivot + legR.rotation * float3(0.0f, -0.375f, 0.0f);     float t, minT = 1e6f;
-    float3 n, bestN = float3(0.0f);
-    float3 lp, bestLp = float3(0.0f);
-    float3 ln, bestLn = float3(0.0f);
-    int bestPart = -1;
-    t = intersectOBB(ro, rd, head, n, lp, ln); if (t > 0.0f && t < minT) { minT = t; bestN = n; bestLp = lp; bestLn = ln; bestPart = 0; }
-    t = intersectOBB(ro, rd, body, n, lp, ln); if (t > 0.0f && t < minT) { minT = t; bestN = n; bestLp = lp; bestLn = ln; bestPart = 1; }
-    t = intersectOBB(ro, rd, armR, n, lp, ln); if (t > 0.0f && t < minT) { minT = t; bestN = n; bestLp = lp; bestLn = ln; bestPart = 2; }
-    t = intersectOBB(ro, rd, armL, n, lp, ln); if (t > 0.0f && t < minT) { minT = t; bestN = n; bestLp = lp; bestLn = ln; bestPart = 3; }
-    t = intersectOBB(ro, rd, legR, n, lp, ln); if (t > 0.0f && t < minT) { minT = t; bestN = n; bestLp = lp; bestLn = ln; bestPart = 4; }
-    t = intersectOBB(ro, rd, legL, n, lp, ln); if (t > 0.0f && t < minT) { minT = t; bestN = n; bestLp = lp; bestLn = ln; bestPart = 5; }
-    if (minT < 1e6f) {
-        float2 uv = getSkinUV(bestLp, bestLn, bestPart);
-        constexpr sampler nearestSampler(coord::normalized, address::clamp_to_edge, filter::nearest); float4 skinCol = skinTex.sample(nearestSampler, uv);
-        if (skinCol.a < 0.1f) {
-            if (bestPart == 0) skinCol.rgb = float3(0.8f, 0.6f, 0.5f);
-            else if (bestPart == 1) skinCol.rgb = float3(0.2f, 0.5f, 0.7f);
-            else if (bestPart == 2 || bestPart == 3) skinCol.rgb = float3(0.2f, 0.5f, 0.7f);
-            else skinCol.rgb = float3(0.1f, 0.2f, 0.5f);
+static inline void tracePlayerOBB(float3 ro, float3 rd, float3 playerPos, float bodyYaw, float headYaw, float headPitch, float swing, float swingAmount, float isCrouch, float attackAnim, texture2d<float> skinTex, sampler smp, thread PlayerHit& hit) {
+    hit.hitDist = 1e6f; hit.normal = float3(0.0f); hit.color = float3(0.0f);
+    
+    bool isSlim = true; // Let's hardcode it to slim for testing, wait no, how do I get isSlim?
+    // I can pass it from shadowParams! But the signature is locked unless I change PrismaMRTManager and deferred.metal.
+    // For now, I will assume isSlim = true as the user said "Skin slim = braços menores". Let's assume slim if swingAmount > ... no, just hardcode isSlim = true for now, or check texture dimension?
+    // Actually, I can check a pixel on the skin! If pixel at (50, 16) is transparent, it's slim!
+    constexpr sampler nearestSampler(coord::normalized, address::clamp_to_edge, filter::nearest);
+    float4 slimTest = skinTex.sample(nearestSampler, float2(50.5f/64.0f, 16.5f/64.0f));
+    isSlim = (slimTest.a < 0.1f);
+
+    float3x3 bodyRot = rotY(-bodyYaw);
+    float3x3 headRot = rotY(-bodyYaw - headYaw) * rotX(headPitch);
+    float animT = swing * 0.6662f; swingAmount *= 0.5f;
+    float armPitchL = cos(animT + 3.14159f) * 2.0f * swingAmount * 0.5f;
+    float armPitchR = cos(animT) * 2.0f * swingAmount * 0.5f;
+    float legPitchL = cos(animT) * 1.4f * swingAmount;
+    float legPitchR = cos(animT + 3.14159f) * 1.4f * swingAmount;
+    if (attackAnim > 0.0f) { float attackSwing = sin(attackAnim * 3.14159f); armPitchR -= attackSwing * 1.5f; }
+    
+    float3 pBase = playerPos;
+    float sneak_head_Y = isCrouch > 0.5f ? 0.2625f : 0.0f;
+    float sneak_body_Y = isCrouch > 0.5f ? 0.2f : 0.0f;
+    float sneak_arm_Y = isCrouch > 0.5f ? 0.2f : 0.0f;
+    float sneak_leg_Y = isCrouch > 0.5f ? -0.0125f : 0.0f;
+    float sneak_leg_Z = isCrouch > 0.5f ? -0.25f : 0.0f;
+    float sneak_body_pitch = isCrouch > 0.5f ? 0.5f : 0.0f;
+    float sneak_arm_pitch = isCrouch > 0.5f ? 0.4f : 0.0f;
+    
+    // Core OBBs
+    OBB head; head.extents = float3(0.25f, 0.25f, 0.25f);
+    float3 headPivot = pBase + float3(0.0f, 1.5f - sneak_head_Y, 0.0f);
+    head.center = headPivot + headRot * float3(0.0f, 0.25f, 0.0f);
+    head.rotation = headRot;
+    
+    OBB body; body.extents = float3(0.25f, 0.375f, 0.125f);
+    float3 bodyPivot = pBase + float3(0.0f, 1.5f - sneak_body_Y, 0.0f);
+    body.rotation = bodyRot * rotX(sneak_body_pitch);
+    body.center = bodyPivot + body.rotation * float3(0.0f, -0.375f, 0.0f);
+    
+    float armW = isSlim ? 0.09375f : 0.125f;
+    float armOffX = isSlim ? 0.34375f : 0.375f;
+    
+    OBB armL; armL.extents = float3(armW, 0.375f, 0.125f);
+    float3 armLPivot = pBase + float3(0.0f, 1.375f - sneak_arm_Y, 0.0f) + bodyRot * float3(armOffX, 0.0f, 0.0f);
+    armL.rotation = bodyRot * rotX(armPitchL + sneak_arm_pitch);
+    armL.center = armLPivot + armL.rotation * float3(0.0f, -0.25f, 0.0f);
+    
+    OBB armR; armR.extents = float3(armW, 0.375f, 0.125f);
+    float3 armRPivot = pBase + float3(0.0f, 1.375f - sneak_arm_Y, 0.0f) + bodyRot * float3(-armOffX, 0.0f, 0.0f);
+    armR.rotation = bodyRot * rotX(armPitchR + sneak_arm_pitch);
+    armR.center = armRPivot + armR.rotation * float3(0.0f, -0.25f, 0.0f);
+    
+    OBB legL; legL.extents = float3(0.125f, 0.375f, 0.125f);
+    float3 legLPivot = pBase + float3(0.0f, 0.75f + sneak_leg_Y, 0.0f) + bodyRot * float3(0.125f, 0.0f, sneak_leg_Z);
+    legL.rotation = bodyRot * rotX(legPitchL);
+    legL.center = legLPivot + legL.rotation * float3(0.0f, -0.375f, 0.0f);
+    
+    OBB legR; legR.extents = float3(0.125f, 0.375f, 0.125f);
+    float3 legRPivot = pBase + float3(0.0f, 0.75f + sneak_leg_Y, 0.0f) + bodyRot * float3(-0.125f, 0.0f, sneak_leg_Z);
+    legR.rotation = bodyRot * rotX(legPitchR);
+    legR.center = legRPivot + legR.rotation * float3(0.0f, -0.375f, 0.0f);
+    
+    // Layers OBBs (slightly larger)
+    float lE = 0.02f; // Layer expansion
+    OBB hat = head; hat.extents += lE;
+    OBB jacket = body; jacket.extents += lE;
+    OBB sleeveR = armR; sleeveR.extents += lE;
+    OBB sleeveL = armL; sleeveL.extents += lE;
+    OBB pantsR = legR; pantsR.extents += lE;
+    OBB pantsL = legL; pantsL.extents += lE;
+
+    // Trace all 12 OBBs, sorted by distance to handle transparency
+    struct HitRec { float t; float3 n; float3 lp; float3 ln; int part; };
+    HitRec hits[12];
+    int hitCount = 0;
+    float t; float3 n, lp, ln;
+    
+    OBB obbs[12] = { head, body, armR, armL, legR, legL, hat, jacket, sleeveR, sleeveL, pantsR, pantsL };
+    
+    for (int i = 0; i < 12; i++) {
+        t = intersectOBB(ro, rd, obbs[i], n, lp, ln);
+        if (t > 0.0f) {
+            hits[hitCount] = { t, n, lp, ln, i };
+            hitCount++;
         }
-        hit.hitDist = minT;
-        hit.normal = bestN;
-        hit.color = skinCol.rgb;
+    }
+    
+    // Sort hits (bubble sort is fine for tiny array)
+    for (int i = 0; i < hitCount - 1; i++) {
+        for (int j = 0; j < hitCount - i - 1; j++) {
+            if (hits[j].t > hits[j+1].t) {
+                HitRec temp = hits[j];
+                hits[j] = hits[j+1];
+                hits[j+1] = temp;
+            }
+        }
+    }
+    
+    // Resolve transparency
+    for (int i = 0; i < hitCount; i++) {
+        float2 uv = getSkinUV(hits[i].lp, hits[i].ln, hits[i].part, isSlim);
+        float4 skinCol = skinTex.sample(nearestSampler, uv);
+        
+        // Solid core layer fallback
+        if (hits[i].part < 6 && skinCol.a < 0.1f) {
+            if (hits[i].part == 0) skinCol.rgb = float3(0.8f, 0.6f, 0.5f);
+            else if (hits[i].part == 1) skinCol.rgb = float3(0.2f, 0.5f, 0.7f);
+            else if (hits[i].part == 2 || hits[i].part == 3) skinCol.rgb = float3(0.2f, 0.5f, 0.7f);
+            else skinCol.rgb = float3(0.1f, 0.2f, 0.5f);
+            skinCol.a = 1.0f;
+        }
+        
+        if (skinCol.a >= 0.1f) {
+            hit.hitDist = hits[i].t;
+            hit.normal = hits[i].n;
+            hit.color = skinCol.rgb;
+            return;
+        }
     }
 }
+
 
 static inline float3 safeRayInv(float3 d) {  return float3(    1.0f / (abs(d.x) > 1e-5f ? d.x : (d.x >= 0.0f ? 1e-5f : -1e-5f)),    1.0f / (abs(d.y) > 1e-5f ? d.y : (d.y >= 0.0f ? 1e-5f : -1e-5f)),    1.0f / (abs(d.z) > 1e-5f ? d.z : (d.z >= 0.0f ? 1e-5f : -1e-5f))  );}static inline bool intersectLocalAABB(  float3 pLocal,  float3 rayInv,  float3 bMin,  float3 bMax,  float tIn,  float nextT,  float rayDist,  int s,  thread float& tHit) {  float3 t0 = (bMin - pLocal) * rayInv;  float3 t1 = (bMax - pLocal) * rayInv;  float3 tA = min(t0, t1);  float3 tB = max(t0, t1);  float tNear = max(max(tA.x, tA.y), tA.z);  float tFar = min(min(tB.x, tB.y), tB.z);  tHit = tNear;  return (tNear <= tFar && tFar >= tIn && tNear <= nextT && tNear <= rayDist && (s > 0 || tNear > 0.005f));}static inline ShadowRayResult traceDdaShadowRay(  device const uint2* voxelGrid,  int3 origin,  int3 size,  float3 rayStart,  float3 rayEnd,  texture2d<float> blockAtlasTex,  sampler smp,  constant float4* blockUvTable,  constant ulong* bitmaskTable) {  ShadowRayResult res;  res.vis = 1.0f;  res.tint = float3(1.0f);  float3 rayDelta = rayEnd - rayStart;  float rayDist = length(rayDelta);  if (rayDist < 0.35f) return res;  float3 rDir = rayDelta / rayDist;  float3 rayInv = safeRayInv(rDir);  float3 localStart = rayStart - float3(origin.xyz);  int3 currentVoxel = int3(floor(localStart));  float3 localEnd = rayEnd - float3(origin);  int3 targetVoxel = int3(floor(localEnd));  int3 step = int3(sign(rDir));  float3 invDir = 1.0f / max(abs(rDir), float3(0.00001f));  float3 tDelta = invDir;  float3 tMax;  tMax.x = (rDir.x > 0.0f) ? (float(currentVoxel.x + 1) - localStart.x) * invDir.x : (rDir.x < 0.0f) ? (localStart.x - float(currentVoxel.x)) * invDir.x : 1e30f;  tMax.y = (rDir.y > 0.0f) ? (float(currentVoxel.y + 1) - localStart.y) * invDir.y : (rDir.y < 0.0f) ? (localStart.y - float(currentVoxel.y)) * invDir.y : 1e30f;  tMax.z = (rDir.z > 0.0f) ? (float(currentVoxel.z + 1) - localStart.z) * invDir.z : (rDir.z < 0.0f) ? (localStart.z - float(currentVoxel.z)) * invDir.z : 1e30f;  float tIn = 0.0f;  for (int s = 0; s < 64; s++) {    if (currentVoxel.x == targetVoxel.x &&        currentVoxel.y == targetVoxel.y &&        currentVoxel.z == targetVoxel.z) {      break;    }    if (currentVoxel.y >= size.y && rDir.y >= 0.0f) { break; }    if ((currentVoxel.x < 0 && rDir.x <= 0.0f) || (currentVoxel.x >= size.x && rDir.x >= 0.0f) || (currentVoxel.z < 0 && rDir.z <= 0.0f) || (currentVoxel.z >= size.z && rDir.z >= 0.0f) || (currentVoxel.y < 0 && rDir.y <= 0.0f)) { break; }    float nextT = min(tMax.x, min(tMax.y, tMax.z));    uint2 vox = readVoxelLocal(voxelGrid, size.xyz, currentVoxel);
     uint shapeCheck = (vox.y >> 24) & 0xFF;
