@@ -664,6 +664,29 @@ kernel void prisma_deferred_cs(
               if (isEntity) {
                 baseLighting = float3(1.0f) + totalBlockLight * 0.8f;
               }
+              
+              // === True Voxel Global Illumination (VXGI) ===
+              float3 giColor = float3(0.0f);
+              if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && u.sunShadowsEnabled > 0.5f) {
+                  uint timeSeed = uint(u.gameTime * 60.0f) % 1024u;
+                  float seed1 = fract(sin(dot(float2(gid.x + timeSeed, gid.y), float2(12.9898f, 78.233f))) * 43758.5453f);
+                  float seed2 = fract(sin(dot(float2(gid.y - timeSeed, gid.x), float2(39.346f, 11.135f))) * 43758.5453f);
+                  float seed3 = fract(sin(dot(float2(gid.x, gid.y + timeSeed), float2(73.156f, 52.235f))) * 43758.5453f);
+                  float3 noiseVec = normalize(float3(seed1, seed2, seed3) * 2.0f - 1.0f);
+                  
+                  // Hemispherical bounce direction
+                  float3 giDir = normalize(surfNormal + noiseVec * 0.9f);
+                  
+                  // Trace a fast 5-step ray for color bleeding
+                  VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, pWorld + surfNormal * 0.15f, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 5, u.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, u.rainStrength, u.gameTime, uVoxel, 0.0f);
+                  
+                  if (giRes.alpha > 0.01f && giRes.hitDist < 4.0f) {
+                      float NdotL = saturate(dot(surfNormal, giDir));
+                      giColor = giRes.color * NdotL * (1.0f - giRes.hitDist / 4.0f);
+                  }
+              }
+              
+              baseLighting += giColor * 1.8f;
 
               baseLighting *= volumetricAo;
               
