@@ -137,7 +137,7 @@ public class PrismaShaderSettingsScreen extends Screen {
 
             this.listWidget.add(new SettingsEntry(Component.literal("Temporal Upscaling (MetalFX Temporal + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             
-            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 1.0, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
+            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 0.99, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
                 PrismaConfig.INSTANCE.metalFxResolutionScale = v.floatValue();
                 PrismaConfig.INSTANCE.hasCustomMetalFxScale = true;
                 PrismaConfig.INSTANCE.save();
@@ -166,7 +166,7 @@ public class PrismaShaderSettingsScreen extends Screen {
                 PrismaConfig.INSTANCE.voxelRadius = 4;
                 PrismaConfig.INSTANCE.doubleAoEnabled = true;
                 PrismaConfig.INSTANCE.cloudQualitySteps = 15;
-                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.65f;
+                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.55f;
                 PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
                 PrismaConfig.INSTANCE.unsharpMaskStrength = 0.5f;
                 
