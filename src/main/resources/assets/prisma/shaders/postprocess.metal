@@ -143,7 +143,8 @@ fragment float4 prisma_postprocess_fs(
           color = mix(color, mbColor / float(mbSamples), saturate(velLen * 50.0f));
       }
       
-      if (u.isFinalPass > 0.5f) {
+      } 
+  if (u.isFinalPass > 0.5f) {
   // Extract Bloom using Vogel Disk (Golden Angle)
   float3 bloomSum = float3(0.0f);
   float bloomWeight = 0.0f;
