@@ -421,7 +421,7 @@ public final class MTLBuiltinPipelines {
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 312L, prevViewProj.m32());
                     vUniforms.set(ValueLayout.JAVA_FLOAT, 316L, prevViewProj.m33());
                 }
-                int maxL = Math.min(lights.size(), 64);
+                int maxL = Math.min(lights.size(), 1024);
                 for (int i = 0; i < maxL; ++i) {
                     PointLight pl = lights.get(i);
                     long offset = 320L + (long)i * 32L;

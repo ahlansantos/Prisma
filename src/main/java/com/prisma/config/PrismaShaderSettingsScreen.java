@@ -22,6 +22,7 @@ public class PrismaShaderSettingsScreen extends Screen {
         LIGHTING("Lighting"),
         WATER_CLOUDS("Water & Clouds"),
         PERFORMANCE("Performance"),
+        POST_PROCESSING("Post-Processing"),
         PRESETS("Presets");
         
         public final String name;
@@ -131,26 +132,6 @@ public class PrismaShaderSettingsScreen extends Screen {
             ConfigSlider vrad = new ConfigSlider("Voxel Grid Radius", 2.0, 16.0, PrismaConfig.INSTANCE.voxelRadius, false, v -> PrismaConfig.INSTANCE.voxelRadius = v.intValue());
             this.listWidget.add(new SettingsEntry(vrad, null));
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
-            this.listWidget.add(new SettingsEntry(b1, null));
-            
-            ConfigSlider sBloom = new ConfigSlider("Bloom", 0.0, 3.0, PrismaConfig.INSTANCE.bloomStrength, true, v -> {
-                PrismaConfig.INSTANCE.bloomStrength = v.floatValue();
-            });
-            ConfigSlider sLens = new ConfigSlider("Lens Flare", 0.0, 3.0, PrismaConfig.INSTANCE.lensFlareStrength, true, v -> {
-                PrismaConfig.INSTANCE.lensFlareStrength = v.floatValue();
-            });
-            this.listWidget.add(new SettingsEntry(sBloom, sLens));
-            
-            ConfigSlider sVignette = new ConfigSlider("Vignette", 0.0, 2.0, PrismaConfig.INSTANCE.vignetteStrength, true, v -> {
-                PrismaConfig.INSTANCE.vignetteStrength = v.floatValue();
-            });
-            ConfigSlider sChromatic = new ConfigSlider("Chromatic Aberration", 0.0, 2.0, PrismaConfig.INSTANCE.chromaticAberrationStrength, true, v -> {
-                PrismaConfig.INSTANCE.chromaticAberrationStrength = v.floatValue();
-            });
-            this.listWidget.add(new SettingsEntry(sVignette, sChromatic));
-
             this.listWidget.add(new SettingsEntry(Component.literal("Temporal Upscaling (MetalFX Temporal + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             
             ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 0.99, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
@@ -170,26 +151,46 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(bUnsharp, null));         
 
         }
+        else if (this.currentTab == Tab.POST_PROCESSING) {
+            this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
+            this.listWidget.add(new SettingsEntry(b1, null));
+            
+            ConfigSlider sBloom = new ConfigSlider("Bloom", 0.0, 3.0, PrismaConfig.INSTANCE.bloomStrength, true, v -> {
+                PrismaConfig.INSTANCE.bloomStrength = v.floatValue();
+            });
+            ConfigSlider sLens = new ConfigSlider("Lens Flare", 0.0, 3.0, PrismaConfig.INSTANCE.lensFlareStrength, true, v -> {
+                PrismaConfig.INSTANCE.lensFlareStrength = v.floatValue();
+            });
+            this.listWidget.add(new SettingsEntry(sBloom, sLens));
+            
+            ConfigSlider sVignette = new ConfigSlider("Vignette", 0.0, 2.0, PrismaConfig.INSTANCE.vignetteStrength, true, v -> {
+                PrismaConfig.INSTANCE.vignetteStrength = v.floatValue();
+            });
+            ConfigSlider sChromatic = new ConfigSlider("Chromatic Aberration", 0.0, 2.0, PrismaConfig.INSTANCE.chromaticAberrationStrength, true, v -> {
+                PrismaConfig.INSTANCE.chromaticAberrationStrength = v.floatValue();
+            });
+            this.listWidget.add(new SettingsEntry(sVignette, sChromatic));
+        }
         else if (this.currentTab == Tab.PRESETS) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Presets").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             this.listWidget.add(new SettingsEntry(Component.literal("Recommended: Run Minecraft at 1152x720").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
             
-            Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (45-60 FPS)"), (b) -> {
+            Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (35-60 FPS)"), (b) -> {
                 PrismaConfig.INSTANCE.shadowRayCount = 3;
                 PrismaConfig.INSTANCE.sunShadowsEnabled = true;
-                PrismaConfig.INSTANCE.pointLightsEnabled = true;
-                PrismaConfig.INSTANCE.maxPointLights = 48;
+                PrismaConfig.INSTANCE.pointLightsEnabled = false;
                 PrismaConfig.INSTANCE.voxelRadius = 4;
-                PrismaConfig.INSTANCE.doubleAoEnabled = false;
+                PrismaConfig.INSTANCE.doubleAoEnabled = true;
                 PrismaConfig.INSTANCE.vxgiEnabled = false;
+                PrismaConfig.INSTANCE.rayMarchedFogEnabled = false;
                 PrismaConfig.INSTANCE.cloudQualitySteps = 15;
-                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.55f;
+                PrismaConfig.INSTANCE.waterWavesEnabled = true;
+                PrismaConfig.INSTANCE.playerShadowEnabled = true;
+                PrismaConfig.INSTANCE.metalFxResolutionScale = 0.60f;
                 PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
                 PrismaConfig.INSTANCE.unsharpMaskStrength = 1.0f;
-                
-                // Emulate 1152x720 by using a base scale of ~0.45 if running on full 2560x1600 Retina display
-                // If running at 1920x1080, scale would be ~0.60
-                // We'll set the resolution scale to 0.65 explicitly as requested.
+                PrismaConfig.INSTANCE.hasCustomMetalFxScale = true;
                 
                 PrismaConfig.INSTANCE.save();
                 this.minecraft.setScreenAndShow(new PrismaShaderSettingsScreen(this.parent, Tab.PRESETS));
