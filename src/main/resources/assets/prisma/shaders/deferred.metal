@@ -336,6 +336,7 @@ kernel void prisma_deferred_cs(
               bool isWater = false;
               bool isMetal = false;
               bool isGlass = false;
+              bool isPolished = false;
               float3 pSurfaceRel = pWorld - uVoxel.camPos.xyz;
               float distToSurface = length(pSurfaceRel);
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
@@ -364,7 +365,6 @@ kernel void prisma_deferred_cs(
                   }
                 }
                 uint reflectType = (insideVox.x >> 12) & 0x0Fu;
-                bool isPolished = false;
                 if (reflectType == 2u) {
                   isMetal = true;
                 }
@@ -752,7 +752,7 @@ kernel void prisma_deferred_cs(
               float3 reflectionCol = float3(0.0f);
               float reflectFactor = 0.0f;
 
-              if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
+              if ((isWater || isMetal || isGlass || isPolished || isPuddle) && u.reflectionsEnabled > 0.5f) {
                 float3 viewDir = viewDirCam;
                 float NdotV = saturate(dot(surfNormal, viewDir));
 
@@ -905,7 +905,7 @@ kernel void prisma_deferred_cs(
 
               float3 baseLit = albedo.rgb * baseLighting;
               float3 litRgb = baseLit;
-              if ((isWater || isMetal || isGlass || isPuddle) && u.reflectionsEnabled > 0.5f) {
+              if ((isWater || isMetal || isGlass || isPolished || isPuddle) && u.reflectionsEnabled > 0.5f) {
                 litRgb = mix(baseLit, reflectionCol, reflectFactor);
               }
 
