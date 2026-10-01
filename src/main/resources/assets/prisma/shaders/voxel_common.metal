@@ -360,9 +360,20 @@ static inline float computeDoubleAO(
         if ((vox.x & 1) != 0) {
             uint rType = (vox.x >> 12) & 0x0Fu;
             if (rType != 1u) { 
+                uint shapeId = (vox.y >> 24) & 0xFF;
                 float hitDist = nextT;
-                hitOcclusion = saturate(1.0f - hitDist / maxDist);
-                break;
+                float distFactor = saturate(1.0f - hitDist / maxDist);
+                
+                if (shapeId == 0) {
+                    hitOcclusion = saturate(hitOcclusion + distFactor);
+                    break;
+                } else if (shapeId == 12) {
+                    hitOcclusion = saturate(hitOcclusion + distFactor * 0.35f);
+                } else {
+                    hitOcclusion = saturate(hitOcclusion + distFactor * 0.15f);
+                }
+                
+                if (hitOcclusion >= 0.99f) break;
             }
         }
         
