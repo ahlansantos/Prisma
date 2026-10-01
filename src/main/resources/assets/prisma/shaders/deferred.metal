@@ -408,8 +408,8 @@ kernel void prisma_deferred_cs(
               }
 
               float doubleAoStrength = uVoxel.camPos.w;
-              float doubleAo = 0.0f;
-              float ssao = (!isEntity && !isWater && !isGlass && doubleAoStrength > 0.01f && doubleAo < 0.92f) ? computeSSAO(worldDepthTex, smp, uv, rawDepth, pWorld, surfNormal, uVoxel.camPos.xyz, uVoxel.viewProj, (float2(gid) + 0.5f)) * doubleAoStrength : 0.0f;
+              float doubleAo = (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * doubleAoStrength * gridWeight : 0.0f;
+              float ssao = 0.0f; // 100% removed as requested
               
               float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld);
               float outsideSky = (surfNormal.y > -0.2f ? 1.0f : 0.5f);
@@ -671,8 +671,8 @@ kernel void prisma_deferred_cs(
               
               // === True Voxel Global Illumination (VXGI) ===
               float3 giColor = float3(0.0f);
-              if (!isEntity && gridWeight > 0.05f && doubleAoStrength > 0.01f) {
-                  int blurRays = int(clamp(doubleAoStrength * 2.0f, 2.0f, 8.0f));
+              if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) {
+                  int blurRays = int(clamp(doubleAoStrength, 1.0f, 4.0f));
                   uint frameCount = uint(u.gameTime * 60.0f) % 256u;
                   float2 seedBase = pWorld.xz * 31.415f + pWorld.yy * 47.123f;
                   
@@ -692,7 +692,7 @@ kernel void prisma_deferred_cs(
                       
                       float3 giDir = normalize(tX * cos(phi) * sinTheta + tY * sin(phi) * sinTheta + surfNormal * cosTheta);
                       
-                                            float3 jitterOrigin = pWorld + surfNormal * 0.15f + normalize(float3(rand2, rand1, rand1 - rand2)) * 0.35f;
+                                            float3 jitterOrigin = pWorld + surfNormal * 0.15f;
                       VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, jitterOrigin, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 6, u.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, u.rainStrength, u.gameTime, uVoxel, 0.0f);
                       
                       if (giRes.alpha > 0.01f && giRes.hitDist < 5.0f) {

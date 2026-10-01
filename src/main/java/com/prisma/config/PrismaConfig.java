@@ -148,7 +148,7 @@ public final class PrismaConfig {
                     try { doubleAoEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "doubleAoStrength")) != null) {
-                    try { doubleAoStrength = Math.clamp(Float.parseFloat(val), 1.0f, 4.0f); } catch (Throwable ignored) {}
+                    try { doubleAoStrength = Math.clamp(Float.parseFloat(val), 0.5f, 2.5f); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "doubleAoInReflections")) != null) {
                     try { doubleAoInReflections = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
