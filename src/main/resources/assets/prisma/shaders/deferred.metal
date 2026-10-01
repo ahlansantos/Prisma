@@ -429,12 +429,12 @@ kernel void prisma_deferred_cs(
               float skyLevel = get_vanilla_brightness(rawSky);
               float blockLevel = get_vanilla_brightness(rawBlock);
 
-              float combinedAo = saturate(max(doubleAo, ssao) * 0.80f) * saturate(1.0f - blockLevel * blockLevel);
+              float combinedAo = saturate(max(doubleAo, ssao) * 1.20f) * saturate(1.0f - blockLevel * blockLevel);
               if (isFoliage) {
-                combinedAo *= 0.40f; // Soften AO for tree leaves and vegetation
+                combinedAo *= 0.60f; // Soften AO for tree leaves and vegetation
               }
               float ao = saturate(1.0f - combinedAo);
-              float volumetricAo = mix(0.22f, 1.0f, pow(ao, 1.25f));
+              float volumetricAo = mix(0.04f, 1.0f, pow(ao, 1.8f));
 
 
 
