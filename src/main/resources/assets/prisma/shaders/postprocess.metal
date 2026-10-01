@@ -205,7 +205,7 @@ fragment float4 prisma_postprocess_fs(
   // Color Grading: Saturation and Contrast
   float luma = postLuma(color);
   color = mix(float3(luma), color, 1.25f);
-  color = color * color * (3.0f - 2.0f * color);
+  // S-curve removed to prevent burnt clouds
   
   float2 vUv = in.uv * 2.0f - 1.0f;
   float dist = length(vUv);

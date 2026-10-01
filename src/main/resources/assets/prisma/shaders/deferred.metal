@@ -395,7 +395,7 @@ kernel void prisma_deferred_cs(
                   float depthR = worldDepthTex.read(gR);
                   float depthT = worldDepthTex.read(gT);
                   
-                  if (abs(depthR - effectiveDepth) < 0.00005f && abs(depthT - effectiveDepth) < 0.00005f) {
+                  if (abs(depthR - effectiveDepth) < 0.005f && abs(depthT - effectiveDepth) < 0.005f) {
                       float dx = (lumR - lumC);
                       float dy = (lumT - lumC);
                       
@@ -669,19 +669,22 @@ kernel void prisma_deferred_cs(
                   computedTint = totalTint / float(numSamples);
                   
                   // Caustics for refracted sunlight
-                  if (u.waterOnlyPass < 0.5f && length(computedTint) > 0.05f && length(computedTint) < 1.7f) {
-                      float2 uv = pWorld.xz * 1.8f + celestialDir.xz * 3.0f;
-                      float t = u.gameTime * 2.5f;
-                      float2 p = uv;
-                      float c = 0.0f;
-                      for(int i = 0; i < 3; i++) {
-                          p += float2(sin(t + p.y), cos(t + p.x)) * 0.5f;
-                          c += abs(sin(p.x + p.y));
-                          p *= 1.4f;
+                  if (u.waterOnlyPass < 0.5f) {
+                      uint2 aboveVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(pWorld)) + int3(0, 1, 0));
+                      bool isUnderWater = ((aboveVox.x & 4) != 0 && (aboveVox.x & 8) == 0);
+                      if (isUnderWater) {
+                          float2 uv = pWorld.xz * 1.8f + celestialDir.xz * 3.0f;
+                          float t = u.gameTime * 2.5f;
+                          float2 p = uv;
+                          float c = 0.0f;
+                          for(int i = 0; i < 3; i++) {
+                              p += float2(sin(t + p.y), cos(t + p.x)) * 0.5f;
+                              c += abs(sin(p.x + p.y));
+                              p *= 1.4f;
+                          }
+                          float caustics = pow(max(0.0f, 1.0f - c * 0.33f), 4.0f) * 4.5f;
+                          computedTint += computedTint * caustics * computedShadow;
                       }
-                      float caustics = pow(max(0.0f, 1.0f - c * 0.33f), 4.0f) * 4.5f;
-                      // Only apply if sunlight is present
-                      computedTint += computedTint * caustics * computedShadow;
                   }
 
                 computedShadow = mix(computedShadow, 1.0f, u.rainStrength * 0.85f);
