@@ -166,6 +166,9 @@ public final class PrismaDeferredRenderer {
         float shadowQuality = 2.0f;
 
         float doubleAoStrength = PrismaConfig.INSTANCE.doubleAoEnabled ? PrismaConfig.INSTANCE.doubleAoStrength : 0.0f;
+        if (PrismaConfig.INSTANCE.vxgiEnabled) {
+            doubleAoStrength += 10.0f;
+        }
         boolean ptLights = PrismaConfig.INSTANCE.pointLightsEnabled;
         float rainStrength = minecraft.level.getRainLevel(partialTick);
 

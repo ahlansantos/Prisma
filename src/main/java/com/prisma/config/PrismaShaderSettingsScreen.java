@@ -67,6 +67,8 @@ public class PrismaShaderSettingsScreen extends Screen {
             Button bVxao = createToggle("Double AO", PrismaConfig.INSTANCE.doubleAoEnabled, v -> PrismaConfig.INSTANCE.doubleAoEnabled = v);
             ConfigSlider bVxaoStrength = new ConfigSlider("Double AO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, true, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
+            Button bVxgi = createToggle("VX RTGI", PrismaConfig.INSTANCE.vxgiEnabled, v -> PrismaConfig.INSTANCE.vxgiEnabled = v);
+            this.listWidget.add(new SettingsEntry(bVxgi, null));
             
             Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
             ConfigSlider bMaxLights = new ConfigSlider("Max Point Lights", 16.0, 256.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> {

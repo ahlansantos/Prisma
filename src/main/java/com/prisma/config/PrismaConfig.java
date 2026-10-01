@@ -20,6 +20,7 @@ public final class PrismaConfig {
 
     public volatile boolean doubleAoInReflections = true;
     public volatile boolean sunShadowsEnabled = false;
+    public volatile boolean vxgiEnabled = false;
 
     public volatile boolean playerShadowEnabled = false;
                 
@@ -95,6 +96,7 @@ public final class PrismaConfig {
             sb.append("\"cloudsInReflections\":").append(cloudsInReflections).append(",");
             sb.append("\"doubleAoInReflections\":").append(doubleAoInReflections).append(",");
             sb.append("\"sunShadowsEnabled\":").append(sunShadowsEnabled).append(",");
+            sb.append("\"vxgiEnabled\":").append(vxgiEnabled).append(",");
             sb.append("\"csmResolution\":").append(csmResolution).append(",");
             sb.append("\"csmCascades\":").append(csmCascades).append(",");
             sb.append("\"waterWavesEnabled\":").append(waterWavesEnabled).append(",");
@@ -162,6 +164,9 @@ public final class PrismaConfig {
                 }
                 if ((val = getJsonValue(content, "pointLightsEnabled")) != null) {
                     try { pointLightsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
+                }
+                if ((val = getJsonValue(content, "vxgiEnabled")) != null) {
+                    try { vxgiEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "sunShadowsEnabled")) != null) {
                     try { sunShadowsEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}

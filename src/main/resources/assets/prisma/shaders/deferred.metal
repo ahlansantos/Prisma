@@ -407,7 +407,9 @@ kernel void prisma_deferred_cs(
                 }
               }
 
-              float doubleAoStrength = uVoxel.camPos.w;
+              float packedAoStrength = uVoxel.camPos.w;
+              bool vxgiEnabled = packedAoStrength >= 5.0f;
+              float doubleAoStrength = fmod(packedAoStrength, 10.0f);
               float doubleAo = (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * doubleAoStrength * gridWeight : 0.0f;
               float ssao = 0.0f; // 100% removed as requested
               
@@ -671,7 +673,7 @@ kernel void prisma_deferred_cs(
               
               // === True Voxel Global Illumination (VXGI) ===
               float3 giColor = float3(0.0f);
-              if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) {
+              if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && vxgiEnabled) {
                   int blurRays = int(clamp(doubleAoStrength, 1.0f, 4.0f));
                   uint frameCount = uint(u.gameTime * 60.0f) % 256u;
                   float2 seedBase = pWorld.xz * 31.415f + pWorld.yy * 47.123f;
