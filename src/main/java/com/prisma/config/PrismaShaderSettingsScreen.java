@@ -162,7 +162,7 @@ public class PrismaShaderSettingsScreen extends Screen {
             ConfigSlider sLens = new ConfigSlider("Lens Flare", 0.0, 3.0, PrismaConfig.INSTANCE.lensFlareStrength, true, v -> {
                 PrismaConfig.INSTANCE.lensFlareStrength = v.floatValue();
             });
-            this.listWidget.add(new SettingsEntry(sLens));
+            this.listWidget.add(new SettingsEntry(sLens, null));
             
             ConfigSlider sVignette = new ConfigSlider("Vignette", 0.0, 2.0, PrismaConfig.INSTANCE.vignetteStrength, true, v -> {
                 PrismaConfig.INSTANCE.vignetteStrength = v.floatValue();
