@@ -444,7 +444,7 @@ public final class VoxelGridManager {
                                     boolean isSolid = !state.isAir() && !isFluid && !state.is(Blocks.LIGHT) && !state.is(Blocks.STRUCTURE_VOID) && !state.is(Blocks.BARRIER);
 
                                     int flags = 0;
-                                    if (isSolid) flags |= FLAG_OCCUPIED;
+                                    if (isSolid || isFluid) flags |= FLAG_OCCUPIED;
                                     if (isFoliage) flags |= FLAG_FOLIAGE;
                                     if (isFluid) {
                                         flags |= FLAG_WATER;
@@ -493,7 +493,7 @@ public final class VoxelGridManager {
                                             || state.getBlock() instanceof net.minecraft.world.level.block.WeatheringCopper || state.is(Blocks.RAW_COPPER_BLOCK)
                                             || state.is(Blocks.AMETHYST_BLOCK) || state.is(Blocks.LAPIS_BLOCK)) {
                                         reflectType = REFLECT_METAL;
-                                    } else if (state.is(Blocks.SEA_LANTERN)) {
+                                    } else if (state.is(Blocks.SEA_LANTERN) || net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("quartz") || net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("prismarine")) {
                                         reflectType = REFLECT_POLISHED;
                                     }
 
