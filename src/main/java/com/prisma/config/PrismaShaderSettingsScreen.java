@@ -64,8 +64,8 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(Component.literal("in-game UI configuration menus.").withStyle(net.minecraft.ChatFormatting.GRAY)));
         } else if (this.currentTab == Tab.LIGHTING) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Illumination").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button bVxao = createToggle("Double AO", PrismaConfig.INSTANCE.doubleAoEnabled, v -> PrismaConfig.INSTANCE.doubleAoEnabled = v);
-            ConfigSlider bVxaoStrength = new ConfigSlider("Double AO Strength", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, true, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
+            Button bVxao = createToggle("VX RTAO", PrismaConfig.INSTANCE.doubleAoEnabled, v -> PrismaConfig.INSTANCE.doubleAoEnabled = v);
+            ConfigSlider bVxaoStrength = new ConfigSlider("VX RTAO Radius", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, true, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
             Button bVxgi = createToggle("VX RTGI", PrismaConfig.INSTANCE.vxgiEnabled, v -> PrismaConfig.INSTANCE.vxgiEnabled = v);
             this.listWidget.add(new SettingsEntry(bVxgi, null));
@@ -107,7 +107,7 @@ public class PrismaShaderSettingsScreen extends Screen {
                         this.listWidget.add(new SettingsEntry(b9, null));
 
                                     
-            Button b13 = createToggle("Reflect Double AO", PrismaConfig.INSTANCE.doubleAoInReflections, v -> PrismaConfig.INSTANCE.doubleAoInReflections = v);
+            Button b13 = createToggle("Reflect VX RTAO", PrismaConfig.INSTANCE.doubleAoInReflections, v -> PrismaConfig.INSTANCE.doubleAoInReflections = v);
             Button b14 = createToggle("Reflect Clouds", PrismaConfig.INSTANCE.cloudsInReflections, v -> PrismaConfig.INSTANCE.cloudsInReflections = v);
             this.listWidget.add(new SettingsEntry(b13, b14));
         }

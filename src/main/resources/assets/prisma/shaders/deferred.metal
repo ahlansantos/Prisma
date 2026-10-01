@@ -410,7 +410,7 @@ kernel void prisma_deferred_cs(
               float packedAoStrength = uVoxel.camPos.w;
               bool vxgiEnabled = packedAoStrength >= 5.0f;
               float doubleAoStrength = fmod(packedAoStrength, 10.0f);
-              float doubleAo = (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f)) * doubleAoStrength * gridWeight : 0.0f;
+              float doubleAo = (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f), doubleAoStrength) * gridWeight : 0.0f;
               float ssao = 0.0f; // 100% removed as requested
               
               float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld);
