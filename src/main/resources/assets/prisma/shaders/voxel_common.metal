@@ -905,41 +905,37 @@ static inline float3 safeRayInv(float3 d) {  return float3(    1.0f / (abs(d.x) 
         
         // --- ADD ANALYTICAL POINT LIGHTS TO GI / REFLECTIONS ---
         float3 dynLightAccum = float3(0.0f);
-        if (maxPointLights > 0.0f && uVoxel.activeMobCount > 0) {
-            for (int i = 0; i < uVoxel.activeMobCount; i++) {
-                float3 lightPos = float3(uVoxel.mobData[i*4], uVoxel.mobData[i*4+1], uVoxel.mobData[i*4+2]);
-                float lightType = uVoxel.mobData[i*4+3];
-                if (lightType < 0.5f) continue;
+        if (maxPointLights > 0.0f) {
+            int lightCount = int(uVoxel.gridSize.w);
+            int testCount = min(lightCount, min((int)maxPointLights, 16));
+            for (int i = 0; i < testCount; i++) {
+                float3 lightPos = uVoxel.lights[i].posAndRadius.xyz;
+                float lRad = uVoxel.lights[i].posAndRadius.w;
+                float3 lColor = uVoxel.lights[i].colorAndIntensity.xyz;
+                float lInt = uVoxel.lights[i].colorAndIntensity.w;
                 
                 float3 lightVec = lightPos - hitWorldPos;
                 float distSqr = dot(lightVec, lightVec);
-                float radius = (lightType > 1.5f) ? 14.0f : 8.0f;
-                float radiusSqr = radius * radius;
+                float radiusSqr = lRad * lRad;
                 
-                if (distSqr < radiusSqr) {
+                if (distSqr < radiusSqr && distSqr > 0.01f) {
                     float dist = sqrt(distSqr);
                     float3 lDir = lightVec / dist;
                     float nDotL = max(dot(hitNormal, lDir), 0.0f);
                     
-                    if (nDotL > 0.0f) {
-                        float atten = saturate(1.0f - (distSqr / radiusSqr));
-                        atten *= atten;
+                    if (nDotL > 0.01f) {
+                        float distNorm = dist / lRad;
+                        float window = saturate(1.0f - distNorm);
+                        float smoothWin = window * window * (3.0f - 2.0f * window);
+                        float falloff = smoothWin / (distSqr * 0.12f + dist * 0.35f + 0.80f);
                         
-                        float3 lColor = float3(1.0f, 0.65f, 0.35f); // Torch default
-                        if (lightType > 1.5f && lightType < 2.5f) lColor = float3(0.4f, 0.7f, 1.0f); // Soul Torch
-                        if (lightType > 2.5f && lightType < 3.5f) lColor = float3(1.0f, 0.8f, 0.5f); // Lantern
-                        
-                        // Simple 1-ray shadow test for the point light (for GI)
-                        float3 shadowStart = hitWorldPos + hitNormal * 0.1f;
-                        float3 shadowDir = lDir;
-                        float shadowOcclusion = traceVoxelShadowFast(voxelGrid, origin.xyz, size.xyz, shadowStart, shadowDir, dist, 1);
-                        
-                        dynLightAccum += lColor * (nDotL * atten * (1.0f - shadowOcclusion) * 3.0f);
+                        dynLightAccum += lColor * (lInt * falloff * nDotL);
                     }
                 }
             }
         }
-        vLight += dynLightAccum;
+        float3 scaledPt = dynLightAccum * mix(1.0f, 0.22f, sunWeight * skyLevel);
+        vLight += scaledPt / (1.0f + scaledPt * 0.35f);
         // --------------------------------------------------------
         vLight *= (1.0f - shadowOcclusion);
         if (rainStrength > 0.01f && hitNormal.y > 0.82f && skyLevel > 0.95f) {
