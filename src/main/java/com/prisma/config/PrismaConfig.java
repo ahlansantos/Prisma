@@ -117,11 +117,11 @@ public final class PrismaConfig {
             sb.append("\"easuResolutionScale\":").append(easuResolutionScale).append(",");
             sb.append("\"unsharpMaskStrength\":").append(unsharpMaskStrength).append(",");
             sb.append("\"shadowRayCount\":").append(shadowRayCount).append(",");
-            sb.append(String.format(java.util.Locale.ROOT, ""caveLighting":%.2f,", caveLighting));
-            sb.append(String.format(java.util.Locale.ROOT, ""bloomStrength":%.2f,", bloomStrength));
-            sb.append(String.format(java.util.Locale.ROOT, ""lensFlareStrength":%.2f,", lensFlareStrength));
-            sb.append(String.format(java.util.Locale.ROOT, ""vignetteStrength":%.2f,", vignetteStrength));
-            sb.append(String.format(java.util.Locale.ROOT, ""chromaticAberrationStrength":%.2f,", chromaticAberrationStrength));
+            sb.append(String.format(java.util.Locale.ROOT, "\"caveLighting\":%.2f,", caveLighting));
+            sb.append(String.format(java.util.Locale.ROOT, "\"bloomStrength\":%.2f,", bloomStrength));
+            sb.append(String.format(java.util.Locale.ROOT, "\"lensFlareStrength\":%.2f,", lensFlareStrength));
+            sb.append(String.format(java.util.Locale.ROOT, "\"vignetteStrength\":%.2f,", vignetteStrength));
+            sb.append(String.format(java.util.Locale.ROOT, "\"chromaticAberrationStrength\":%.2f,", chromaticAberrationStrength));
             sb.append("\"rayMarchedFogEnabled\":").append(rayMarchedFogEnabled).append(",");
             sb.append("\"rayMarchedFogSamples\":").append(rayMarchedFogSamples).append(",");
             sb.append(String.format(java.util.Locale.ROOT, "\"rayMarchedFogIntensity\":%.2f,", rayMarchedFogIntensity));

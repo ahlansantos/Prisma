@@ -175,16 +175,17 @@ public class PrismaShaderSettingsScreen extends Screen {
             this.listWidget.add(new SettingsEntry(Component.literal("Recommended: Run Minecraft at 1152x720").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
             
             Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (45-60 FPS)"), (b) -> {
-                PrismaConfig.INSTANCE.shadowRayCount = 2;
+                PrismaConfig.INSTANCE.shadowRayCount = 3;
                 PrismaConfig.INSTANCE.sunShadowsEnabled = true;
                 PrismaConfig.INSTANCE.pointLightsEnabled = true;
                 PrismaConfig.INSTANCE.maxPointLights = 48;
                 PrismaConfig.INSTANCE.voxelRadius = 4;
-                PrismaConfig.INSTANCE.doubleAoEnabled = true;
+                PrismaConfig.INSTANCE.doubleAoEnabled = false;
+                PrismaConfig.INSTANCE.vxgiEnabled = false;
                 PrismaConfig.INSTANCE.cloudQualitySteps = 15;
                 PrismaConfig.INSTANCE.metalFxResolutionScale = 0.55f;
                 PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
-                PrismaConfig.INSTANCE.unsharpMaskStrength = 0.5f;
+                PrismaConfig.INSTANCE.unsharpMaskStrength = 1.0f;
                 
                 // Emulate 1152x720 by using a base scale of ~0.45 if running on full 2560x1600 Retina display
                 // If running at 1920x1080, scale would be ~0.60
