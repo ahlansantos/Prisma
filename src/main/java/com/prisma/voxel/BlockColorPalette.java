@@ -56,6 +56,9 @@ public final class BlockColorPalette {
             return 0x1A2E2E; 
         }
 
+                if (state.is(net.minecraft.world.level.block.Blocks.WATER)) {
+            return 0x2A5C9A; // Nice deep water blue
+        }
         if (state.is(net.minecraft.world.level.block.Blocks.GLASS)
                 || (state.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock && !state.is(net.minecraft.world.level.block.Blocks.IRON_BARS) && !(state.getBlock() instanceof net.minecraft.world.level.block.BeaconBeamBlock))) {
             return 0xFFFFFF; 

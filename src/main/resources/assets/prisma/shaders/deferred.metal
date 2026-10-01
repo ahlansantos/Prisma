@@ -671,8 +671,8 @@ kernel void prisma_deferred_cs(
               
               // === True Voxel Global Illumination (VXGI) ===
               float3 giColor = float3(0.0f);
-              if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) {
-                  int blurRays = int(clamp(doubleAoStrength, 1.0f, 4.0f));
+              if (!isEntity && gridWeight > 0.05f && doubleAoStrength > 0.01f) {
+                  int blurRays = int(clamp(doubleAoStrength * 2.0f, 2.0f, 8.0f));
                   uint frameCount = uint(u.gameTime * 60.0f) % 256u;
                   float2 seedBase = pWorld.xz * 31.415f + pWorld.yy * 47.123f;
                   
@@ -692,7 +692,8 @@ kernel void prisma_deferred_cs(
                       
                       float3 giDir = normalize(tX * cos(phi) * sinTheta + tY * sin(phi) * sinTheta + surfNormal * cosTheta);
                       
-                      VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, pWorld + surfNormal * 0.15f, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 6, u.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, u.rainStrength, u.gameTime, uVoxel, 0.0f);
+                                            float3 jitterOrigin = pWorld + surfNormal * 0.15f + normalize(float3(rand2, rand1, rand1 - rand2)) * 0.35f;
+                      VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, jitterOrigin, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 6, u.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, u.rainStrength, u.gameTime, uVoxel, 0.0f);
                       
                       if (giRes.alpha > 0.01f && giRes.hitDist < 5.0f) {
                           float distFalloff = pow(saturate(1.0f - giRes.hitDist / 5.0f), 2.0f);
