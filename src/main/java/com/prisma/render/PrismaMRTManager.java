@@ -701,7 +701,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             boolean needsUpscaling = (baseWidth < interWidth || baseHeight < interHeight);
             if (needsUpscaling) {
                 this.mtlfxManager.ensureScaler(this.device, baseWidth, baseHeight, interWidth, interHeight);
-                this.mtlfxManager.encode(encoder.commandBuffer().handle(), hdrTarget, this.upscaledColorTexture);
+                this.mtlfxManager.encodeTemporal(encoder.commandBuffer().handle(), hdrTarget, currentDepth, velocityTexture(), this.upscaledColorTexture);
                 postProcessInput = this.upscaledColorTexture;
             }
         }

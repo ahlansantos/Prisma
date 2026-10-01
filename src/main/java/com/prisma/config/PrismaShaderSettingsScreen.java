@@ -135,7 +135,7 @@ public class PrismaShaderSettingsScreen extends Screen {
             Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
             this.listWidget.add(new SettingsEntry(b1, null));
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Cascaded Upscaling (MFX + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            this.listWidget.add(new SettingsEntry(Component.literal("Temporal Upscaling (MetalFX Temporal + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             
             ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 1.0, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
                 PrismaConfig.INSTANCE.metalFxResolutionScale = v.floatValue();

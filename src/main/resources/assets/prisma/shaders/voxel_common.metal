@@ -303,7 +303,8 @@ static inline float computeDoubleAO(
   float3 nWorld,
   float3 camPos,
   int radius,
-  float2 screenPos
+  float2 screenPos,
+  float traceDistScale
 ) {
   if (voxelGrid == nullptr) return 0.0f;
 
@@ -312,68 +313,70 @@ static inline float computeDoubleAO(
   if (distToCam >= maxVoxelDist) return 0.0f;
   float distFade = saturate((maxVoxelDist - distToCam) / 16.0f);
 
-  float3 up = abs(nWorld.y) < 0.99f ? float3(0.0f, 1.0f, 0.0f) : float3(1.0f, 0.0f, 0.0f);
-  float3 tangent = normalize(cross(up, nWorld));
-  float3 bitangent = cross(nWorld, tangent);
+  float3 tX = cross(nWorld, float3(0.0f, 1.0f, 0.0f));
+  if (dot(tX, tX) < 0.01f) tX = cross(nWorld, float3(1.0f, 0.0f, 0.0f));
+  tX = normalize(tX);
+  float3 tY = normalize(cross(nWorld, tX));
 
   float ign = fract(52.9829189f * fract(dot(screenPos, float2(0.06711056f, 0.00583715f))));
-  float rotAngle = ign * 6.2831853f;
-  float cosR = cos(rotAngle);
-  float sinR = sin(rotAngle);
-  float3 rotTangent = tangent * cosR + bitangent * sinR;
-  float3 rotBitangent = cross(nWorld, rotTangent);
-
-  const float3 sampleDirs[4] = {
-    float3( 0.00f,  1.00f,  0.00f),
-    float3( 0.81f,  0.58f,  0.00f),
-    float3(-0.40f,  0.58f,  0.70f),
-    float3(-0.40f,  0.58f, -0.70f)
-  };
-
-  float totalOcclusion = 0.0f;
-  float maxWeight = 0.0f;
-
-  const float stepDist[2] = { 0.25f, 0.55f };
-  const float stepWeight[2] = { 1.20f, 0.80f };
-
-  float3 start = pWorld + nWorld * 0.06f;
-
-  for (int d = 0; d < 4; d++) {
-    float3 dir = rotTangent * sampleDirs[d].x + nWorld * sampleDirs[d].y + rotBitangent * sampleDirs[d].z;
-    float dirWeight = max(dot(dir, nWorld), 0.15f);
-    float stepJitter = fract(ign * 7.13f + float(d) * 0.25f);
-    int stepsForDir = (d == 0) ? 2 : 1;
-    for (int s = 0; s < stepsForDir; s++) {
-      float dist = stepDist[s] * (0.80f + stepJitter * 0.40f);
-      float3 samplePos = start + dir * dist;
-      int3 voxelPos = int3(floor(samplePos));
-      uint2 vox = readVoxel(voxelGrid, origin, size, voxelPos);
-      if ((vox.x & 1) != 0) {
-        uint rType = (vox.x >> 12) & 0x0Fu;
-        if (rType == 1u) {
-          maxWeight += stepWeight[s] * dirWeight;
-          continue;
+  float occlusion = 0.0f;
+  
+  float maxDist = clamp(traceDistScale * 1.5f, 0.75f, 4.0f);
+  int numRays = 2;
+  float3 rayStart = pWorld + nWorld * 0.05f;
+  
+  for (int r = 0; r < numRays; r++) {
+      float rand1 = fract(ign + float(r) * 0.618f);
+      float rand2 = fract(ign - float(r) * 0.382f);
+      
+      float phi = 6.2831853f * rand1;
+      float cosTheta = sqrt(rand2);
+      float sinTheta = sqrt(1.0f - rand2);
+      
+      float3 rayDir = normalize(tX * cos(phi) * sinTheta + tY * sin(phi) * sinTheta + nWorld * cosTheta);
+      
+      float3 localStart = rayStart - float3(origin);
+      float3 rayEnd = localStart + rayDir * maxDist;
+      int3 current = int3(floor(localStart));
+      int3 target = int3(floor(rayEnd));
+      
+      float3 dir = rayDir;
+      float3 step = sign(dir);
+      float3 invDir = 1.0f / max(abs(dir), float3(0.00001f));
+      float3 tDelta = invDir;
+      
+      float3 tMax;
+      tMax.x = (dir.x > 0.0f) ? (float(current.x + 1) - localStart.x) * invDir.x : (dir.x < 0.0f) ? (localStart.x - float(current.x)) * invDir.x : 1e30f;
+      tMax.y = (dir.y > 0.0f) ? (float(current.y + 1) - localStart.y) * invDir.y : (dir.y < 0.0f) ? (localStart.y - float(current.y)) * invDir.y : 1e30f;
+      tMax.z = (dir.z > 0.0f) ? (float(current.z + 1) - localStart.z) * invDir.z : (dir.z < 0.0f) ? (localStart.z - float(current.z)) * invDir.z : 1e30f;
+      
+      float hitOcclusion = 0.0f;
+      for (int s = 0; s < 5; s++) {
+        if (current.x == target.x && current.y == target.y && current.z == target.z) break;
+        float nextT = min(tMax.x, min(tMax.y, tMax.z));
+        if (nextT >= maxDist) break;
+        
+        uint2 vox = readVoxelLocal(voxelGrid, size, current);
+        if ((vox.x & 1) != 0) {
+            uint rType = (vox.x >> 12) & 0x0Fu;
+            if (rType != 1u) { 
+                float hitDist = nextT;
+                hitOcclusion = saturate(1.0f - hitDist / maxDist);
+                break;
+            }
         }
-        uint shapeId = (vox.y >> 24) & 0xFF;
-        if (shapeId == 0) {
-          totalOcclusion += stepWeight[s] * dirWeight;
-          maxWeight += stepWeight[s] * dirWeight;
-          break;
-        } else if (shapeId == 12) {
-          totalOcclusion += stepWeight[s] * dirWeight * 0.35f;
-          maxWeight += stepWeight[s] * dirWeight;
+        
+        if (tMax.x < tMax.y) {
+          if (tMax.x < tMax.z) { current.x += step.x; tMax.x += tDelta.x; }
+          else { current.z += step.z; tMax.z += tDelta.z; }
         } else {
-          maxWeight += stepWeight[s] * dirWeight;
+          if (tMax.y < tMax.z) { current.y += step.y; tMax.y += tDelta.y; }
+          else { current.z += step.z; tMax.z += tDelta.z; }
         }
-      } else {
-        maxWeight += stepWeight[s] * dirWeight;
       }
-    }
+      occlusion += hitOcclusion;
   }
-
-  float rawAo = (maxWeight > 0.0001f) ? (totalOcclusion / maxWeight) : 0.0f;
-  float ao = saturate(rawAo * 1.35f);
-  return ao * distFade;
+  return saturate(occlusion / float(numRays)) * distFade;
 }
 
 static inline float computeSSAO(
