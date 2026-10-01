@@ -153,13 +153,14 @@ fragment float4 prisma_postprocess_fs(
       }
       
       float pixelDist = length(worldRel.xyz);
-      // CoC starts growing after 3 blocks of distance difference
-      float coc = clamp(abs(pixelDist - focusDist) * 0.04f - 0.15f, 0.0f, 1.0f);
+      // Suave cinematic transition: starts blurring much later and grows slowly
+      float coc = clamp(abs(pixelDist - focusDist) * 0.008f - 0.1f, 0.0f, 1.0f);
       
       if (coc > 0.01f) {
           float3 dofSum = float3(0.0f);
           float dofWeight = 0.0f;
-          float dofRadius = 0.015f * coc;
+          // Substantially reduced max blur radius for a subtle, elegant bokeh
+          float dofRadius = 0.005f * coc;
           float randomRot = fract(sin(dot(in.position.xy, float2(12.9898f, 78.233f))) * 43758.5453f) * 6.283185f;
           
           for (int i = 1; i <= 16; i++) {
