@@ -3,6 +3,7 @@ package com.prisma.mixin.gui;
 import com.prisma.config.ui.PrismaOverlayScreen;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.KeyEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,8 +14,8 @@ public class KeyboardHandlerMixin {
     private static boolean isOverlayOpen = false;
 
     @Inject(method = "keyPress", at = @At("HEAD"))
-    private void onKeyPress(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
-        if (key == 298 && action == 1) { // 298 = F9, 1 = PRESS
+    private void onKeyPress(long window, int action, KeyEvent event, CallbackInfo ci) {
+        if (event.key() == 298 && action == 1) { // 298 = F9, 1 = PRESS
             Minecraft client = Minecraft.getInstance();
             if (!isOverlayOpen) {
                 isOverlayOpen = true;
