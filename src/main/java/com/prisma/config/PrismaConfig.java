@@ -26,7 +26,6 @@ public final class PrismaConfig {
     public volatile boolean doubleAoInReflections = true;
     public volatile boolean sunShadowsEnabled = false;
     public volatile boolean vxgiEnabled = false;
-    public volatile float vxgiIntensity = 1.0f;
     public volatile boolean hdrOutputEnabled = false;
 
     public volatile boolean playerShadowEnabled = false;
@@ -104,7 +103,6 @@ public final class PrismaConfig {
             sb.append("\"doubleAoInReflections\":").append(doubleAoInReflections).append(",");
             sb.append("\"sunShadowsEnabled\":").append(sunShadowsEnabled).append(",");
             sb.append("\"vxgiEnabled\":").append(vxgiEnabled).append(",");
-            sb.append("\"vxgiIntensity\":").append(vxgiIntensity).append(",");
             sb.append("\"hdrOutputEnabled\":").append(hdrOutputEnabled).append(",");
             sb.append("\"csmResolution\":").append(csmResolution).append(",");
             sb.append("\"csmCascades\":").append(csmCascades).append(",");
@@ -180,9 +178,6 @@ public final class PrismaConfig {
                 }
                 if ((val = getJsonValue(content, "vxgiEnabled")) != null) {
                     try { vxgiEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}
-                }
-                if ((val = getJsonValue(content, "vxgiIntensity")) != null) {
-                    try { vxgiIntensity = Float.parseFloat(val); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "hdrOutputEnabled")) != null) {
                     try { hdrOutputEnabled = Boolean.parseBoolean(val); } catch (Throwable ignored) {}

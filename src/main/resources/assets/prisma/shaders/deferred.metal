@@ -38,7 +38,7 @@
               float volFogSamples;   // 120
               float volFogIntensity; // 124
               float waterOnlyPass;   // 128
-              float vxgiIntensity;   // 132
+              float hdrEnabled;      // 132
             };
 
                         
@@ -1141,7 +1141,7 @@ kernel void prisma_deferred_cs(
               {
                   float exposure = mix(1.18f, 1.00f, sunsetFactor * sunWeight);
                   float saturationBoost = mix(1.28f, 1.40f, sunsetFactor * sunWeight);
-                  litRgb = lumaPreservingFilmic(litRgb, exposure, saturationBoost);
+                  litRgb = u.hdrEnabled > 0.5f ? (litRgb * exposure) : lumaPreservingFilmic(litRgb, exposure, saturationBoost);
 
                   // Subtle golden hour warm grade on midtones
                   float3 warmGrade = mix(float3(1.0f), float3(1.04f, 0.98f, 0.90f), sunsetFactor * sunWeight);

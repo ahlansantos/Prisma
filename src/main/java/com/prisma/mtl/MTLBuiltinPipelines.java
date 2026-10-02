@@ -299,8 +299,8 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 120L, (float)cfg.rayMarchedFogSamples);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 124L, cfg.rayMarchedFogIntensity);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 128L, waterOnlyPass ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 132L, cfg.vxgiIntensity);
-                encoder.setBytes(uniforms, 144L, 0L);
+                uniforms.set(ValueLayout.JAVA_FLOAT, 132L, cfg.hdrOutputEnabled ? 1.0f : 0.0f);
+                                encoder.setBytes(uniforms, 144L, 0L);
             }
             long tgWidth = (width + 15) / 16;
             long tgHeight = (height + 15) / 16;

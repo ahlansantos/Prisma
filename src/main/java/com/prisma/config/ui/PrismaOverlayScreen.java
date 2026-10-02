@@ -81,10 +81,7 @@ this.listWidget.setX(0);
             ConfigSlider bVxaoStrength = new ConfigSlider("VX RTAO Radius", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, true, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
             Button bVxgi = createToggle("VX RTGI", PrismaConfig.INSTANCE.vxgiEnabled, v -> PrismaConfig.INSTANCE.vxgiEnabled = v);
-            ConfigSlider sVxgiInt = new ConfigSlider("VXGI Rays", 0.0, 32.0, PrismaConfig.INSTANCE.vxgiIntensity, true, v -> {
-                PrismaConfig.INSTANCE.vxgiIntensity = v.floatValue();
-            });
-            this.listWidget.add(new SettingsEntry(bVxgi, sVxgiInt));
+            this.listWidget.add(new SettingsEntry(bVxgi, null));
             Button bHdr = createToggle("Real HDR (BT.2020 PQ)", PrismaConfig.INSTANCE.hdrOutputEnabled, v -> PrismaConfig.INSTANCE.hdrOutputEnabled = v);
             this.listWidget.add(new SettingsEntry(bHdr, null));
             
