@@ -38,6 +38,7 @@
               float volFogSamples;   // 120
               float volFogIntensity; // 124
               float waterOnlyPass;   // 128
+              float vxgiIntensity;   // 132
             };
 
                         

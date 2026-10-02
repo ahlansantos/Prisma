@@ -14,8 +14,7 @@
     "sodium.SodiumPreferredGraphicsApiMixin",
     "world.ClientLevelMixin",
     "world.ResourceManagerReloadMixin",
-    "gui.ChatMixin",
-    "gui.KeyboardHandlerMixin"
+    "gui.ChatMixin"
   ],
   "injectors": {
     "defaultRequire": 1
