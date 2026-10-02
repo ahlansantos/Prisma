@@ -1,5 +1,6 @@
 package com.prisma.mixin.gui;
 
+import com.prisma.config.ui.PrismaOverlayScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.components.toasts.SystemToast;
@@ -20,6 +21,9 @@ public class ChatMixin {
                 Component.literal("Prisma MSL Error"),
                 Component.literal("Failed to compile MSL. Check Logs.")
             );
+            ci.cancel();
+        } else if (message.equals("/prisma") || message.equals("/reshade")) {
+            Minecraft.getInstance().setScreenAndShow(new PrismaOverlayScreen());
             ci.cancel();
         }
     }
