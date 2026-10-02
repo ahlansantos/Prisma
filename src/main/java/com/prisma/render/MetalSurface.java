@@ -2,6 +2,7 @@ package com.prisma.render;
 
 import com.prisma.Prisma;
 import com.prisma.mtl.CAMetalLayer;
+import com.prisma.config.PrismaConfig;
 import com.mojang.renderpearl.backend.api.CommandEncoderBackend;
 import com.mojang.renderpearl.api.device.GpuSurface;
 import com.mojang.renderpearl.backend.api.GpuSurfaceBackend;
@@ -39,7 +40,8 @@ final class MetalSurface implements GpuSurfaceBackend {
         this.metalLayer.configure(
                 config.width(),
                 config.height(),
-                config.presentMode() == GpuSurface.PresentMode.MAILBOX
+                config.presentMode() == GpuSurface.PresentMode.MAILBOX,
+                PrismaConfig.INSTANCE.hdrOutputEnabled
         );
 
         if (LOGGED_FIRST_CONFIG.compareAndSet(false, true)) {

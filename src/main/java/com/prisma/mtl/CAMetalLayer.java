@@ -24,6 +24,8 @@ public final class CAMetalLayer {
     private static final Msg SET_PRESENTS_WITH_TRANSACTION = Msg.ofVoid("setPresentsWithTransaction:", JAVA_BOOLEAN);
     private static final Msg SET_DISPLAY_SYNC_ENABLED = Msg.ofVoid("setDisplaySyncEnabled:", JAVA_BOOLEAN);
     private static final Msg SET_AUTORESIZING_MASK = Msg.ofVoid("setAutoresizingMask:", JAVA_LONG);
+    private static final Msg SET_WANTS_EXTENDED_DYNAMIC_RANGE_CONTENT = Msg.ofVoid("setWantsExtendedDynamicRangeContent:", JAVA_BOOLEAN);
+    private static final Msg SET_COLOR_SPACE = Msg.ofVoid("setColorspace:", ADDRESS);
     private static final Msg NEXT_DRAWABLE = Msg.of("nextDrawable", true, ADDRESS);
 
     private final MemorySegment handle;
@@ -44,8 +46,13 @@ public final class CAMetalLayer {
         return this.handle;
     }
 
-    public void configure(final double width, final double height, final boolean immediatePresentMode) {
-        SET_PIXEL_FORMAT.send(this.handle, MTLPixelFormat.BGRA8Unorm.value);
+    public void configure(final double width, final double height, final boolean immediatePresentMode, final boolean hdrEnabled) {
+        SET_PIXEL_FORMAT.send(this.handle, hdrEnabled ? MTLPixelFormat.RGBA16Float.value : MTLPixelFormat.BGRA8Unorm.value);
+        if (hdrEnabled) {
+            SET_WANTS_EXTENDED_DYNAMIC_RANGE_CONTENT.send(this.handle, true);
+        } else {
+            SET_WANTS_EXTENDED_DYNAMIC_RANGE_CONTENT.send(this.handle, false);
+        }
         SET_DRAWABLE_SIZE.send(this.handle, width, height);
         SET_ALLOWS_NEXT_DRAWABLE_TIMEOUT.send(this.handle, false);
         SET_PRESENTS_WITH_TRANSACTION.send(this.handle, false);
