@@ -50,16 +50,6 @@ public class PrismaOverlayScreen extends Screen {
         return false;
     }
 
-    @Override
-    public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
-        // Draw ReShade-style dark background behind the list
-        int bgWidth = 240; // Approx list widget width
-        int bgColor = 0xAA000000; // Semi-transparent black
-        graphics.fill(0, 0, bgWidth, this.height, bgColor);
-        
-        // Draw the rest of the screen
-        super.extractRenderState(graphics, mouseX, mouseY, delta);
-    }
 
     @Override
     protected void init() {

@@ -1141,7 +1141,12 @@ kernel void prisma_deferred_cs(
               {
                   float exposure = mix(1.18f, 1.00f, sunsetFactor * sunWeight);
                   float saturationBoost = mix(1.28f, 1.40f, sunsetFactor * sunWeight);
+                  
+                  if (isnan(litRgb.x) || isnan(litRgb.y) || isnan(litRgb.z) || isinf(litRgb.x) || isinf(litRgb.y) || isinf(litRgb.z)) {
+                      litRgb = float3(0.0f);
+                  }
                   litRgb = u.hdrEnabled > 0.5f ? (litRgb * exposure) : lumaPreservingFilmic(litRgb, exposure, saturationBoost);
+
 
                   // Subtle golden hour warm grade on midtones
                   float3 warmGrade = mix(float3(1.0f), float3(1.04f, 0.98f, 0.90f), sunsetFactor * sunWeight);
