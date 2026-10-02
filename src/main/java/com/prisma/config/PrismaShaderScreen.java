@@ -52,7 +52,7 @@ public class PrismaShaderScreen extends Screen {
 
         // Shader Settings Button
         this.addRenderableWidget(Button.builder(Component.literal("Shader Settings..."), (button) -> {
-            this.minecraft.setScreenAndShow(new PrismaShaderSettingsScreen(this));
+            this.minecraft.setScreenAndShow(new com.prisma.config.ui.PrismaOverlayScreen(this));
         }).bounds(this.width / 2 + spacing/2, bottomY - 30, btnWidth, 20).build());
 
         // Apply Button

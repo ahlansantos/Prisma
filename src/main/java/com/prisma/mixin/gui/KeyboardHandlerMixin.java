@@ -1,6 +1,7 @@
 package com.prisma.mixin.gui;
 
 import com.prisma.config.ui.PrismaOverlayScreen;
+import com.prisma.config.ui.PrismaOverlayScreen.Tab;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
@@ -16,7 +17,7 @@ public class KeyboardHandlerMixin {
 
     @Inject(method = "keyPress", at = @At("HEAD"))
     private void onKeyPress(long window, int key, KeyEvent event, CallbackInfo ci) {
-        if (event.key() == 298) { // 298 = F9
+        if (event.key() == 79 || event.key() == 73) { // 79 = O, 73 = I
             long now = System.currentTimeMillis();
             if (now - lastPressTime < 300) return; // Debounce 300ms
             lastPressTime = now;
@@ -24,7 +25,8 @@ public class KeyboardHandlerMixin {
             Minecraft client = Minecraft.getInstance();
             if (!isOverlayOpen) {
                 isOverlayOpen = true;
-                client.setScreenAndShow(new PrismaOverlayScreen() {
+                Tab targetTab = (event.key() == 73) ? Tab.PRESETS : Tab.LIGHTING;
+                client.setScreenAndShow(new PrismaOverlayScreen(null, targetTab) {
                     @Override
                     public void onClose() {
                         super.onClose();
