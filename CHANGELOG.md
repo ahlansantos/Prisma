@@ -1,5 +1,14 @@
 # Changelog
 
+## [26.3-Preview.4 - Hotfix]
+
+### Features & Improvements
+- **ReShade-Style In-Game Overlay:** Shifted the Prisma UI configuration menu to a left-aligned, translucent overlay menu, similar to ReShade. 
+- **In-Game Chat Command Gateway:** Type `/prisma` or `/reshade` in the chat to seamlessly toggle the configuration overlay without pausing the game or relying on hardcoded keyboard bindings.
+- **Native True HDR Support:** Implemented true linear High Dynamic Range (EDR/HDR) output for macOS natively. Toggle "Real HDR (BT.2020 PQ)" in the Lighting settings to pipe unbounded EDR light values (`> 1.0`) directly into `CAMetalLayer` and OS Window compositor, bypassing standard SDR filmic tonemapping for blindingly bright skies and metallic reflections on compatible XDR displays.
+- **Extreme FPS Volumetric Clouds Optimization:** Slashed volumetric cloud raymarching costs by up to 75% for sky pixels by implementing dynamic noise iteration Level-Of-Detail (LOD). Distant and dense cloud steps now dynamically collapse from 4 octaves down to 1 octave.
+
+
 ## [26.3-Preview.3]
 
 ### Features & Improvements
