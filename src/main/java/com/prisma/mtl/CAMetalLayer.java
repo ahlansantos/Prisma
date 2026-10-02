@@ -50,6 +50,12 @@ public final class CAMetalLayer {
         SET_PIXEL_FORMAT.send(this.handle, hdrEnabled ? MTLPixelFormat.RGBA16Float.value : MTLPixelFormat.BGRA8Unorm.value);
         if (hdrEnabled) {
             SET_WANTS_EXTENDED_DYNAMIC_RANGE_CONTENT.send(this.handle, true);
+            MemorySegment nsColorSpace = ObjC.clazz("NSColorSpace");
+            MemorySegment extSRGB = Msg.of("extendedSRGBColorSpace", ADDRESS).sendPtr(nsColorSpace);
+            MemorySegment cgColorSpace = Msg.of("CGColorSpace", ADDRESS).sendPtr(extSRGB);
+            if (!ObjC.isNil(cgColorSpace)) {
+                SET_COLOR_SPACE.send(this.handle, cgColorSpace);
+            }
         } else {
             SET_WANTS_EXTENDED_DYNAMIC_RANGE_CONTENT.send(this.handle, false);
         }

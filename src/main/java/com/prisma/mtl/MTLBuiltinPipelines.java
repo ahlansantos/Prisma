@@ -69,6 +69,7 @@ public final class MTLBuiltinPipelines {
     
         private static MTLDevice device;
     private static MemorySegment presentPipeline;
+    static MemorySegment presentPipelineHDR;
     private static MemorySegment presentLinearSampler;
     private static MemorySegment presentNearestSampler;
     private static final Map<Long, MemorySegment> clearPipelines;
@@ -89,6 +90,9 @@ public final class MTLBuiltinPipelines {
     public static void reloadShaders() {
         if (presentPipeline != null) ObjC.release(presentPipeline);
         presentPipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        if (presentPipelineHDR != null) ObjC.release(presentPipelineHDR);
+        presentPipelineHDR = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.RGBA16Float.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        presentPipelineHDR = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.RGBA16Float.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         
         for (MemorySegment p : clearPipelines.values()) ObjC.release(p);
         clearPipelines.clear();
@@ -110,6 +114,7 @@ public final class MTLBuiltinPipelines {
     public static void init(MTLDevice mtlDevice) {
         device = mtlDevice;
         presentPipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        presentPipelineHDR = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("present.metal"), "prisma_present_vs", "prisma_present_fs", MTLPixelFormat.RGBA16Float.value, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         presentLinearSampler = MTLBuiltinPipelines.buildPresentSampler(MTLSamplerMinMagFilter.Linear);
         presentNearestSampler = MTLBuiltinPipelines.buildPresentSampler(MTLSamplerMinMagFilter.Nearest);
         MTLBuiltinPipelines.ensureClearPipeline(MTLPixelFormat.BGRA8Unorm.value, MTLPixelFormat.Depth32Float.value, true);
@@ -121,9 +126,14 @@ public final class MTLBuiltinPipelines {
     }
 
     public static void close() {
+        if (!ObjC.isNil(presentPipelineHDR)) {
+            ObjC.release(presentPipelineHDR);
+            presentPipelineHDR = MemorySegment.NULL;
+        }
         if (!ObjC.isNil(presentPipeline)) {
             ObjC.release(presentPipeline);
             presentPipeline = MemorySegment.NULL;
+        presentPipelineHDR = MemorySegment.NULL;
         }
         if (!ObjC.isNil(presentLinearSampler)) {
             ObjC.release(presentLinearSampler);
@@ -475,7 +485,12 @@ public final class MTLBuiltinPipelines {
             long drawableWidth = MTLTexture.width(drawableTexture);
             long drawableHeight = MTLTexture.height(drawableTexture);
             encoder.setViewport(0.0, 0.0, drawableWidth, drawableHeight, 0.0, 1.0);
-            encoder.setRenderPipelineState(presentPipeline);
+            long fmt = MTLTexture.pixelFormat(drawableTexture);
+            if (fmt == MTLPixelFormat.RGBA16Float.value) {
+                encoder.setRenderPipelineState(presentPipelineHDR);
+            } else {
+                encoder.setRenderPipelineState(presentPipeline);
+            }
             encoder.setFragmentTexture(sourceTexture, 0L);
             boolean requiresScaling = MTLTexture.width(sourceTexture) != drawableWidth || MTLTexture.height(sourceTexture) != drawableHeight;
             encoder.setFragmentSamplerState(requiresScaling ? presentLinearSampler : presentNearestSampler, 0L);
@@ -723,6 +738,7 @@ public final class MTLBuiltinPipelines {
 
     static {
         presentPipeline = MemorySegment.NULL;
+        presentPipelineHDR = MemorySegment.NULL;
         presentLinearSampler = MemorySegment.NULL;
         presentNearestSampler = MemorySegment.NULL;
         clearPipelines = new HashMap<Long, MemorySegment>();
