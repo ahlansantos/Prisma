@@ -499,13 +499,22 @@ static inline bool intersectAABBDist(
   }
   return false;
 }
-struct ShadowRayResult {  float vis;  float3 tint;}; static inline float hash3D(float3 p) {     return fract(sin(dot(p, float3(12.9898f, 78.233f, 45.164f))) * 43758.5453f); } static inline float smoothNoise3D(float3 p) {     float3 i = floor(p);     float3 f = fract(p);     float3 u = f * f * (3.0f - 2.0f * f);     return mix(mix(mix(hash3D(i + float3(0,0,0)), hash3D(i + float3(1,0,0)), u.x),                    mix(hash3D(i + float3(0,1,0)), hash3D(i + float3(1,1,0)), u.x), u.y),                mix(mix(hash3D(i + float3(0,0,1)), hash3D(i + float3(1,0,1)), u.x),                    mix(hash3D(i + float3(0,1,1)), hash3D(i + float3(1,1,1)), u.x), u.y), u.z); } static inline float fbmClouds(float3 p) {
+struct ShadowRayResult {  float vis;  float3 tint;}; static inline float hash3D(float3 p) {     return fract(sin(dot(p, float3(12.9898f, 78.233f, 45.164f))) * 43758.5453f); } static inline float smoothNoise3D(float3 p) {     float3 i = floor(p);     float3 f = fract(p);     float3 u = f * f * (3.0f - 2.0f * f);     return mix(mix(mix(hash3D(i + float3(0,0,0)), hash3D(i + float3(1,0,0)), u.x),                    mix(hash3D(i + float3(0,1,0)), hash3D(i + float3(1,1,0)), u.x), u.y),                mix(mix(hash3D(i + float3(0,0,1)), hash3D(i + float3(1,0,1)), u.x),                    mix(hash3D(i + float3(0,1,1)), hash3D(i + float3(1,1,1)), u.x), u.y), u.z); } static inline float fbmClouds(float3 p, int lod) {
     float f = 0.0f; float w = 0.5f;
-    f += w * smoothNoise3D(p); p *= 2.5f; w *= 0.4f;
-    f += w * smoothNoise3D(p); p *= 2.5f; w *= 0.4f;
-    f += w * smoothNoise3D(p); p *= 2.5f; w *= 0.4f;
+    f += w * smoothNoise3D(p); 
+    if (lod < 1) return f;
+    p *= 2.5f; w *= 0.4f;
+    f += w * smoothNoise3D(p); 
+    if (lod < 2) return f;
+    p *= 2.5f; w *= 0.4f;
+    f += w * smoothNoise3D(p); 
+    if (lod < 3) return f;
+    p *= 2.5f; w *= 0.4f;
     f += w * smoothNoise3D(p);
     return f;
+}
+static inline float fbmClouds(float3 p) {
+    return fbmClouds(p, 3);
 }
 
 // Henyey-Greenstein phase function — Metal does not support lambdas, so this is a free helper.
@@ -561,7 +570,7 @@ static inline float4 computeVolumetricClouds(
                 float3 q = cP * 0.0022f + float3(gameTime * 0.013f, 0.0f, gameTime * 0.0045f);
                 // Wider, natural domain modulation (preserves cubic clumps without tight corrugated stripes)
                 q.x += sin(cP.x * 0.0012f * 6.2831f + cP.z * 0.0005f * 6.2831f) * 0.25f;
-                float n = fbmClouds(q);
+                float n = fbmClouds(q, i > int(sC)/2 ? 1 : 2);
                 float d = max(0.0f, n - cloudThreshold) * cloudDensityMult;
                 float hF = (cP.y - cMin) / (cMax - cMin);
                 // Flat bottom cumulus profile, soft curved top
@@ -622,7 +631,7 @@ static inline float4 computeVolumetricClouds(
                 if (accTrans < 0.04f) break;
                 float3 q = cP * 0.0038f + float3(gameTime * 0.008f, 0.0f, gameTime * 0.003f);
                 q.z += sin(cP.z * 0.0020f * 6.2831f + cP.x * 0.0006f * 6.2831f) * 0.20f;
-                float n = fbmClouds(q);
+                float n = fbmClouds(q, i > int(sC)/2 ? 1 : 2);
                 float d = max(0.0f, n - altoThresh) * altoDensity;
                 float hF = (cP.y - cMin) / (cMax - cMin);
                 d *= smoothstep(0.0f, 0.20f, hF) * smoothstep(1.0f, 0.50f, hF);
