@@ -12,10 +12,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(KeyboardHandler.class)
 public class KeyboardHandlerMixin {
     private static boolean isOverlayOpen = false;
+    private static long lastPressTime = 0;
 
     @Inject(method = "keyPress", at = @At("HEAD"))
-    private void onKeyPress(long window, int action, KeyEvent event, CallbackInfo ci) {
-        if (event.key() == 298 && action == 1) { // 298 = F9, 1 = PRESS
+    private void onKeyPress(long window, int key, KeyEvent event, CallbackInfo ci) {
+        if (event.key() == 298) { // 298 = F9
+            long now = System.currentTimeMillis();
+            if (now - lastPressTime < 300) return; // Debounce 300ms
+            lastPressTime = now;
+
             Minecraft client = Minecraft.getInstance();
             if (!isOverlayOpen) {
                 isOverlayOpen = true;
