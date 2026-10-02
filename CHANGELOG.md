@@ -1,6 +1,6 @@
 # Changelog
 
-## [26.3-Preview.4 - Hotfix]
+## [26.3-Preview.3 Hotfix]
 
 ### Features & Improvements
 - **ReShade-Style In-Game Overlay:** Shifted the Prisma UI configuration menu to a left-aligned, translucent overlay menu, similar to ReShade. 
