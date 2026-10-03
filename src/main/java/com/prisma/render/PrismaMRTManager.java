@@ -11,6 +11,9 @@ import java.lang.foreign.MemorySegment;
 public final class PrismaMRTManager implements AutoCloseable {
     private final MetalDevice device;
     private MemorySegment normalTexture = MemorySegment.NULL;
+    private MemorySegment giTexture = MemorySegment.NULL;
+    private MemorySegment volumetricsTexture = MemorySegment.NULL;
+    private MemorySegment denoisedGiTexture = MemorySegment.NULL;
     private MemorySegment fallbackNormalTexture = MemorySegment.NULL;
     private MemorySegment fallbackDepthTexture = MemorySegment.NULL;
     private MemorySegment lightDataTexture = MemorySegment.NULL;
@@ -127,6 +130,19 @@ public final class PrismaMRTManager implements AutoCloseable {
             this.currentScale = upscaleFactor;
             if (!ObjC.isNil(this.normalTexture)) {
                 device.queueResourceRelease(this.normalTexture);
+            if (!ObjC.isNil(this.giTexture)) {
+                ObjC.release(this.giTexture);
+            }
+            this.giTexture = MemorySegment.NULL;
+            if (!ObjC.isNil(this.volumetricsTexture)) {
+                ObjC.release(this.volumetricsTexture);
+            }
+            this.volumetricsTexture = MemorySegment.NULL;
+            if (!ObjC.isNil(this.denoisedGiTexture)) {
+                ObjC.release(this.denoisedGiTexture);
+            }
+            this.denoisedGiTexture = MemorySegment.NULL;
+
                 this.normalTexture = MemorySegment.NULL;
             }
             if (!ObjC.isNil(this.lightDataTexture)) {
@@ -355,6 +371,73 @@ public final class PrismaMRTManager implements AutoCloseable {
     public MemorySegment ensureNormalTexture(final long width, final long height) {
         ensureMrtTextures(width, height);
         return normalTexture();
+    }
+
+    public MemorySegment ensureGiTexture(final long width, final long height) {
+        if (!ObjC.isNil(this.giTexture) && MTLTexture.width(this.giTexture) == width && MTLTexture.height(this.giTexture) == height) {
+            return this.giTexture;
+        }
+        if (!ObjC.isNil(this.giTexture)) {
+            ObjC.release(this.giTexture);
+            this.giTexture = MemorySegment.NULL;
+        }
+        try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+            desc.textureType(MTLTextureType.Type2D);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+            desc.pixelFormat(MTLPixelFormat.RGBA16Float.value);
+            desc.width(width);
+            desc.height(height);
+            desc.storageMode(MTLStorageMode.Private);
+            this.giTexture = device.metalDevice().newTexture(desc);
+        }
+        return this.giTexture;
+    }
+    public MemorySegment giTexture() {
+        return this.giTexture;
+    }
+    public MemorySegment ensureVolumetricsTexture(final long width, final long height) {
+        if (!ObjC.isNil(this.volumetricsTexture) && MTLTexture.width(this.volumetricsTexture) == width && MTLTexture.height(this.volumetricsTexture) == height) {
+            return this.volumetricsTexture;
+        }
+        if (!ObjC.isNil(this.volumetricsTexture)) {
+            ObjC.release(this.volumetricsTexture);
+            this.volumetricsTexture = MemorySegment.NULL;
+        }
+        try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+            desc.textureType(MTLTextureType.Type2D);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+            desc.pixelFormat(MTLPixelFormat.RGBA16Float.value);
+            desc.width(width);
+            desc.height(height);
+            desc.storageMode(MTLStorageMode.Private);
+            this.volumetricsTexture = device.metalDevice().newTexture(desc);
+        }
+        return this.volumetricsTexture;
+    }
+    public MemorySegment volumetricsTexture() {
+        return this.volumetricsTexture;
+    }
+    public MemorySegment ensureDenoisedGiTexture(final long width, final long height) {
+        if (!ObjC.isNil(this.denoisedGiTexture) && MTLTexture.width(this.denoisedGiTexture) == width && MTLTexture.height(this.denoisedGiTexture) == height) {
+            return this.denoisedGiTexture;
+        }
+        if (!ObjC.isNil(this.denoisedGiTexture)) {
+            ObjC.release(this.denoisedGiTexture);
+            this.denoisedGiTexture = MemorySegment.NULL;
+        }
+        try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+            desc.textureType(MTLTextureType.Type2D);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+            desc.pixelFormat(MTLPixelFormat.RGBA16Float.value);
+            desc.width(width);
+            desc.height(height);
+            desc.storageMode(MTLStorageMode.Private);
+            this.denoisedGiTexture = device.metalDevice().newTexture(desc);
+        }
+        return this.denoisedGiTexture;
+    }
+    public MemorySegment denoisedGiTexture() {
+        return this.denoisedGiTexture;
     }
 
     public MemorySegment normalTexture() {
@@ -770,6 +853,19 @@ public final class PrismaMRTManager implements AutoCloseable {
     public void close() {
         if (!ObjC.isNil(this.normalTexture)) {
             ObjC.release(this.normalTexture);
+            if (!ObjC.isNil(this.giTexture)) {
+                ObjC.release(this.giTexture);
+            }
+            this.giTexture = MemorySegment.NULL;
+            if (!ObjC.isNil(this.volumetricsTexture)) {
+                ObjC.release(this.volumetricsTexture);
+            }
+            this.volumetricsTexture = MemorySegment.NULL;
+            if (!ObjC.isNil(this.denoisedGiTexture)) {
+                ObjC.release(this.denoisedGiTexture);
+            }
+            this.denoisedGiTexture = MemorySegment.NULL;
+
             this.normalTexture = MemorySegment.NULL;
         }
         if (!ObjC.isNil(this.fallbackNormalTexture)) {
@@ -778,6 +874,19 @@ public final class PrismaMRTManager implements AutoCloseable {
         }
         if (!ObjC.isNil(this.fallbackDepthTexture)) {
             ObjC.release(this.fallbackDepthTexture);
+            if (!ObjC.isNil(this.giTexture)) {
+                ObjC.release(this.giTexture);
+            }
+            this.giTexture = MemorySegment.NULL;
+            if (!ObjC.isNil(this.volumetricsTexture)) {
+                ObjC.release(this.volumetricsTexture);
+            }
+            this.volumetricsTexture = MemorySegment.NULL;
+            if (!ObjC.isNil(this.denoisedGiTexture)) {
+                ObjC.release(this.denoisedGiTexture);
+            }
+            this.denoisedGiTexture = MemorySegment.NULL;
+
             this.fallbackDepthTexture = MemorySegment.NULL;
         }
         if (!ObjC.isNil(this.lightDataTexture)) {

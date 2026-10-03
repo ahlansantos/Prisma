@@ -5,6 +5,8 @@ using namespace metal;
 #include "voxel_common.metal"
 #include "lib_tonemapping.metal"
 #include "lib_water.metal"
+#include "lib_lighting.metal"
+#include "lib_volumetrics.metal"
 
             struct DeferredVertexOut {
               float4 position [[position]];
@@ -403,89 +405,12 @@ kernel void prisma_deferred_cs(
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
               
               // --- Analytical Point Lights (deterministic, no noise) ---
-              PointLightResult ptRes = PointLightResult{float3(0.0f), 0.0f, 0.0f};
-              float3 pointLights = float3(0.0f);
-              
-              int lightCount = int(uVoxel.gridSize.w);
-              if (lightCount > 0) {
-                  float3 rayOrigin = pWorld + surfNormal * 0.05f;
-                  bool ptShadowsEnabled = (uVoxel.camRight.w > 0.5f);
-                  int rayCount = ptShadowsEnabled ? int(settings.shadowRayCount) : 0;
-                  
-                  float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
-                  float dAngle = ign * 6.2831853f;
-                  
-                  float maxDarkening = 0.0f;
-                          
-                  for (int li = 0; li < lightCount && li < 32; li++) {
-                      float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
-                      float3 toL = lPos - pWorld;
-                      float distL = length(toL);
-                      float lRad = uVoxel.lights[li].posAndRadius.w;
-                      if (distL >= lRad || distL < 0.05f) continue;
-                      
-                      float3 L = toL / distL;
-                      float NdotL = saturate(dot(surfNormal, L));
-                      if (NdotL < 0.001f) continue;
-                      
-                      float atten = saturate(1.0f - (distL / lRad));
-                      float smoothAtten = atten * atten;
-                      float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz * uVoxel.lights[li].colorAndIntensity.w;
-                      
-                      int numSamples = max(1, min(rayCount, 32));
-                      float radius = (rayCount > 0) ? 0.30f : 0.0f;
-                      
-                      float totalVis = 0.0f;
-                      float3 totalTint = float3(0.0f);
-                      float3 up = abs(L.y) < 0.99f ? float3(0, 1, 0) : float3(1, 0, 0);
-                      float3 tangent = normalize(cross(up, L));
-                      float3 bitangent = cross(L, tangent);
-                      
-                      for (int si = 0; si < numSamples; si++) {
-                          if (ptShadowsEnabled) {
-                              float rRadius = sqrt((float(si) + 0.5f) / float(numSamples)) * radius;
-                              float theta = float(si) * 2.399963f + dAngle;
-                              float2 disk = float2(cos(theta), sin(theta)) * rRadius;
-                              float3 offset = (tangent * disk.x + bitangent * disk.y);
-                              
-                              float3 jitteredLPos = lPos + offset;
-                              float3 jitteredL = jitteredLPos - pWorld;
-                              float jitteredDist = length(jitteredL);
-                              float3 targetPos = rayOrigin + (jitteredL / jitteredDist) * jitteredDist;
-                              
-                              ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
-                              
-                              bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f) || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
-                              bool canCastPtPlayerShadow = (!isHandheld && uVoxel.shadowParams.w > 0.5f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f);
-                              if (isFirstPerson) {
-                                  canCastPtPlayerShadow = canCastPtPlayerShadow && (rayOrigin.y <= uVoxel.playerPos.y + 1.4f);
-                              }
-                              
-                              if (canCastPtPlayerShadow && sr.vis > 0.0f) {
-                                  float3 ptL = normalize(targetPos - rayOrigin);
-                                  PlayerHit hit; hit.hitDist = 1e6f;
-                                  tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                                  if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
-                                      sr.vis = 0.0f;
-                                  }
-                              }
-                              totalVis += sr.vis;
-                              totalTint += sr.tint;
-                          } else {
-                              totalVis += 1.0f;
-                              totalTint += float3(1.0f);
-                          }
-                      }
-                      
-                      float visibility = totalVis / float(numSamples);
-                      float3 tintCol = totalTint / float(numSamples);
-                      pointLights += lColor * tintCol * NdotL * smoothAtten * visibility;
-                      
-                      float currentDarkening = (1.0f - visibility) * NdotL * atten * saturate(uVoxel.lights[li].colorAndIntensity.w * 0.5f);
-                      maxDarkening = max(maxDarkening, currentDarkening);
-                  }
-                  ptRes.shadowDarkening = maxDarkening;
-              }
+              PointLightResult ptRes = evaluatePointLights(
+                  pWorld, surfNormal, rWorld, 0.0f, 0.0f,
+                  uVoxel, settings, voxelGrid, blockUvTable, bitmaskTable,
+                  blockAtlasTex, smp, playerSkinTex, isFirstPerson, gid
+              );
+              float3 pointLights = ptRes.diffuse;
                             float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
               float3 scaledPtLight = pointLights * dayDampen;
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
@@ -895,159 +820,10 @@ kernel void prisma_deferred_cs(
               }
               
               // --- Ray Traced Volumetric Fog Scattering ---
-              // A proper forward ray march from the camera to the hit surface.
-              // Each step samples all point lights. Because we only march to tMax (the surface),
-              // fog cannot physically leak through any wall — no binary shadow tests needed.
-              if (settings.volFogEnabled > 0.5f && settings.waterOnlyPass < 0.5f && !isCameraUnderwater) {
-                  float3 volumetricFog = float3(0.0f);
-                  int lightCount = int(uVoxel.gridSize.w);
-                  float3 ro = uVoxel.camPos.xyz;
-                  float3 rd = normalize(pWorld - ro);
-                  float tMax = length(pWorld - ro);
-
-                  // Skip very close surfaces (avoids self-fog on first-person hand)
-                  if (tMax > 0.5f) {
-                      // Clamp the ray march distance to the local voxel grid radius (56 blocks).
-                      // The voxel grid only extends ~64 blocks around the player.
-                      // Marching hundreds of meters into sky/clouds or distant horizons causes
-                      // huge 20-50m steps, producing severe stipple/dither noise on clouds and distant water.
-                      // Dynamic fog march distance — scales with user voxel radius setting.
-                      // gridSize.x = grid diameter in voxels, so half = radius in blocks.
-                      float gridHalfDim = float(uVoxel.gridSize.x) * 0.5f;
-                      float marchDist = min(tMax, gridHalfDim);
-                      // Cap steps to 12 max — 2x2 Bayer jitter delivers 4x perceived samples smoothly on M1 Air!
-                      int numSteps = max(4, min(int(settings.volFogSamples), 12));
-                      float stepSize = marchDist / float(numSteps);
-
-                      // World-space anchored step alignment + 2x2 Spatial Bayer Jitter:
-                      // Interleaving samples across 2x2 pixel blocks effectively 4x-es the perceived step count,
-                      // blurring away discrete step bands so Low and Medium step settings look silky smooth!
-                      float bayer = float((gid.x & 1u) ^ ((gid.y & 1u) << 1u)) * 0.25f;
-                      float worldDist = dot(ro, celestialDir);
-                      float worldPhase = fract((worldDist + bayer * stepSize) / stepSize);
-                      float tStart = stepSize * (0.20f + worldPhase * 0.60f);
-
-                      // Extinction coefficient (how dense the participating media is)
-                      float extinction = 0.045f * settings.volFogIntensity;
-                      // Scattering albedo (how much light bounces vs is absorbed)
-                      float scatteringAlbedo = 0.85f;
-
-                      // Directional Sun Light for God Rays / Volumetric Sunlight
-                      // God rays: warm golden tint at sunrise/sunset, neutral at noon
-                      float3 sunRayColor = currentSunColor * float3(1.04f, 0.95f, 0.82f);
-                      // Golden hour: extra beam intensity and warmth when sun is near horizon
-                      float goldenFogBoost = 1.0f + sunsetFactor * 1.20f;
-                      float3 celestialCol = (sunWeight > 0.5f) ? (sunRayColor * 1.15f * goldenFogBoost) : (currentMoonColor * 0.45f);
-
-                      // Dual-lobe phase function for God Rays:
-                      // 1. Forward lobe (gSun = 0.65) for brilliant beams when facing the sun
-                      // 2. Side-scattering lobe (isotropic 1/4pi) so beams can be seen from the side passing through rooms!
-                      float cosThetaSun = dot(rd, celestialDir);
-                      float gSun = 0.65f;
-                      float gSun2 = gSun * gSun;
-                      float forwardPhase = (1.0f - gSun2) / (4.0f * 3.14159265f * pow(max(1.0f + gSun2 - 2.0f * gSun * cosThetaSun, 0.04f), 1.5f));
-                      float sidePhase    = 1.0f / (4.0f * 3.14159265f);
-                      float phaseSun     = forwardPhase * 0.85f + sidePhase * 0.40f;
-
-                      for (int step = 0; step < numSteps; step++) {
-                          float t = tStart + float(step) * stepSize;
-                          if (t >= marchDist) break;
-
-                          float3 samplePos = ro + rd * t;
-                          uint2 sVox = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, int3(floor(samplePos)));
-                          if ((sVox.x & 4) != 0) break; // Air fog stops at water boundary
-
-                          float3 inScatter = float3(0.0f);
-
-                          // --- 1. Volumetric Sun / Moon Rays (God Rays) ---
-                          if (celestialDir.y > 0.02f) {
-                              float3 sunRayTarget = samplePos + celestialDir * 32.0f;
-                              float3 sunTint = float3(1.0f);
-                              float sunVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, sunRayTarget, 16, sunTint);
-                              if (sunVis > 0.01f) {
-                                  inScatter += (celestialCol * sunTint) * (phaseSun * scatteringAlbedo * sunVis * 0.75f);
-                              }
-                          }
-
-                          // --- 2. Volumetric Point Lights (3D Spatial Light Volumes) ---
-                          // Two components:
-                          //   a) Phase-dependent: HG forward lobe toward camera (current behaviour)
-                          //   b) Omnidirectional spatial radiance: light that EXISTS in the 3D volume
-                          //      regardless of view angle — this is what makes corridors light up
-                          //      from any direction (Rockstar Shaders / MHRT behaviour).
-                          for (int li = 0; li < lightCount && li < 32; li++) {
-                              float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
-                              float lRad = uVoxel.lights[li].posAndRadius.w;
-
-                              float3 toLight = lPos - samplePos;
-                              float dist = length(toLight);
-                              if (dist >= lRad) continue;
-
-                              float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz
-                                            * uVoxel.lights[li].colorAndIntensity.w;
-
-                              // Henyey-Greenstein phase function
-                              float cosTheta = dot(rd, toLight / dist);
-                              float g = 0.3f;
-                              float g2 = g * g;
-                              float phase = (1.0f - g2) / (4.0f * 3.14159265f * pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f));
-
-                              // Smooth quadratic radial attenuation
-                              float distNorm = dist / lRad;
-                              float window = saturate(1.0f - distNorm * distNorm);
-                              float attenuation = window * window;
-
-                              // Handheld lights get greatly dimmed fog so the haze stays local
-                              bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f)
-                                             || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
-                              
-                              float3 lColorBase = uVoxel.lights[li].colorAndIntensity.xyz;
-                              float fogMultiplier = 0.50f;
-                              
-                              // Torches: gentle warm glow, not an overwhelming dense cloud
-                              if (abs(lColorBase.r - 1.0f) < 0.03f && abs(lColorBase.g - 0.65f) < 0.05f && abs(lColorBase.b - 0.22f) < 0.05f) {
-                                  fogMultiplier = 0.18f;
-                              }
-                              // Sea Lanterns: cool clean atmospheric radiance
-                              else if (abs(lColorBase.r - 0.40f) < 0.05f && abs(lColorBase.g - 0.92f) < 0.05f && abs(lColorBase.b - 1.00f) < 0.05f) {
-                                  fogMultiplier = 0.35f;
-                              }
-                              // Regular Lanterns
-                              else if (abs(lColorBase.r - 1.0f) < 0.03f && abs(lColorBase.g - 0.70f) < 0.05f && abs(lColorBase.b - 0.24f) < 0.05f) {
-                                  fogMultiplier = 0.30f;
-                              }
-                              
-                              if (isHandheld) {
-                                  fogMultiplier = 0.03f;
-                              }
-
-                              // Fast shadow ray: fix self-occlusion on solid emissive blocks (glowstone, froglights).
-                              // Pull shadow target 0.35 blocks back from lPos toward samplePos so DDA
-                              // does not start inside the emissive voxel and immediately return 0.
-                              float shadowVis = 1.0f;
-                              float3 shadowTint = float3(1.0f);
-                              if (!isHandheld && dist > 0.30f) {
-                                  float3 toSample = normalize(samplePos - lPos);
-                                  float3 shadowTarget = lPos + toSample * min(0.35f, dist * 0.20f);
-                                  shadowVis = traceVoxelShadowFast(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, samplePos, shadowTarget, 16, shadowTint);
-                              }
-
-                              // a) Phase-dependent HG forward lobe (view-angle dependent)
-                              float3 phaseContrib = (lColor * shadowTint) * (phase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis);
-                              // b) Omnidirectional 3D spatial radiance (g=0 isotropic, 1/(4pi))
-                              //    Makes light fill corridors/hallways from ANY view angle.
-                              //    Small weight (0.18) keeps directionality dominant.
-                              float isotropicPhase = 1.0f / (4.0f * 3.14159265f);
-                              float3 spatialContrib = (lColor * shadowTint) * (isotropicPhase * attenuation * scatteringAlbedo * fogMultiplier * shadowVis * 0.18f);
-                              inScatter += phaseContrib + spatialContrib;
-                          }
-
-                          // Beer-Lambert transmittance along the ray up to this step
-                          float transmittance = exp(-extinction * t);
-                          volumetricFog += inScatter * (extinction * transmittance * stepSize);
-                      }
-                      volumetricFog *= settings.volFogIntensity;
-                  }
+                  float3 volumetricFog = evaluateVolumetricFog(
+                      ro, rWorld, pWorld, celestialDir, celestialCol, sunWeight,
+                      uVoxel, settings, voxelGrid
+                  );
 
                   litRgb += volumetricFog;
               }
