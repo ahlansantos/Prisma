@@ -16,6 +16,7 @@ using namespace metal;
                         
 // --- Analytical Point Lights (replaced ReSTIR) ---
 
+              vertex DeferredVertexOut prisma_deferred_vs(uint vertexId [[vertex_id]]) {
               const float2 positions[3] = {
                 float2(-1.0,  1.0),
                 float2( 3.0,  1.0),
