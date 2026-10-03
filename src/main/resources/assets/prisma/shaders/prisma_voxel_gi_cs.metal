@@ -32,10 +32,8 @@ kernel void prisma_voxel_gi_cs(
     float2 uv = float2(gid) / float2(giTexture.get_width(), giTexture.get_height());
     float2 clipSpace = uv * 2.0f - 1.0f;
     clipSpace.y = -clipSpace.y;
-    float4 viewPosH = uVoxel.invProj * float4(clipSpace, depth, 1.0f);
-    float3 viewPos = viewPosH.xyz / viewPosH.w;
-    float4 worldPosH = uVoxel.invView * float4(viewPos, 1.0f);
-    float3 pWorld = worldPosH.xyz;
+    float4 worldPosH = uVoxel.invViewProj * float4(clipSpace, depth, 1.0f);
+    float3 pWorld = worldPosH.xyz / worldPosH.w;
     float3 surfNormal = normalTex.read(gid).xyz * 2.0f - 1.0f;
     float3 viewDir = normalize(pWorld - uVoxel.camPos.xyz);
     
