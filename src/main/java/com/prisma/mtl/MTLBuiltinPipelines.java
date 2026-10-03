@@ -79,9 +79,7 @@ public final class MTLBuiltinPipelines {
     private static final Map<Long, MemorySegment> deferredLightingPipelines;
     private static final Map<Long, MemorySegment> postProcessPipelines;
 
-    private static String concat(String a, String b) {
-        return a + b;
-    }
+
 
     private MTLBuiltinPipelines() {
     }
@@ -631,7 +629,7 @@ public final class MTLBuiltinPipelines {
         if (cached != null) {
             return cached;
         }
-        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(concat(PrismaShaderLoader.readShaderSource("voxel_common.metal") + "\n", PrismaShaderLoader.readShaderSource("deferred.metal")), "prisma_deferred_vs", "prisma_deferred_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
+        MemorySegment pipeline = MTLBuiltinPipelines.buildPipeline(PrismaShaderLoader.readShaderSource("deferred.metal"), "prisma_deferred_vs", "prisma_deferred_fs", colorFormat, MTLPixelFormat.Invalid.value, MTLColorWriteMask.All.value);
         if (!ObjC.isNil(pipeline)) {
             deferredLightingPipelines.put(colorFormat, pipeline);
         }
@@ -642,7 +640,7 @@ public final class MTLBuiltinPipelines {
         if (!ObjC.isNil(deferredComputePipeline)) {
             return deferredComputePipeline;
         }
-        MemorySegment function = device.newFunction(concat(PrismaShaderLoader.readShaderSource("voxel_common.metal") + "\n", PrismaShaderLoader.readShaderSource("deferred.metal")), "prisma_deferred_cs");
+        MemorySegment function = device.newFunction(PrismaShaderLoader.readShaderSource("deferred.metal"), "prisma_deferred_cs");
         if (ObjC.isNil(function)) {
             return MemorySegment.NULL;
         }
