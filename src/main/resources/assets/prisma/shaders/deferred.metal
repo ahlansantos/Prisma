@@ -1,3 +1,8 @@
+#include <metal_stdlib>
+using namespace metal;
+
+#include "voxel_common.metal"
+
             struct DeferredVertexOut {
               float4 position [[position]];
               float2 uv;
