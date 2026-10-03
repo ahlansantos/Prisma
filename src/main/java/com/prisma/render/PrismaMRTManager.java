@@ -396,7 +396,9 @@ public final class PrismaMRTManager implements AutoCloseable {
         return this.giTexture;
     }
     public MemorySegment ensureVolumetricsTexture(final long width, final long height) {
-        if (!ObjC.isNil(this.volumetricsTexture) && MTLTexture.width(this.volumetricsTexture) == width && MTLTexture.height(this.volumetricsTexture) == height) {
+        long halfW = Math.max(1, width / 2);
+        long halfH = Math.max(1, height / 2);
+        if (!ObjC.isNil(this.volumetricsTexture) && MTLTexture.width(this.volumetricsTexture) == halfW && MTLTexture.height(this.volumetricsTexture) == halfH) {
             return this.volumetricsTexture;
         }
         if (!ObjC.isNil(this.volumetricsTexture)) {
@@ -407,8 +409,8 @@ public final class PrismaMRTManager implements AutoCloseable {
             desc.textureType(MTLTextureType.Type2D);
             desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
             desc.pixelFormat(MTLPixelFormat.RGBA16Float.value);
-            desc.width(width);
-            desc.height(height);
+            desc.width(halfW);
+            desc.height(halfH);
             desc.storageMode(MTLStorageMode.Private);
             this.volumetricsTexture = device.metalDevice().newTexture(desc);
         }

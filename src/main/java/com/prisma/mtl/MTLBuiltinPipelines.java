@@ -76,6 +76,8 @@ public final class MTLBuiltinPipelines {
     private static final Map<Long, MemorySegment> depthStencilStates;
     private static final Map<Long, MemorySegment> debugPipelines;
     private static MemorySegment deferredComputePipeline;
+    private static MemorySegment voxelGIPipeline = MemorySegment.NULL;
+    private static MemorySegment volumetricsPipeline = MemorySegment.NULL;
     private static final Map<Long, MemorySegment> deferredLightingPipelines;
     private static final Map<Long, MemorySegment> postProcessPipelines;
 
