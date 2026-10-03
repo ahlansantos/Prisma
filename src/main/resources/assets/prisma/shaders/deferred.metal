@@ -1,6 +1,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
+#include "prisma_api.metal"
 #include "voxel_common.metal"
 
             struct DeferredVertexOut {
@@ -8,43 +9,7 @@ using namespace metal;
               float2 uv;
             };
 
-            struct DeferredUniforms {
-              float aspect;
-              float fovScale;
-              float sunAngle;
-              float cameraPitch;
-              float cameraYaw;
-              float sunShadowsEnabled;
-              float gameTime;
-              float waterWaveStrength;
-              float waterWaveSpeed;
-              float waterAbsorption;
-              float skyR;
-              float skyG;
-              float skyB;
-              float sunriseAlpha;
-              float sunriseR;
-              float sunriseG;
-              float sunriseB;
-              float starBrightness;
-              float maxPointLights;
-              float reflectionPtShadows;
-              float reflectionDirShadows;
-              float doubleAoInReflections;
-              
-              float cloudsEnabled;
-              float cloudSteps;
-              float reflectionsEnabled;
-              float cloudsInReflections;
-              float rainStrength;
-              float pointLightSoftShadows;
-              float shadowRayCount;
-              float volFogEnabled;   // 116
-              float volFogSamples;   // 120
-              float volFogIntensity; // 124
-              float waterOnlyPass;   // 128
-              float hdrEnabled;      // 132
-            };
+            
 
                         
 // --- Analytical Point Lights (replaced ReSTIR) ---
@@ -141,7 +106,9 @@ kernel void prisma_deferred_cs(
               texture2d<uint, access::write> currReservoirTex [[texture(8)]],
               texture2d<float, access::write> velocityTex [[texture(9)]],
               sampler smp [[sampler(0)]],
-              constant DeferredUniforms& u [[buffer(0)]],
+              constant CameraData& camera [[buffer(10)]],
+              constant EnvironmentData& env [[buffer(11)]],
+              constant RenderSettings& settings [[buffer(12)]],
               device const uint2* voxelGrid [[buffer(1)]],
               constant VoxelUniforms& uVoxel [[buffer(2)]],
               constant float4* blockUvTable [[buffer(3)]],
@@ -155,7 +122,7 @@ kernel void prisma_deferred_cs(
               float hDepth = handDepthTex.read(depthGid);
               // In Reverse-Z: larger value = closer. Use the closer depth (larger value).
               float rawDepth = max(wDepth, hDepth);
-              if (u.waterOnlyPass > 0.5f && rawDepth <= 0.00005f) {
+              if (settings.waterOnlyPass > 0.5f && rawDepth <= 0.00005f) {
                 outTexture.write(float4(albedo.rgb, albedo.a), gid);
                 return;
               }
@@ -163,15 +130,15 @@ kernel void prisma_deferred_cs(
               float effectiveDepth = rawDepth;
               
 
-              float sunTheta = u.sunAngle;
+              float sunTheta = env.sunAngle;
               float3 sunDir = normalize(float3(-sin(sunTheta), cos(sunTheta), 0.0f));
               float3 moonDir = -sunDir;
               float sunElevation = sunDir.y;
               float sunWeight = smoothstep(-0.08f, 0.04f, sunElevation);
               float sunsetFactor = (1.0f - smoothstep(0.02f, 0.32f, abs(sunElevation))) * smoothstep(-0.06f, 0.08f, sunElevation);
-              float clampedSunrise = max(0.0f, u.sunriseAlpha);
-              bool isNether = u.sunriseAlpha < -0.5f && u.sunriseAlpha > -1.5f;
-              bool isEnd = u.sunriseAlpha < -1.5f;
+              float clampedSunrise = max(0.0f, env.sunriseAlpha);
+              bool isNether = env.sunriseAlpha < -0.5f && env.sunriseAlpha > -1.5f;
+              bool isEnd = env.sunriseAlpha < -1.5f;
 
               // --- Golden Hour Sun Color (2200K sunrise/sunset -> 5500K noon) ---
               // Noon: crisp slightly warm white. Sunrise/sunset: rich amber/orange cinematico.
@@ -181,16 +148,16 @@ kernel void prisma_deferred_cs(
               float3 goldenHourColor = mix(float3(1.55f, 0.72f, 0.22f),  // warm amber
                                           float3(1.70f, 0.45f, 0.12f),  // deep orange-red at horizon
                                           goldenBoost * 0.6f);
-              float3 currentSunColor = mix(noonSunColor, goldenHourColor, max(sunsetFactor, clampedSunrise)) * (1.0f - u.rainStrength * 0.98f);
-              float3 currentMoonColor = float3(0.22f, 0.32f, 0.52f) * (1.0f - u.rainStrength * 0.95f);
+              float3 currentSunColor = mix(noonSunColor, goldenHourColor, max(sunsetFactor, clampedSunrise)) * (1.0f - env.rainStrength * 0.98f);
+              float3 currentMoonColor = float3(0.22f, 0.32f, 0.52f) * (1.0f - env.rainStrength * 0.95f);
               float3 celestialDir = sunWeight > 0.5f ? sunDir : moonDir;
 
-              float3 actualSky = float3(u.skyR, u.skyG, u.skyB);
-              float3 sunriseTint = float3(u.sunriseR, u.sunriseG, u.sunriseB);
+              float3 actualSky = float3(env.skyR, env.skyG, env.skyB);
+              float3 sunriseTint = float3(env.sunriseR, env.sunriseG, env.sunriseB);
               // Cooler, more balanced daySkyLight so ambient doesn't blow out blocks
               float3 daySkyLight = mix(float3(0.92f, 0.92f, 0.90f), sunriseTint * 1.10f, clampedSunrise);
               float3 nightSkyLight = float3(0.06f, 0.11f, 0.28f);
-              float3 activeSkyLight = mix(nightSkyLight, daySkyLight, sunWeight) * (1.0f - u.rainStrength * 0.65f);
+              float3 activeSkyLight = mix(nightSkyLight, daySkyLight, sunWeight) * (1.0f - env.rainStrength * 0.65f);
 
               if (effectiveDepth <= 0.00005f && hDepth <= 0.0001f) {
                 if (isNether || isEnd) {
@@ -203,8 +170,8 @@ kernel void prisma_deferred_cs(
                 float3 pFar = farPoint.xyz / max(farPoint.w, 0.00001f);
                 float3 rayDir = normalize(pFar - pNear);
 
-                float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, u.cloudsEnabled, u.cloudSteps, u.rainStrength, 1e6f);
-                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * u.rainStrength; outTexture.write(float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f), gid); return;
+                float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, camera.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, env.starBrightness, settings.cloudsEnabled, settings.cloudSteps, env.rainStrength, 1e6f);
+                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * env.rainStrength; outTexture.write(float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f), gid); return;
               }
 
 
@@ -348,7 +315,7 @@ kernel void prisma_deferred_cs(
               float3 viewDir = distToSurface > 0.001f ? (pSurfaceRel / distToSurface) : float3(0.0f, -1.0f, 0.0f);
 
               if (!isEntity && !isCameraInFluid) {
-                if (u.waterOnlyPass > 0.5f) {
+                if (settings.waterOnlyPass > 0.5f) {
                   // Push slightly into the block surface to avoid floating-point boundary noise (Z-fighting)
                   // We MUST use geomNormal (perfect cube normal), not nWorld (which can be bumped by textures)
                   float3 checkPt = pWorld - geomNormal * 0.05f;
@@ -383,7 +350,7 @@ kernel void prisma_deferred_cs(
               }
 
               // In water-only pass, process water AND translucent glass reflections!
-              if (u.waterOnlyPass > 0.5f && !isWater && !isGlass) {
+              if (settings.waterOnlyPass > 0.5f && !isWater && !isGlass) {
                 outTexture.write(float4(albedo.rgb, albedo.a), gid);
                 return;
               }
@@ -395,7 +362,7 @@ kernel void prisma_deferred_cs(
 
                 if (abs(geomNormal.y) > 0.45f) {
                     float baseWaterY = (uVoxel.camPos.y >= pWorld.y) ? 1.0f : -1.0f;
-                    float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, u.gameTime, u.waterWaveStrength, u.waterWaveSpeed);
+                    float3 waveNorm = computeEclipseWaterWaves(pWorld.xz, camera.gameTime, settings.waterWaveStrength, settings.waterWaveSpeed);
                     surfNormal = normalize(float3(waveNorm.x, baseWaterY * waveNorm.y, waveNorm.z));
                     nWorld = float3(0.0f, baseWaterY, 0.0f);
                 } else {
@@ -456,7 +423,7 @@ kernel void prisma_deferred_cs(
               // we MUST calculate velocity using the water surface position, otherwise parallax 
               // mismatch ruins MetalFX temporal accumulation (causing ghosting/Z-fighting on shallow water).
               float3 motionWorld = pWorld;
-              if (isWater && u.waterOnlyPass > 0.5f) {
+              if (isWater && settings.waterOnlyPass > 0.5f) {
                   // We recalculate vPos because it's out of scope here
                   int3 mvPos = int3(floor(pWorld - geomNormal * 0.05f));
                   uint2 mvCur = readVoxel(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, mvPos);
@@ -498,7 +465,7 @@ kernel void prisma_deferred_cs(
               if (lightCount > 0) {
                   float3 rayOrigin = pWorld + surfNormal * 0.05f;
                   bool ptShadowsEnabled = (uVoxel.camRight.w > 0.5f);
-                  int rayCount = ptShadowsEnabled ? int(u.shadowRayCount) : 0;
+                  int rayCount = ptShadowsEnabled ? int(settings.shadowRayCount) : 0;
                   
                   float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
                   float dAngle = ign * 6.2831853f;
@@ -595,10 +562,10 @@ kernel void prisma_deferred_cs(
               float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 0.78f * goldenRimBoost) : (currentMoonColor * 0.70f);
 
               float outsideShadow = 1.0f;
-              float computedShadow = (u.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) ? 0.0f : 1.0f;
+              float computedShadow = (settings.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) ? 0.0f : 1.0f;
               float3 computedTint = float3(1.0f);
 
-              if (u.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) {
+              if (settings.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) {
                 if (celestialNdotL > 0.01f && celestialDir.y > 0.001f && rawSky > 0.05f) {
                   float celestialSlopeBias = max(0.04f, 0.06f * (1.0f - celestialNdotL));
                   float3 rayStart = pWorld + nWorld * celestialSlopeBias;
@@ -614,7 +581,7 @@ kernel void prisma_deferred_cs(
                       canCastPlayerShadow = canCastPlayerShadow && (rayStart.y <= uVoxel.playerPos.y + 1.4f);
                   }
                   
-                  int rayCount = int(u.shadowRayCount);
+                  int rayCount = int(settings.shadowRayCount);
                   int numSamples = max(1, min(rayCount, 32));
                   if (rayCount == 0) radius = 0.0f;
                   
@@ -647,7 +614,7 @@ kernel void prisma_deferred_cs(
                   computedShadow = totalVis / float(numSamples);
                   computedTint = totalTint / float(numSamples);
                   
-                  computedShadow = mix(computedShadow, 1.0f, u.rainStrength * 0.85f);
+                  computedShadow = mix(computedShadow, 1.0f, env.rainStrength * 0.85f);
                 }
               }
 
@@ -681,7 +648,7 @@ kernel void prisma_deferred_cs(
               float3 giColor = float3(0.0f);
               if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && vxgiEnabled) {
                   int blurRays = int(clamp(doubleAoStrength, 1.0f, 4.0f));
-                  uint frameCount = uint(u.gameTime * 60.0f) % 256u;
+                  uint frameCount = uint(camera.gameTime * 60.0f) % 256u;
                   float2 seedBase = pWorld.xz * 31.415f + pWorld.yy * 47.123f;
                   
                   float3 tX = cross(surfNormal, float3(0.0f, 1.0f, 0.0f));
@@ -701,7 +668,7 @@ kernel void prisma_deferred_cs(
                       float3 giDir = normalize(tX * cos(phi) * sinTheta + tY * sin(phi) * sinTheta + surfNormal * cosTheta);
                       
                                             float3 jitterOrigin = pWorld + surfNormal * 0.15f;
-                      VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, jitterOrigin, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 6, u.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, u.rainStrength, u.gameTime, uVoxel, 0.0f);
+                      VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, jitterOrigin, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 6, settings.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, env.rainStrength, camera.gameTime, uVoxel, 0.0f);
                       
                       if (giRes.alpha > 0.01f && giRes.hitDist < 5.0f) {
                           float distFalloff = pow(saturate(1.0f - giRes.hitDist / 5.0f), 2.0f);
@@ -733,7 +700,7 @@ kernel void prisma_deferred_cs(
 
 
               // Rain creates actual puddles (reflective)
-              float wetFactor = u.rainStrength;
+              float wetFactor = env.rainStrength;
               if (wetFactor > 0.01f && !isWater && !isEntity && !isCameraInFluid && surfNormal.y > 0.82f && rawSky > 0.90f) {
                 // Multi-octave noise for organic puddle blob shapes (like Worley)
                 float pN1 = smoothNoise3D(float3(pWorld.xz * 0.30f, 0.0f));
@@ -749,12 +716,12 @@ kernel void prisma_deferred_cs(
                   
                   // Circular ripple normals (rain drops)
                   float2 rippleUv = pWorld.xz * 1.8f;
-                  float rip1 = sin(length(fract(rippleUv) - 0.5f) * 22.0f - u.gameTime * 16.0f);
-                  float rip2 = sin(length(fract(rippleUv + float2(0.43f, 0.17f)) - 0.5f) * 18.0f - u.gameTime * 12.0f);
-                  float rip3 = sin(length(fract(rippleUv * 0.62f + float2(0.71f, 0.29f)) - 0.5f) * 14.0f - u.gameTime * 9.5f);
+                  float rip1 = sin(length(fract(rippleUv) - 0.5f) * 22.0f - camera.gameTime * 16.0f);
+                  float rip2 = sin(length(fract(rippleUv + float2(0.43f, 0.17f)) - 0.5f) * 18.0f - camera.gameTime * 12.0f);
+                  float rip3 = sin(length(fract(rippleUv * 0.62f + float2(0.71f, 0.29f)) - 0.5f) * 14.0f - camera.gameTime * 9.5f);
                   float rippleMask = smoothstep(0.3f, 0.7f, smoothNoise3D(float3(pWorld.xz * 1.0f, 0.0f)));
                   
-                  float rainOnly = saturate(u.rainStrength * 2.0f);
+                  float rainOnly = saturate(env.rainStrength * 2.0f);
                   float2 rippleOffset = float2(rip1 + rip2 * 0.7f + rip3 * 0.4f)
                                        * 0.040f * puddleMask * rainOnly * rippleMask;
                   surfNormal = normalize(float3(surfNormal.x + rippleOffset.x, surfNormal.y, surfNormal.z + rippleOffset.y));
@@ -764,7 +731,7 @@ kernel void prisma_deferred_cs(
               float3 reflectionCol = float3(0.0f);
               float reflectFactor = 0.0f;
 
-              if ((isWater || isMetal || isGlass || isPolished || isPuddle) && u.reflectionsEnabled > 0.5f) {
+              if ((isWater || isMetal || isGlass || isPolished || isPuddle) && settings.reflectionsEnabled > 0.5f) {
                 float3 viewDir = viewDirCam;
                 float NdotV = saturate(dot(surfNormal, viewDir));
 
@@ -782,10 +749,10 @@ kernel void prisma_deferred_cs(
 
                 for (int b = 0; b < maxBounces; b++) {
                     int steps = (b == 0) ? 40 : 18;
-                    float cloudsRefl = (b == 0) ? (u.cloudsInReflections * 0.5f) : 0.0f;
-                    float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, u.starBrightness, cloudsRefl, u.cloudSteps, u.rainStrength, 1e6f) * skyLevel;
+                    float cloudsRefl = (b == 0) ? (settings.cloudsInReflections * 0.5f) : 0.0f;
+                    float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, camera.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, env.starBrightness, cloudsRefl, settings.cloudSteps, env.rainStrength, 1e6f) * skyLevel;
                     
-                    VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, u.maxPointLights, u.reflectionPtShadows, u.reflectionDirShadows, u.doubleAoInReflections, 0.0f, u.rainStrength, u.gameTime, uVoxel, u.shadowRayCount);
+                    VoxelReflResult vxr = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, currentRayOrigin, currentRayDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, steps, settings.maxPointLights, settings.reflectionPtShadows, settings.reflectionDirShadows, settings.doubleAoInReflections, 0.0f, env.rainStrength, camera.gameTime, uVoxel, settings.shadowRayCount);
                     
                     float reflDist = vxr.hitDist;
                     float rawReflFog = saturate(1.0f - exp(-pow(reflDist * 0.003f, 3.5f)));
@@ -859,7 +826,7 @@ kernel void prisma_deferred_cs(
                     float depthFactor = smoothstep(0.1f, 8.0f, realDepth);
 
                     // Beer-Lambert spectral absorption (use true depth for physically correct tint)
-                    float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * u.waterAbsorption;
+                    float3 waterExtinction = float3(0.35f, 0.12f, 0.035f) * settings.waterAbsorption;
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
                     // Shallow water: crystal clear turquoise
@@ -890,7 +857,7 @@ kernel void prisma_deferred_cs(
                     accumulatedScene += waveGlint;
 
                     // Smooth transition from local voxel reflections to distant sky reflections outside grid
-                    if (u.reflectionsEnabled > 0.5f && gridWeight < 0.85f) {
+                    if (settings.reflectionsEnabled > 0.5f && gridWeight < 0.85f) {
                         float3 reflDir = reflect(-viewDir, surfNormal);
                         if (reflDir.y > -0.1f) {
                             float3 skyRefl = actualSky * (sunWeight * 0.85f + 0.15f);
@@ -917,7 +884,7 @@ kernel void prisma_deferred_cs(
 
               float3 baseLit = albedo.rgb * baseLighting;
               float3 litRgb = baseLit;
-              if ((isWater || isMetal || isGlass || isPolished || isPuddle) && u.reflectionsEnabled > 0.5f) {
+              if ((isWater || isMetal || isGlass || isPolished || isPuddle) && settings.reflectionsEnabled > 0.5f) {
                 litRgb = mix(baseLit, reflectionCol, reflectFactor);
               }
 
@@ -950,10 +917,10 @@ kernel void prisma_deferred_cs(
                 // Height fog: mist in valleys during rain only (not clear days)
                 float heightFog = exp(-(pWorld.y - 40.0f) * 0.03f)
                                 * saturate(distToCam * 0.015f)
-                                * saturate(u.rainStrength * 2.0f);
+                                * saturate(env.rainStrength * 2.0f);
 
-                float fogFactor = saturate(mix(clearDayFog, rainFog, u.rainStrength) + heightFog);
-                float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, u.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, u.starBrightness, 0.0f, u.cloudSteps, u.rainStrength, 1e6f);
+                float fogFactor = saturate(mix(clearDayFog, rainFog, env.rainStrength) + heightFog);
+                float3 fogColor = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, camera.gameTime, actualSky, sunriseTint, clampedSunrise, float3(0.0f), float3(0.0f), sunWeight, sunDir, moonDir, env.starBrightness, 0.0f, settings.cloudSteps, env.rainStrength, 1e6f);
 
                 // Darken fog in caves (keep bright under open sky)
                 float surfaceBoost = saturate((pWorld.y - 50.0f) * 0.05f);
@@ -963,22 +930,22 @@ kernel void prisma_deferred_cs(
                 // Mie forward scattering glare toward sun (subtle, smooth, non-noisy)
                 float cosSunTheta = dot(rayDir, sunDir);
                 float miePhase = min(5.0f, (1.0f - 0.70f*0.70f) / pow(max(1.0f + 0.70f*0.70f - 2.0f*0.70f*cosSunTheta, 0.06f), 1.5f));
-                float3 mieGlare = currentSunColor * (miePhase * 0.003f * sunWeight * (1.0f - u.rainStrength * 0.80f)) * skyLevel * celestialShadow;
+                float3 mieGlare = currentSunColor * (miePhase * 0.003f * sunWeight * (1.0f - env.rainStrength * 0.80f)) * skyLevel * celestialShadow;
                 fogColor += mieGlare;
 
                 // Final rain visibility bump (heavy rain nearly opaque at distance)
-                fogFactor = saturate(fogFactor + u.rainStrength * 0.80f * (1.0f - exp(-distToCam * 0.04f)));
+                fogFactor = saturate(fogFactor + env.rainStrength * 0.80f * (1.0f - exp(-distToCam * 0.04f)));
                 litRgb = mix(litRgb, fogColor, fogFactor);
               }
 
               
-              if (u.cloudsEnabled > 0.5f) {
+              if (settings.cloudsEnabled > 0.5f) {
                   float distToCam = length(pWorld - uVoxel.camPos.xyz);
                   float3 rayDir = normalize(pWorld - uVoxel.camPos.xyz);
                   float3 hazeColor = mix(float3(0.48f, 0.58f, 0.66f), sunriseTint * 1.15f, clampedSunrise);
                   if (sunWeight < 0.35f) hazeColor = mix(float3(0.12f, 0.16f, 0.26f), hazeColor, sunWeight * 2.85f);
                   
-                  float4 cloudData = computeVolumetricClouds(uVoxel.camPos.xyz, rayDir, u.gameTime, hazeColor, sunWeight, sunDir, moonDir, currentSunColor, currentMoonColor, u.cloudsEnabled, u.cloudSteps, u.rainStrength, distToCam);
+                  float4 cloudData = computeVolumetricClouds(uVoxel.camPos.xyz, rayDir, camera.gameTime, hazeColor, sunWeight, sunDir, moonDir, currentSunColor, currentMoonColor, settings.cloudsEnabled, settings.cloudSteps, env.rainStrength, distToCam);
                   litRgb = litRgb * cloudData.a + cloudData.rgb;
               }
               
@@ -986,7 +953,7 @@ kernel void prisma_deferred_cs(
               // A proper forward ray march from the camera to the hit surface.
               // Each step samples all point lights. Because we only march to tMax (the surface),
               // fog cannot physically leak through any wall — no binary shadow tests needed.
-              if (u.volFogEnabled > 0.5f && u.waterOnlyPass < 0.5f && !isCameraUnderwater) {
+              if (settings.volFogEnabled > 0.5f && settings.waterOnlyPass < 0.5f && !isCameraUnderwater) {
                   float3 volumetricFog = float3(0.0f);
                   int lightCount = int(uVoxel.gridSize.w);
                   float3 ro = uVoxel.camPos.xyz;
@@ -1004,7 +971,7 @@ kernel void prisma_deferred_cs(
                       float gridHalfDim = float(uVoxel.gridSize.x) * 0.5f;
                       float marchDist = min(tMax, gridHalfDim);
                       // Cap steps to 12 max — 2x2 Bayer jitter delivers 4x perceived samples smoothly on M1 Air!
-                      int numSteps = max(4, min(int(u.volFogSamples), 12));
+                      int numSteps = max(4, min(int(settings.volFogSamples), 12));
                       float stepSize = marchDist / float(numSteps);
 
                       // World-space anchored step alignment + 2x2 Spatial Bayer Jitter:
@@ -1016,7 +983,7 @@ kernel void prisma_deferred_cs(
                       float tStart = stepSize * (0.20f + worldPhase * 0.60f);
 
                       // Extinction coefficient (how dense the participating media is)
-                      float extinction = 0.045f * u.volFogIntensity;
+                      float extinction = 0.045f * settings.volFogIntensity;
                       // Scattering albedo (how much light bounces vs is absorbed)
                       float scatteringAlbedo = 0.85f;
 
@@ -1134,7 +1101,7 @@ kernel void prisma_deferred_cs(
                           float transmittance = exp(-extinction * t);
                           volumetricFog += inScatter * (extinction * transmittance * stepSize);
                       }
-                      volumetricFog *= u.volFogIntensity;
+                      volumetricFog *= settings.volFogIntensity;
                   }
 
                   litRgb += volumetricFog;
@@ -1150,7 +1117,7 @@ kernel void prisma_deferred_cs(
                   if (isnan(litRgb.x) || isnan(litRgb.y) || isnan(litRgb.z) || isinf(litRgb.x) || isinf(litRgb.y) || isinf(litRgb.z)) {
                       litRgb = float3(0.0f);
                   }
-                  litRgb = u.hdrEnabled > 0.5f ? (litRgb * exposure) : lumaPreservingFilmic(litRgb, exposure, saturationBoost);
+                  litRgb = settings.hdrEnabled > 0.5f ? (litRgb * exposure) : lumaPreservingFilmic(litRgb, exposure, saturationBoost);
 
 
                   // Subtle golden hour warm grade on midtones

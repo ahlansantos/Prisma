@@ -265,50 +265,58 @@ public final class MTLBuiltinPipelines {
             MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
             try (MemoryStack stack = MemoryStack.stackPush();){
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
-                MemorySegment uniforms = MemorySegment.ofAddress(stack.nmalloc(16, 144)).reinterpret(144L);
-                uniforms.fill((byte) 0);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 0L, aspect);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 4L, fovScale);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 8L, sunAngle);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 12L, cameraPitch);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 16L, cameraYaw);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 20L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
+                MemorySegment cameraData = MemorySegment.ofAddress(stack.nmalloc(16, 20)).reinterpret(20L);
+                cameraData.set(ValueLayout.JAVA_FLOAT, 0L, aspect);
+                cameraData.set(ValueLayout.JAVA_FLOAT, 4L, fovScale);
+                cameraData.set(ValueLayout.JAVA_FLOAT, 8L, cameraPitch);
+                cameraData.set(ValueLayout.JAVA_FLOAT, 12L, cameraYaw);
                 float gameTime;
-                var mc = net.minecraft.client.Minecraft.getInstance();
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                 if (mc != null && mc.level != null) {
                     float partialTick = mc.getDeltaTracker() != null ? mc.getDeltaTracker().getGameTimeDeltaPartialTick(false) : 0.0f;
                     gameTime = ((float)(mc.level.getGameTime() % 2400000L) + partialTick) / 20.0f;
                 } else {
                     gameTime = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
                 }
-                uniforms.set(ValueLayout.JAVA_FLOAT, 24L, gameTime);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 28L, cfg.waterWavesEnabled ? cfg.waterWaveStrength : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 32L, cfg.waterWaveSpeed);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 36L, cfg.waterAbsorptionStrength);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 40L, skyR);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 44L, skyG);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 48L, skyB);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 52L, sunriseAlpha);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 56L, sunriseR);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 60L, sunriseG);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 64L, sunriseB);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 68L, starBrightness);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 72L, (float)cfg.maxPointLights);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 76L, cfg.pointLightsEnabled ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 80L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 84L, cfg.doubleAoInReflections ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 88L, cfg.volumetricCloudsEnabled ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 92L, (float)cfg.cloudQualitySteps);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 96L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 100L, cfg.cloudsInReflections ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 104L, rainStrength);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 112L, (float)cfg.shadowRayCount);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 116L, cfg.rayMarchedFogEnabled ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 120L, (float)cfg.rayMarchedFogSamples);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 124L, cfg.rayMarchedFogIntensity);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 128L, waterOnlyPass ? 1.0f : 0.0f);
-                uniforms.set(ValueLayout.JAVA_FLOAT, 132L, cfg.hdrOutputEnabled ? 1.0f : 0.0f);
-                                encoder.setBytes(uniforms, 144L, 0L);
+                cameraData.set(ValueLayout.JAVA_FLOAT, 16L, gameTime);
+                
+                MemorySegment envData = MemorySegment.ofAddress(stack.nmalloc(16, 40)).reinterpret(40L);
+                envData.set(ValueLayout.JAVA_FLOAT, 0L, sunAngle);
+                envData.set(ValueLayout.JAVA_FLOAT, 4L, skyR);
+                envData.set(ValueLayout.JAVA_FLOAT, 8L, skyG);
+                envData.set(ValueLayout.JAVA_FLOAT, 12L, skyB);
+                envData.set(ValueLayout.JAVA_FLOAT, 16L, sunriseAlpha);
+                envData.set(ValueLayout.JAVA_FLOAT, 20L, sunriseR);
+                envData.set(ValueLayout.JAVA_FLOAT, 24L, sunriseG);
+                envData.set(ValueLayout.JAVA_FLOAT, 28L, sunriseB);
+                envData.set(ValueLayout.JAVA_FLOAT, 32L, starBrightness);
+                envData.set(ValueLayout.JAVA_FLOAT, 36L, rainStrength);
+                
+                MemorySegment settingsData = MemorySegment.ofAddress(stack.nmalloc(16, 76)).reinterpret(76L);
+                
+                settingsData.set(ValueLayout.JAVA_FLOAT, 0L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 4L, cfg.waterWavesEnabled ? cfg.waterWaveStrength : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 8L, cfg.waterWaveSpeed);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 12L, cfg.waterAbsorptionStrength);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 16L, (float)cfg.maxPointLights);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 20L, cfg.pointLightsEnabled ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 24L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 28L, cfg.doubleAoInReflections ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 32L, cfg.volumetricCloudsEnabled ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 36L, (float)cfg.cloudQualitySteps);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 40L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 44L, cfg.cloudsInReflections ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 48L, 0.0f); // pointLightSoftShadows?
+                settingsData.set(ValueLayout.JAVA_FLOAT, 52L, (float)cfg.shadowRayCount);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 56L, cfg.rayMarchedFogEnabled ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 60L, (float)cfg.rayMarchedFogSamples);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 64L, cfg.rayMarchedFogIntensity);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 68L, waterOnlyPass ? 1.0f : 0.0f);
+                settingsData.set(ValueLayout.JAVA_FLOAT, 72L, cfg.hdrOutputEnabled ? 1.0f : 0.0f);
+                
+                encoder.setBytes(cameraData, 20L, 10L);
+                encoder.setBytes(envData, 40L, 11L);
+                encoder.setBytes(settingsData, 76L, 12L);
             }
             long tgWidth = (width + 15) / 16;
             long tgHeight = (height + 15) / 16;
@@ -564,6 +572,7 @@ public final class MTLBuiltinPipelines {
                 if (invViewProj != null) invViewProj.get(176, bb);
                 
                 com.prisma.config.PrismaConfig cfg = com.prisma.config.PrismaConfig.INSTANCE;
+                
                 uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 240L, cfg.bloomStrength);
                 uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 244L, cfg.lensFlareStrength);
                 uniforms.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, 248L, cfg.vignetteStrength);
