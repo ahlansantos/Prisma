@@ -16,39 +16,6 @@ using namespace metal;
                         
 // --- Analytical Point Lights (replaced ReSTIR) ---
 
-static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
-              if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
-
-              // Gerstner Ocean Waves — directional parallel swells (replaces isotropic trochoidal noise).
-              // Creates the realistic parallel-band ocean look from Imagem 3.
-              // Wave parameters: (direction.x, direction.z, frequency, amplitude)
-              const float4 waves[5] = {
-                float4( 1.00f,  0.20f, 0.45f, 0.28f),  // primary swell: near-east direction
-                float4( 0.85f, -0.52f, 0.80f, 0.18f),  // secondary swell: slight cross-chop
-                float4( 0.40f,  0.92f, 1.30f, 0.09f),  // high-freq ripple
-                float4(-0.70f,  0.72f, 1.90f, 0.04f),  // counter-swell chop
-                float4( 0.10f,  1.00f, 2.60f, 0.02f),  // micro-ripple
-              };
-
-              float2 dX = float2(0.0f);  // partial derivative accumulator
-              float wTime = time * 0.65f * speed;
-
-              for (int i = 0; i < 5; i++) {
-                float2 dir   = normalize(waves[i].xy);
-                float  freq  = waves[i].z;
-                float  amp   = waves[i].w * strength * 0.15f; // Extremely relaxed amplitude
-                float  phase = wTime * (0.9f + float(i) * 0.12f);
-                float  x     = dot(dir, pWorldXZ) * freq + phase;
-                // Gerstner derivative: steepness on crests (sharper than sinusoidal)
-                float  wave  = exp(sin(x) - 1.0f);
-                float  deriv = wave * cos(x) * freq * amp * 2.2f;
-                dX += dir * deriv;
-              }
-
-              return normalize(float3(-dX.x, 1.0f, -dX.y));
-            }
-
-            vertex DeferredVertexOut prisma_deferred_vs(uint vertexId [[vertex_id]]) {
               const float2 positions[3] = {
                 float2(-1.0,  1.0),
                 float2( 3.0,  1.0),
