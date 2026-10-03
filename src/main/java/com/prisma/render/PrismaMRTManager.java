@@ -762,6 +762,9 @@ public final class PrismaMRTManager implements AutoCloseable {
                 voxelManager,
                 this.prevViewProj,
                 waterOnlyPass,
+                this.giTexture,
+                this.volumetricsTexture,
+                this.denoisedGiTexture,
                 encoder.fence()
         );
 

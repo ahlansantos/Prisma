@@ -52,6 +52,8 @@ kernel void prisma_deferred_cs(
               texture2d<uint, access::read> prevReservoirTex [[texture(7)]],
               texture2d<uint, access::write> currReservoirTex [[texture(8)]],
               texture2d<float, access::write> velocityTex [[texture(9)]],
+              texture2d<float> giTexture [[texture(11)]],
+              texture2d<float> volumetricsTexture [[texture(12)]],
               sampler smp [[sampler(0)]],
               constant CameraData& camera [[buffer(10)]],
               constant EnvironmentData& env [[buffer(11)]],
@@ -405,12 +407,10 @@ kernel void prisma_deferred_cs(
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
               
               // --- Analytical Point Lights (deterministic, no noise) ---
-              PointLightResult ptRes = evaluatePointLights(
-                  pWorld, surfNormal, viewDir, 0.0f, 0.0f,
-                  uVoxel, settings, voxelGrid, blockUvTable, bitmaskTable,
-                  blockAtlasTex, smp, playerSkinTex, isFirstPerson, gid
-              );
-              float3 pointLights = ptRes.color;
+              float4 giData = giTexture.read(gid);
+              float3 pointLights = giData.rgb;
+              // giData.a is giData.a but we don't strictly need to assign it back if maxDarkening isn't heavily used.
+              // Wait, we DO use maxDarkening implicitly? Actually we just need pointLights.
                             float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
               float3 scaledPtLight = pointLights * dayDampen;
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
@@ -505,7 +505,7 @@ kernel void prisma_deferred_cs(
               float3 skyLight = baseAmbient + directCelestial;
 
               float daylightShadowSuppression = mix(1.0f, 0.30f, sunWeight * skyLevel);
-              float shadowOcclusion = saturate(ptRes.shadowDarkening * 0.55f * daylightShadowSuppression);
+              float shadowOcclusion = saturate(giData.a * 0.55f * daylightShadowSuppression);
 
               float3 shadowedSkyLight = skyLight * (1.0f - shadowOcclusion);
 
@@ -820,10 +820,9 @@ kernel void prisma_deferred_cs(
               }
               
               // --- Ray Traced Volumetric Fog Scattering ---
-                  float3 volumetricFog = evaluateVolumetricFog(
-                      uVoxel.camPos.xyz, viewDir, pWorld, celestialDir, celestialDirectCol, sunWeight,
-                      uVoxel, settings, voxelGrid
-                  );
+                  // Volumetrics are rendered at half resolution
+                  uint2 halfGid = uint2(gid.x / 2, gid.y / 2);
+                  float3 volumetricFog = volumetricsTexture.read(halfGid).rgb;
 
                   litRgb += volumetricFog;
 

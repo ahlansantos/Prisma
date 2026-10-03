@@ -76,6 +76,7 @@ public final class MTLBuiltinPipelines {
     private static final Map<Long, MemorySegment> depthStencilStates;
     private static final Map<Long, MemorySegment> debugPipelines;
     private static MemorySegment deferredComputePipeline;
+    private static MemorySegment denoiserPipeline = MemorySegment.NULL;
     private static MemorySegment voxelGIPipeline = MemorySegment.NULL;
     private static MemorySegment volumetricsPipeline = MemorySegment.NULL;
     private static final Map<Long, MemorySegment> deferredLightingPipelines;
@@ -146,6 +147,18 @@ public final class MTLBuiltinPipelines {
         if (!ObjC.isNil(deferredComputePipeline)) {
             ObjC.release(deferredComputePipeline);
             deferredComputePipeline = MemorySegment.NULL;
+        }
+        if (!ObjC.isNil(voxelGIPipeline)) {
+            ObjC.release(voxelGIPipeline);
+            voxelGIPipeline = MemorySegment.NULL;
+        }
+        if (!ObjC.isNil(volumetricsPipeline)) {
+            ObjC.release(volumetricsPipeline);
+            volumetricsPipeline = MemorySegment.NULL;
+        }
+        if (!ObjC.isNil(denoiserPipeline)) {
+            ObjC.release(denoiserPipeline);
+            denoiserPipeline = MemorySegment.NULL;
         }
         clearPipelines.values().forEach(ObjC::release);
         clearPipelines.clear();
@@ -226,46 +239,30 @@ public final class MTLBuiltinPipelines {
         }
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, org.joml.Matrix4fc prevViewProj, MTLFence globalFence) {
-        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, prevViewProj, false, globalFence);
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, org.joml.Matrix4fc prevViewProj, MemorySegment giTexture, MemorySegment volumetricsTexture, MemorySegment denoisedGiTexture, MTLFence globalFence) {
+        MTLBuiltinPipelines.encodeDeferredLightingPass(commandBuffer, targetColorTexture, albedoTexture, normalTexture, lightDataTexture, worldDepthTexture, handDepthTexture, MemorySegment.NULL, playerSkinTexture, prevReservoirTex, currReservoirTex, velocityTex, aspect, fovScale, sunAngle, cameraPitch, cameraYaw, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.8f, 0.35f, 2.0f, false, true, true, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0, null, null, null, 1.0f, false, 0.53f, 0.7f, 1.0f, 0.0f, 1.0f, 0.4f, 0.2f, 0.0f, 1.0f, 16.0f, 0.0f, null, prevViewProj, false, giTexture, volumetricsTexture, denoisedGiTexture, globalFence);
     }
 
-    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, boolean waterOnlyPass, MTLFence globalFence) {
+    public static void encodeDeferredLightingPass(MTLCommandBuffer commandBuffer, MemorySegment targetColorTexture, MemorySegment albedoTexture, MemorySegment normalTexture, MemorySegment lightDataTexture, MemorySegment worldDepthTexture, MemorySegment handDepthTexture, MemorySegment blockAtlasTexture, MemorySegment playerSkinTexture, MemorySegment prevReservoirTex, MemorySegment currReservoirTex, MemorySegment velocityTex, float aspect, float fovScale, float sunAngle, float cameraPitch, float cameraYaw, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean sunShadowsEnabled, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, float skyR, float skyG, float skyB, float sunriseAlpha, float sunriseR, float sunriseG, float sunriseB, float starBrightness, float cloudsEnabled, float cloudSteps, float rainStrength, VoxelGridManager voxelManager, org.joml.Matrix4fc prevViewProj, boolean waterOnlyPass, MemorySegment giTexture, MemorySegment volumetricsTexture, MemorySegment denoisedGiTexture, MTLFence globalFence) {
         try (AutoreleasePool autoreleasePool = AutoreleasePool.push();){
-            MTLComputeCommandEncoder encoder;
             if (ObjC.isNil(targetColorTexture) || ObjC.isNil(albedoTexture)) {
                 return;
             }
             long width = MTLTexture.width(targetColorTexture);
             long height = MTLTexture.height(targetColorTexture);
+            long halfWidth = Math.max(1, width / 2);
+            long halfHeight = Math.max(1, height / 2);
             if (width <= 0L || height <= 0L) {
                 return;
             }
-            MemorySegment pipeline = MTLBuiltinPipelines.ensureDeferredComputePipeline();
-            if (ObjC.isNil(pipeline)) {
-                return;
-            }
-            encoder = commandBuffer.makeComputeCommandEncoder();
-            if (globalFence != null) {
-                encoder.waitForFence(globalFence);
-            }
-            
-            encoder.setComputePipelineState(pipeline);
-            encoder.setTexture(albedoTexture, 0L);
-            encoder.setTexture(normalTexture, 1L);
-            encoder.setTexture(lightDataTexture, 2L);
-            encoder.setTexture(worldDepthTexture, 3L);
-            encoder.setTexture(handDepthTexture, 4L);
-            encoder.setTexture(blockAtlasTexture, 5L);
-            encoder.setTexture(playerSkinTexture, 6L);
-            encoder.setTexture(prevReservoirTex, 7L);
-            encoder.setTexture(currReservoirTex, 8L);
-            encoder.setTexture(velocityTex, 9L);
-            encoder.setTexture(targetColorTexture, 10L);
-            encoder.setSamplerState(presentLinearSampler, 0L);
-            
-            MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
-            try (MemoryStack stack = MemoryStack.stackPush();){
+
+            MemorySegment giPipeline = MTLBuiltinPipelines.ensureVoxelGIPipeline();
+            MemorySegment denoiserPipeline = MTLBuiltinPipelines.ensureDenoiserPipeline();
+            MemorySegment volumetricsPipeline = MTLBuiltinPipelines.ensureVolumetricsPipeline();
+            MemorySegment deferredPipeline = MTLBuiltinPipelines.ensureDeferredComputePipeline();
+            if (ObjC.isNil(deferredPipeline)) return;
+
+            try (MemoryStack stack = MemoryStack.stackPush()) {
                 PrismaConfig cfg = PrismaConfig.INSTANCE;
                 MemorySegment cameraData = MemorySegment.ofAddress(stack.nmalloc(16, 20)).reinterpret(20L);
                 cameraData.set(ValueLayout.JAVA_FLOAT, 0L, aspect);
@@ -295,7 +292,6 @@ public final class MTLBuiltinPipelines {
                 envData.set(ValueLayout.JAVA_FLOAT, 36L, rainStrength);
                 
                 MemorySegment settingsData = MemorySegment.ofAddress(stack.nmalloc(16, 76)).reinterpret(76L);
-                
                 settingsData.set(ValueLayout.JAVA_FLOAT, 0L, cfg.sunShadowsEnabled ? 1.0f : 0.0f);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 4L, cfg.waterWavesEnabled ? cfg.waterWaveStrength : 0.0f);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 8L, cfg.waterWaveSpeed);
@@ -308,29 +304,99 @@ public final class MTLBuiltinPipelines {
                 settingsData.set(ValueLayout.JAVA_FLOAT, 36L, (float)cfg.cloudQualitySteps);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 40L, cfg.reflectionsEnabled ? 1.0f : 0.0f);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 44L, cfg.cloudsInReflections ? 1.0f : 0.0f);
-                settingsData.set(ValueLayout.JAVA_FLOAT, 48L, 0.0f); // pointLightSoftShadows?
+                settingsData.set(ValueLayout.JAVA_FLOAT, 48L, 0.0f);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 52L, (float)cfg.shadowRayCount);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 56L, cfg.rayMarchedFogEnabled ? 1.0f : 0.0f);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 60L, (float)cfg.rayMarchedFogSamples);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 64L, cfg.rayMarchedFogIntensity);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 68L, waterOnlyPass ? 1.0f : 0.0f);
                 settingsData.set(ValueLayout.JAVA_FLOAT, 72L, cfg.hdrOutputEnabled ? 1.0f : 0.0f);
-                
-                encoder.setBytes(cameraData, 20L, 10L);
-                encoder.setBytes(envData, 40L, 11L);
-                encoder.setBytes(settingsData, 76L, 12L);
+
+                long tgWidth = (width + 15) / 16;
+                long tgHeight = (height + 15) / 16;
+                long tgHalfWidth = (halfWidth + 15) / 16;
+                long tgHalfHeight = (halfHeight + 15) / 16;
+
+                // PASS 1: Voxel GI
+                if (!ObjC.isNil(giPipeline) && !ObjC.isNil(giTexture)) {
+                    MTLComputeCommandEncoder encoder = commandBuffer.makeComputeCommandEncoder();
+                    if (globalFence != null) encoder.waitForFence(globalFence);
+                    encoder.setComputePipelineState(giPipeline);
+                    encoder.setTexture(giTexture, 0L);
+                    encoder.setTexture(normalTexture, 1L);
+                    encoder.setTexture(worldDepthTexture, 2L);
+                    encoder.setTexture(blockAtlasTexture, 5L);
+                    encoder.setTexture(playerSkinTexture, 6L);
+                    encoder.setSamplerState(presentLinearSampler, 0L);
+                    MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
+                    encoder.setBytes(cameraData, 20L, 10L);
+                    encoder.setBytes(envData, 40L, 11L);
+                    encoder.setBytes(settingsData, 76L, 12L);
+                    encoder.dispatchThreadgroups(tgWidth, tgHeight, 1, 16, 16, 1);
+                    encoder.endEncoding();
+                }
+
+                // PASS 2: Denoiser
+                if (!ObjC.isNil(denoiserPipeline) && !ObjC.isNil(denoisedGiTexture)) {
+                    MTLComputeCommandEncoder encoder = commandBuffer.makeComputeCommandEncoder();
+                    encoder.setComputePipelineState(denoiserPipeline);
+                    encoder.setTexture(giTexture, 0L);
+                    encoder.setTexture(denoisedGiTexture, 1L);
+                    encoder.setTexture(normalTexture, 2L);
+                    encoder.setTexture(worldDepthTexture, 3L);
+                    encoder.setBytes(cameraData, 20L, 10L);
+                    encoder.setBytes(envData, 40L, 11L);
+                    encoder.setBytes(settingsData, 76L, 12L);
+                    encoder.dispatchThreadgroups(tgWidth, tgHeight, 1, 16, 16, 1);
+                    encoder.endEncoding();
+                }
+
+                // PASS 3: Volumetrics
+                if (!ObjC.isNil(volumetricsPipeline) && !ObjC.isNil(volumetricsTexture)) {
+                    MTLComputeCommandEncoder encoder = commandBuffer.makeComputeCommandEncoder();
+                    encoder.setComputePipelineState(volumetricsPipeline);
+                    encoder.setTexture(volumetricsTexture, 0L);
+                    encoder.setTexture(worldDepthTexture, 2L);
+                    MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
+                    encoder.setBytes(cameraData, 20L, 10L);
+                    encoder.setBytes(envData, 40L, 11L);
+                    encoder.setBytes(settingsData, 76L, 12L);
+                    encoder.dispatchThreadgroups(tgHalfWidth, tgHalfHeight, 1, 16, 16, 1);
+                    encoder.endEncoding();
+                }
+
+                // PASS 4: Deferred Composition
+                {
+                    MTLComputeCommandEncoder encoder = commandBuffer.makeComputeCommandEncoder();
+                    encoder.setComputePipelineState(deferredPipeline);
+                    encoder.setTexture(albedoTexture, 0L);
+                    encoder.setTexture(normalTexture, 1L);
+                    encoder.setTexture(lightDataTexture, 2L);
+                    encoder.setTexture(worldDepthTexture, 3L);
+                    encoder.setTexture(handDepthTexture, 4L);
+                    encoder.setTexture(blockAtlasTexture, 5L);
+                    encoder.setTexture(playerSkinTexture, 6L);
+                    encoder.setTexture(prevReservoirTex, 7L);
+                    encoder.setTexture(currReservoirTex, 8L);
+                    encoder.setTexture(velocityTex, 9L);
+                    encoder.setTexture(targetColorTexture, 10L);
+                    encoder.setTexture(denoisedGiTexture, 11L);
+                    encoder.setTexture(volumetricsTexture, 12L);
+                    encoder.setSamplerState(presentLinearSampler, 0L);
+                    MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
+                    encoder.setBytes(cameraData, 20L, 10L);
+                    encoder.setBytes(envData, 40L, 11L);
+                    encoder.setBytes(settingsData, 76L, 12L);
+                    
+                    encoder.dispatchThreadgroups(tgWidth, tgHeight, 1, 16, 16, 1);
+                    if (globalFence != null) {
+                        encoder.updateFence(globalFence);
+                    }
+                    encoder.endEncoding();
+                }
             }
-            long tgWidth = (width + 15) / 16;
-            long tgHeight = (height + 15) / 16;
-            encoder.dispatchThreadgroups(tgWidth, tgHeight, 1, 16, 16, 1);
-            if (globalFence != null) {
-                encoder.updateFence(globalFence);
-            }
-            
-            encoder.endEncoding();
         }
     }
-
     private static void bindVoxelUniformsForDeferred(MTLComputeCommandEncoder encoder, VoxelGridManager voxelManager, float camPosX, float camPosY, float camPosZ, float camRightX, float camRightY, float camRightZ, float playerPosX, float playerPosY, float playerPosZ, float playerHeight, float playerBodyYaw, float shadowQuality, boolean playerShadowEnabled, boolean playerReflectionEnabled, float playerLimbSwing, float playerLimbAmount, float playerIsCrouch, float playerAttackAnim, float playerHeadYawDelta, float playerHeadPitch, int activeMobCount, float[] mobData, org.joml.Matrix4fc invViewProj, org.joml.Matrix4fc viewProj, float doubleAoStrength, boolean pointLightsEnabled, org.joml.Matrix4fc prevViewProj) {
         VoxelGridManager.GridState gridState = voxelManager != null ? voxelManager.activeState() : null;
         VoxelGridManager.GridState gridState2 = gridState;
@@ -658,6 +724,36 @@ public final class MTLBuiltinPipelines {
         deferredComputePipeline = device.newComputePipelineState(function);
         ObjC.release(function);
         return deferredComputePipeline;
+    }
+
+    private static MemorySegment ensureVoxelGIPipeline() {
+        if (!ObjC.isNil(voxelGIPipeline)) return voxelGIPipeline;
+        MemorySegment function = device.newFunction(PrismaShaderLoader.readShaderSource("prisma_voxel_gi_cs.metal"), "prisma_voxel_gi_cs");
+        if (!ObjC.isNil(function)) {
+            voxelGIPipeline = device.newComputePipelineState(function);
+            ObjC.release(function);
+        }
+        return voxelGIPipeline;
+    }
+
+    private static MemorySegment ensureVolumetricsPipeline() {
+        if (!ObjC.isNil(volumetricsPipeline)) return volumetricsPipeline;
+        MemorySegment function = device.newFunction(PrismaShaderLoader.readShaderSource("prisma_volumetrics_cs.metal"), "prisma_volumetrics_cs");
+        if (!ObjC.isNil(function)) {
+            volumetricsPipeline = device.newComputePipelineState(function);
+            ObjC.release(function);
+        }
+        return volumetricsPipeline;
+    }
+
+    private static MemorySegment ensureDenoiserPipeline() {
+        if (!ObjC.isNil(denoiserPipeline)) return denoiserPipeline;
+        MemorySegment function = device.newFunction(PrismaShaderLoader.readShaderSource("prisma_denoiser_cs.metal"), "prisma_denoiser_cs");
+        if (!ObjC.isNil(function)) {
+            denoiserPipeline = device.newComputePipelineState(function);
+            ObjC.release(function);
+        }
+        return denoiserPipeline;
     }
 
     private static MemorySegment ensureDepthStencilState(MTLCompareFunction compareOp, boolean writeDepth) {
