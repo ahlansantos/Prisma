@@ -406,11 +406,11 @@ kernel void prisma_deferred_cs(
               
               // --- Analytical Point Lights (deterministic, no noise) ---
               PointLightResult ptRes = evaluatePointLights(
-                  pWorld, surfNormal, rWorld, 0.0f, 0.0f,
+                  pWorld, surfNormal, viewDir, 0.0f, 0.0f,
                   uVoxel, settings, voxelGrid, blockUvTable, bitmaskTable,
                   blockAtlasTex, smp, playerSkinTex, isFirstPerson, gid
               );
-              float3 pointLights = ptRes.diffuse;
+              float3 pointLights = ptRes.color;
                             float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
               float3 scaledPtLight = pointLights * dayDampen;
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
@@ -821,12 +821,12 @@ kernel void prisma_deferred_cs(
               
               // --- Ray Traced Volumetric Fog Scattering ---
                   float3 volumetricFog = evaluateVolumetricFog(
-                      ro, rWorld, pWorld, celestialDir, celestialCol, sunWeight,
+                      uVoxel.camPos.xyz, viewDir, pWorld, celestialDir, celestialDirectCol, sunWeight,
                       uVoxel, settings, voxelGrid
                   );
 
                   litRgb += volumetricFog;
-              }
+
               
               // --- Luma-Preserving Filmic Tone Mapping ---
               // Preserves Minecraft's vibrant colors (lush green grass, deep blue sky, rich sunset)

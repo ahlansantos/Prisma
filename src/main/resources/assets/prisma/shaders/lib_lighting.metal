@@ -1,11 +1,6 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct PointLightResult {
-    float3 diffuse;
-    float  shadowDarkening;
-    float  specular;
-};
 
 // Analytical Point Lights (deterministic, no noise)
 static inline PointLightResult evaluatePointLights(
@@ -97,7 +92,7 @@ static inline PointLightResult evaluatePointLights(
         float currentDarkening = (1.0f - visibility) * NdotL * atten * saturate(uVoxel.lights[li].colorAndIntensity.w * 0.5f);
         maxDarkening = max(maxDarkening, currentDarkening);
     }
-    ptRes.diffuse = pointLights;
+    ptRes.color = pointLights;
     ptRes.shadowDarkening = maxDarkening;
     return ptRes;
 }
