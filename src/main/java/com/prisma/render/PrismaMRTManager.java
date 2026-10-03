@@ -697,10 +697,10 @@ public final class PrismaMRTManager implements AutoCloseable {
         MemorySegment lightData = lightDataTexture();
         MemorySegment hdrTarget = hdrColorTexture();
 
+        ensureGiTexture(width, height);
+        ensureVolumetricsTexture(width, height);
+        ensureDenoisedGiTexture(width, height);
 
-        
-
-        
         this.frameIndex++;
 
             MTLBuiltinPipelines.encodeDeferredLightingPass(
