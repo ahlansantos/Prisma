@@ -34,6 +34,7 @@ public class PrismaLevelRendererMixin {
             Operation<Void> original
     ) {
         Minecraft mc = Minecraft.getInstance();
+        com.prisma.render.PrismaJoinWarning.onFrame(mc);
         RenderTarget mainTarget = mc.gameRenderer != null ? mc.gameRenderer.mainRenderTarget() : null;
 
         if (mainTarget != null) {
@@ -58,6 +59,8 @@ public class PrismaLevelRendererMixin {
 
             // 4. Executa o pass de água com waves, Fresnel e reflexões na superfície da água recém-desenhada!
             PrismaDeferredRenderer.performDeferredLighting(mc, mainTarget, true);
+            
+
         } else {
             original.call(instance, chunkSectionsToRender, featureFrame, renderPass);
         }

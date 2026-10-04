@@ -52,6 +52,8 @@ import org.lwjgl.system.MemoryStack;
 
 @Environment(value=EnvType.CLIENT)
 public final class MTLBuiltinPipelines {
+    private static final java.lang.foreign.MemorySegment[] voxelUniformsRing = new java.lang.foreign.MemorySegment[30];
+    private static int voxelUniformsRingIndex = 0;
     
 
     
@@ -275,7 +277,7 @@ public final class MTLBuiltinPipelines {
                     float partialTick = mc.getDeltaTracker() != null ? mc.getDeltaTracker().getGameTimeDeltaPartialTick(false) : 0.0f;
                     gameTime = ((float)(mc.level.getGameTime() % 2400000L) + partialTick) / 20.0f;
                 } else {
-                    gameTime = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
+                    gameTime = (float)(System.nanoTime() / 1000000L % 30600000L) / 1000.0f;
                 }
                 cameraData.set(ValueLayout.JAVA_FLOAT, 16L, gameTime);
                 
@@ -325,6 +327,7 @@ public final class MTLBuiltinPipelines {
                     encoder.setTexture(giTexture, 0L);
                     encoder.setTexture(normalTexture, 1L);
                     encoder.setTexture(worldDepthTexture, 2L);
+                    encoder.setTexture(com.prisma.render.PrismaMRTManager.sVxgiTexture, 7L);
                     encoder.setTexture(blockAtlasTexture, 5L);
                     encoder.setTexture(playerSkinTexture, 6L);
                     encoder.setSamplerState(presentLinearSampler, 0L);
@@ -344,6 +347,13 @@ public final class MTLBuiltinPipelines {
                     encoder.setTexture(denoisedGiTexture, 1L);
                     encoder.setTexture(normalTexture, 2L);
                     encoder.setTexture(worldDepthTexture, 3L);
+                    encoder.setTexture(com.prisma.render.PrismaMRTManager.sVxgiTexture, 4L);
+                    encoder.setTexture(com.prisma.render.PrismaMRTManager.sDenoisedVxgiTexture, 5L);
+                    encoder.setTexture(com.prisma.render.PrismaMRTManager.sVxgiHistoryTexture, 6L);
+                    MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
+                    MemorySegment prevCamSeg = MemorySegment.ofAddress(stack.nmalloc(16, 16)).reinterpret(16L);
+                    for (int pc = 0; pc < 4; pc++) prevCamSeg.set(ValueLayout.JAVA_FLOAT, pc * 4L, com.prisma.render.PrismaMRTManager.sPrevCam[pc]);
+                    encoder.setBytes(prevCamSeg, 16L, 13L);
                     encoder.setBytes(cameraData, 20L, 10L);
                     encoder.setBytes(envData, 40L, 11L);
                     encoder.setBytes(settingsData, 76L, 12L);
@@ -357,6 +367,8 @@ public final class MTLBuiltinPipelines {
                     encoder.setComputePipelineState(volumetricsPipeline);
                     encoder.setTexture(volumetricsTexture, 0L);
                     encoder.setTexture(worldDepthTexture, 2L);
+                    encoder.setTexture(blockAtlasTexture, 5L);
+                    encoder.setSamplerState(presentLinearSampler, 0L);
                     MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
                     encoder.setBytes(cameraData, 20L, 10L);
                     encoder.setBytes(envData, 40L, 11L);
@@ -382,11 +394,15 @@ public final class MTLBuiltinPipelines {
                     encoder.setTexture(targetColorTexture, 10L);
                     encoder.setTexture(denoisedGiTexture, 11L);
                     encoder.setTexture(volumetricsTexture, 12L);
+                    encoder.setTexture(com.prisma.render.PrismaMRTManager.sDenoisedVxgiTexture, 13L);
                     encoder.setSamplerState(presentLinearSampler, 0L);
                     MTLBuiltinPipelines.bindVoxelUniformsForDeferred(encoder, voxelManager, camPosX, camPosY, camPosZ, camRightX, camRightY, camRightZ, playerPosX, playerPosY, playerPosZ, playerHeight, playerBodyYaw, shadowQuality, playerShadowEnabled, playerReflectionEnabled, playerLimbSwing, playerLimbAmount, playerIsCrouch, playerAttackAnim, playerHeadYawDelta, playerHeadPitch, activeMobCount, mobData, invViewProj, viewProj, doubleAoStrength, pointLightsEnabled, prevViewProj);
                     encoder.setBytes(cameraData, 20L, 10L);
                     encoder.setBytes(envData, 40L, 11L);
                     encoder.setBytes(settingsData, 76L, 12L);
+                    MemorySegment prevCamSeg = MemorySegment.ofAddress(stack.nmalloc(16, 16)).reinterpret(16L);
+                    for (int pc = 0; pc < 4; pc++) prevCamSeg.set(ValueLayout.JAVA_FLOAT, pc * 4L, com.prisma.render.PrismaMRTManager.sPrevCam[pc]);
+                    encoder.setBytes(prevCamSeg, 16L, 13L);
                     
                     encoder.dispatchThreadgroups(tgWidth, tgHeight, 1, 16, 16, 1);
                     if (globalFence != null) {
@@ -416,7 +432,7 @@ public final class MTLBuiltinPipelines {
             encoder.setBuffer(MemorySegment.NULL, 0L, 4L);
         }
         try (MemoryStack stack = MemoryStack.stackPush();){
-            MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 37200)).reinterpret(37200L);
+            MemorySegment vUniforms = MemorySegment.ofAddress(stack.nmalloc(16, 44368)).reinterpret(44368L);
             vUniforms.fill((byte)0);
             if (gridState != null) {
                 vUniforms.set(ValueLayout.JAVA_INT, 0L, gridState.originX());
@@ -427,7 +443,8 @@ public final class MTLBuiltinPipelines {
                 vUniforms.set(ValueLayout.JAVA_INT, 20L, gridState.sizeY());
                 vUniforms.set(ValueLayout.JAVA_INT, 24L, gridState.sizeZ());
                 List<PointLight> lights = voxelManager != null ? voxelManager.getCombinedLights(voxelManager.handheldLight()) : gridState.lights();
-                vUniforms.set(ValueLayout.JAVA_INT, 28L, Math.min(lights.size(), 64));
+                int maxPointLightsConfig = Math.min(Math.max(16, com.prisma.config.PrismaConfig.INSTANCE.maxPointLights), 128);
+                vUniforms.set(ValueLayout.JAVA_INT, 28L, Math.min(lights.size(), maxPointLightsConfig));
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 32L, camPosX);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 36L, camPosY);
                 vUniforms.set(ValueLayout.JAVA_FLOAT, 40L, camPosZ);
@@ -520,7 +537,7 @@ public final class MTLBuiltinPipelines {
                     vUniforms.set(ValueLayout.JAVA_FLOAT, offset + 28L, pl.intensity());
                 }
                 vUniforms.set(ValueLayout.JAVA_INT, 33088L, Math.min(activeMobCount, 64));
-                vUniforms.set(ValueLayout.JAVA_INT, 33092L, 0);
+                vUniforms.set(ValueLayout.JAVA_INT, 33092L, (int) (com.prisma.render.PrismaMRTManager.sFrameIndex & 0xFFFFL));
                 vUniforms.set(ValueLayout.JAVA_INT, 33096L, 0);
                 vUniforms.set(ValueLayout.JAVA_INT, 33100L, 0);
                 if (mobData != null && activeMobCount > 0) {
@@ -534,10 +551,17 @@ public final class MTLBuiltinPipelines {
                     }
                 }
             }
-            MTLBuffer buf = device.newBuffer(37200L, 0L);
-            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(37200L), 0L, 37200L);
+            java.lang.foreign.MemorySegment oldBuf = voxelUniformsRing[voxelUniformsRingIndex];
+            if (oldBuf != null) {
+                ObjC.release(oldBuf);
+            }
+            MTLBuffer buf = device.newBuffer(44368L, 0L); // Shared storage mode
+            voxelUniformsRing[voxelUniformsRingIndex] = buf.handle();
+            voxelUniformsRingIndex = (voxelUniformsRingIndex + 1) % 30;
+            
+            MemorySegment.copy(vUniforms, 0L, buf.contents().reinterpret(44368L), 0L, 44368L);
             encoder.setBuffer(buf.handle(), 0L, 2L);
-            ObjC.release(buf.handle());
+            // DO NOT RELEASE HERE! It will be released 3 passes from now!
         }
     }
 
@@ -621,7 +645,7 @@ public final class MTLBuiltinPipelines {
                 uniforms.set(ValueLayout.JAVA_FLOAT, 0L, srcWidth > 0L ? 1.0f / (float)srcWidth : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 4L, srcHeight > 0L ? 1.0f / (float)srcHeight : 0.0f);
                 uniforms.set(ValueLayout.JAVA_FLOAT, 8L, motionBlurEnabled ? 1.0f : 0.0f);
-                float t = (float)(System.nanoTime() / 1000000L % 3600000L) / 1000.0f;
+                float t = (float)(System.nanoTime() / 1000000L % 30600000L) / 1000.0f;
                 uniforms.set(ValueLayout.JAVA_FLOAT, 12L, t);
                 
                 uniforms.set(ValueLayout.JAVA_FLOAT, 16L, isFinalPass ? 1.0f : 0.0f);

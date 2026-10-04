@@ -1,5 +1,25 @@
 # Changelog
 
+## [26.3-Preview.4]
+
+### Features & Improvements
+- **True HDR Output Unlocked:** Removed an artificial SDR limit in the post-processing pipeline that was restricting brightness. True linear EDR values now flow directly to macOS, allowing XDR displays to output brilliant, unbound lighting and realistic highlights.
+- **MetalFX Crash Fix:** Resolved an Apple Neural Engine (`ANE inference operation failed`) crash and black screen artifact caused by division-by-zero NaNs in point light soft shadow jittering.
+- **Ray Traced Fog & Volumetrics Overhaul:** Replaced basic Bayer jitter with Interleaved Gradient Noise to eliminate banding and scanlines. Added a distance cap and decoupled local point light accumulations to prevent them from blowing up to 20x brightness on distant fog rays.
+- **Emissive Blocks Fix:** Sea Lanterns, Glowstone, and other emissives now correctly bypass overlapping point-light summation on their own surfaces, maintaining their rich texture colors instead of blooming out to pure white.
+- **RTAO for Flat Blocks:** Ray Traced Ambient Occlusion now correctly identifies Snow Layers and Carpets (1/8th block height), preventing them from casting massive full-block shadows.
+- **Lightweight Floodfill Option:** When Ray Traced Point Light Shadows are toggled off, the engine now uses an aggressively optimized, soft-capped additive floodfill mode that replicates SEUS PTGI's shadowless performance without blowing out indoor areas.
+- **Scrollable Single-Page Settings UI:** Refactored the settings screen into a clean, dynamically resizing single-page scrolling list to fit any resolution or GUI scale.
+- **Buffed Sunlight Intensity:** Increased celestial direct light intensity by nearly 2x to compete properly with artificial lights and achieve a natural golden hour rim light.
+- **VXGI Temporal & Spatial Denoiser:** Substituted oscillating temporal sampling with complementary 180° non-rotating hemisphere rays, 5x5 cross-bilateral filter, and world-space temporal reprojection. Eliminates the spinning/strobing effect ("rave") and stabilizes bounce lighting.
+- **Wide Hemispherical GI Spread:** Wide cosine distribution allows indirect light to spread naturally across ceilings, walls, and crevices rather than concentrating only on adjacent walls.
+- **Bilinear GI Sampling:** Hardware bilinear interpolation eliminates distant moiré stripes and perspective banding on surfaces.
+- **Contact RTAO & 4x4x4 Bitmask:** Refined RTAO radius (0.45–1.15 blocks) and added bitmask testing for non-full blocks (stairs, slabs, trapdoors, fences, lanterns).
+- **Point Lights Overhaul:** Floor torches and wall torches unified at 4x intensity. Reach increased to 14–20 blocks with up to 128 active lights. Disabling point lights in settings now completely skips ray/lightmap evaluation with zero performance cost.
+- **Volumetric Fog Balance:** Torch flare smoothed to a warm atmospheric halo; base fog extinction boosted.
+- **Glass Backlit Lighting:** Prevented transmitted light through glass from turning pitch black when illuminated from behind.
+- **Reflection Specular Occlusion:** Point light specular highlights in reflections now check voxel occlusion through solid walls.
+
 ## [26.3-Preview.3 Hotfix]
 
 ### Features

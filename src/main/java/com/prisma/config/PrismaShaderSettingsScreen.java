@@ -134,7 +134,7 @@ public class PrismaShaderSettingsScreen extends Screen {
 
             this.listWidget.add(new SettingsEntry(Component.literal("Temporal Upscaling (MetalFX Temporal + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             
-            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 0.99, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
+            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.35, 0.99, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
                 PrismaConfig.INSTANCE.metalFxResolutionScale = v.floatValue();
                 PrismaConfig.INSTANCE.hasCustomMetalFxScale = true;
                 PrismaConfig.INSTANCE.save();
@@ -174,7 +174,7 @@ public class PrismaShaderSettingsScreen extends Screen {
         }
         else if (this.currentTab == Tab.PRESETS) {
             this.listWidget.add(new SettingsEntry(Component.literal("Global Presets").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            this.listWidget.add(new SettingsEntry(Component.literal("Recommended: Run Minecraft at 1152x720").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
+            this.listWidget.add(new SettingsEntry(Component.literal("Recommended for M1 Air: Run Minecraft at 1152x720 (720p)").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
             
             Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (35-60 FPS)"), (b) -> {
                 PrismaConfig.INSTANCE.shadowRayCount = 3;

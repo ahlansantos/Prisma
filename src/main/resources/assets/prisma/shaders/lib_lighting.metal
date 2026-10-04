@@ -18,14 +18,16 @@ static inline PointLightResult evaluatePointLights(
     
     float3 rayOrigin = pWorld + surfNormal * 0.05f;
     bool ptShadowsEnabled = (uVoxel.camRight.w > 0.5f);
-    int rayCount = ptShadowsEnabled ? int(settings.shadowRayCount) : 0;
+    int rayCount = int(settings.shadowRayCount);
     
     float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
     float dAngle = ign * 6.2831853f;
     
     float maxDarkening = 0.0f;
             
-    for (int li = 0; li < lightCount && li < 32; li++) {
+    int maxEval = min(lightCount, min(int(settings.maxPointLights), 128));
+            
+    for (int li = 0; li < maxEval; li++) {
         float3 lPos = uVoxel.lights[li].posAndRadius.xyz;
         float3 toL = lPos - pWorld;
         float distL = length(toL);
@@ -38,19 +40,24 @@ static inline PointLightResult evaluatePointLights(
         
         float atten = saturate(1.0f - (distL / lRad));
         float smoothAtten = atten * atten;
-        float3 lColor = uVoxel.lights[li].colorAndIntensity.xyz * uVoxel.lights[li].colorAndIntensity.w;
+        float intensity = ptShadowsEnabled ? uVoxel.lights[li].colorAndIntensity.w : 1.0f;
+        // Apply tonemap-safe saturation to preserve colors when shadows are off
+        float3 rawColor = uVoxel.lights[li].colorAndIntensity.xyz;
+        float3 lColor = ptShadowsEnabled ? (rawColor * intensity) : (max(rawColor, float3(0.1f)) * intensity * 0.8f);
         
-        int numSamples = max(1, min(rayCount, 32));
-        float radius = (rayCount > 0) ? 0.30f : 0.0f;
+        float visibility = 1.0f;
+        float3 tintCol = float3(1.0f);
         
-        float totalVis = 0.0f;
-        float3 totalTint = float3(0.0f);
-        float3 up = abs(L.y) < 0.99f ? float3(0, 1, 0) : float3(1, 0, 0);
-        float3 tangent = normalize(cross(up, L));
-        float3 bitangent = cross(L, tangent);
-        
-        for (int si = 0; si < numSamples; si++) {
-            if (ptShadowsEnabled) {
+        if (ptShadowsEnabled) {
+            int numSamples = max(1, min(rayCount, 32));
+            float radius = (rayCount > 0) ? 0.30f : 0.0f;
+            float totalVis = 0.0f;
+            float3 totalTint = float3(0.0f);
+            float3 up = abs(L.y) < 0.99f ? float3(0, 1, 0) : float3(1, 0, 0);
+            float3 tangent = normalize(cross(up, L));
+            float3 bitangent = cross(L, tangent);
+            
+            for (int si = 0; si < numSamples; si++) {
                 float rRadius = sqrt((float(si) + 0.5f) / float(numSamples)) * radius;
                 float theta = float(si) * 2.399963f + dAngle;
                 float2 disk = float2(cos(theta), sin(theta)) * rRadius;
@@ -64,34 +71,48 @@ static inline PointLightResult evaluatePointLights(
                 ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayOrigin, targetPos, blockAtlasTex, smp, blockUvTable, bitmaskTable);
                 
                 bool isHandheld = (length(lPos - uVoxel.camPos.xyz) < 1.6f) || (length(lPos - uVoxel.playerPos.xyz) < 1.8f);
-                bool canCastPtPlayerShadow = (!isHandheld && uVoxel.shadowParams.w > 0.5f && length(rayOrigin.xz - uVoxel.playerPos.xz) < 12.0f);
-                if (isFirstPerson) {
-                    canCastPtPlayerShadow = canCastPtPlayerShadow && (rayOrigin.y <= uVoxel.playerPos.y + 1.4f);
-                }
+                float playerDist = length(rayOrigin.xz - uVoxel.playerPos.xz);
+                float playerShadowFactor = (!isHandheld && uVoxel.shadowParams.w > 0.5f) ? (1.0f - smoothstep(10.0f, 16.0f, playerDist)) : 0.0f;
+                bool canCastPtPlayerShadow = (playerShadowFactor > 0.001f);
                 
                 if (canCastPtPlayerShadow && sr.vis > 0.0f) {
-                    float3 ptL = normalize(targetPos - rayOrigin);
-                    PlayerHit hit; hit.hitDist = 1e6f;
-                    tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                    if (hit.hitDist > 0.0f && hit.hitDist < jitteredDist) {
-                        sr.vis = 0.0f;
+                    float3 dirToTarget = targetPos - rayOrigin;
+                    float distToTarget = length(dirToTarget);
+                    if (distToTarget > 0.01f) {
+                        float3 ptL = dirToTarget / distToTarget;
+                        PlayerHit hit; hit.hitDist = 1e6f;
+                        tracePlayerOBB(rayOrigin, ptL, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
+                        if (hit.hitDist > 0.15f && hit.hitDist < jitteredDist) {
+                            sr.vis = mix(sr.vis, 0.0f, playerShadowFactor);
+                        }
                     }
                 }
                 totalVis += sr.vis;
                 totalTint += sr.tint;
-            } else {
-                totalVis += 1.0f;
-                totalTint += float3(1.0f);
             }
+            visibility = totalVis / float(numSamples);
+            tintCol = totalTint / float(numSamples);
         }
         
-        float visibility = totalVis / float(numSamples);
-        float3 tintCol = totalTint / float(numSamples);
         pointLights += lColor * tintCol * NdotL * smoothAtten * visibility;
         
         float currentDarkening = (1.0f - visibility) * NdotL * atten * saturate(uVoxel.lights[li].colorAndIntensity.w * 0.5f);
         maxDarkening = max(maxDarkening, currentDarkening);
     }
+    
+    // Soft-cap massive light buildup when shadows are off (prevents infinite additive brightness indoors)
+    if (!ptShadowsEnabled) {
+        float maxPl = max(pointLights.r, max(pointLights.g, pointLights.b));
+        if (maxPl > 1.2f) {
+            pointLights *= (1.2f + (maxPl - 1.2f) * 0.15f) / maxPl;
+        }
+    }
+    
+    if (any(isnan(pointLights)) || any(isinf(pointLights))) {
+        pointLights = float3(0.0f);
+        maxDarkening = 0.0f;
+    }
+    
     ptRes.color = pointLights;
     ptRes.shadowDarkening = maxDarkening;
     return ptRes;

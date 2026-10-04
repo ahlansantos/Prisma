@@ -53,46 +53,52 @@ public class PrismaOverlayScreen extends Screen {
 
     @Override
     protected void init() {
-        this.listWidget = new SettingsListWidget(this.minecraft, 330, this.height, 40, 24);
-this.listWidget.setX(0);
+        // Remove hardcoded width to support responsive UI (full width - 20 padding)
+        int listWidth = Math.min(600, this.width - 20);
+        int listX = (this.width - listWidth) / 2;
         
-        int w = 150;
-        int h = 20;
-
-        // Tabs at the top
-        int tabW = 85;
-        int startX = 10;
-        for (int i = 0; i < Tab.values().length; i++) {
-            Tab t = Tab.values()[i];
-            Button btn = Button.builder(Component.literal(t.name), (b) -> {
-                PrismaConfig.INSTANCE.save();
-                this.minecraft.setScreenAndShow(new PrismaOverlayScreen(this.parent, t));
-            }).bounds(startX + i * 85, 10, 80, 20).build();
-            if (t == this.currentTab) btn.active = false;
-            this.addRenderableWidget(btn);
-        }
+        // Pass height as this.height - 60 (30px top padding + 30px bottom padding)
+        this.listWidget = new SettingsListWidget(this.minecraft, listWidth, this.height - 60, 30, 24);
+        this.listWidget.setX(listX);
 
         if (!"VXR Default".equals(PrismaConfig.INSTANCE.shaderPack)) {
             this.listWidget.add(new SettingsEntry(Component.literal("Shader Settings Unavailable").withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD)));
             this.listWidget.add(new SettingsEntry(Component.literal("Custom MSL Shaders currently do not support").withStyle(net.minecraft.ChatFormatting.GRAY)));
             this.listWidget.add(new SettingsEntry(Component.literal("in-game UI configuration menus.").withStyle(net.minecraft.ChatFormatting.GRAY)));
-        } else if (this.currentTab == Tab.LIGHTING) {
+        } else {
+            // == LIGHTING ==
             this.listWidget.add(new SettingsEntry(Component.literal("Global Illumination").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button bVxao = createToggle("VX RTAO", PrismaConfig.INSTANCE.doubleAoEnabled, v -> PrismaConfig.INSTANCE.doubleAoEnabled = v);
             ConfigSlider bVxaoStrength = new ConfigSlider("VX RTAO Radius", 0.5, 2.5, PrismaConfig.INSTANCE.doubleAoStrength, true, v -> { PrismaConfig.INSTANCE.doubleAoStrength = v.floatValue(); PrismaConfig.INSTANCE.save(); });
             this.listWidget.add(new SettingsEntry(bVxao, bVxaoStrength));
             Button bVxgi = createToggle("VX RTGI", PrismaConfig.INSTANCE.vxgiEnabled, v -> PrismaConfig.INSTANCE.vxgiEnabled = v);
             this.listWidget.add(new SettingsEntry(bVxgi, null));
+
+            // == DISPLAY ==
+            this.listWidget.add(new SettingsEntry(Component.literal("Display Output").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button bHdr = createToggle("Real HDR (BT.2020 PQ)", PrismaConfig.INSTANCE.hdrOutputEnabled, v -> PrismaConfig.INSTANCE.hdrOutputEnabled = v);
             this.listWidget.add(new SettingsEntry(bHdr, null));
+
+            // == SHADOWS ==
+            this.listWidget.add(new SettingsEntry(Component.literal("Shadows & Quality").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
+            Button b5 = createToggle("Sun Shadows", PrismaConfig.INSTANCE.sunShadowsEnabled, v -> PrismaConfig.INSTANCE.sunShadowsEnabled = v);
+            Button b7 = createToggle("Player Shadows", PrismaConfig.INSTANCE.playerShadowEnabled, v -> PrismaConfig.INSTANCE.playerShadowEnabled = v);
+            this.listWidget.add(new SettingsEntry(b5, b7));
+            ConfigSlider bRays = new ConfigSlider("Penumbra Ray Count", 0.0, 32.0, PrismaConfig.INSTANCE.shadowRayCount, false, v -> {
+                PrismaConfig.INSTANCE.shadowRayCount = v.intValue();
+                PrismaConfig.INSTANCE.save();
+            });
+            bRays.setWidth(310);
+            this.listWidget.add(new SettingsEntry(bRays, null));
             
-            Button b4 = createToggle("Point Lights", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
+            Button bPointLights = createToggle("Ray Traced Point Light Shadows", PrismaConfig.INSTANCE.pointLightsEnabled, v -> PrismaConfig.INSTANCE.pointLightsEnabled = v);
             ConfigSlider bMaxLights = new ConfigSlider("Max Point Lights", 16.0, 256.0, PrismaConfig.INSTANCE.maxPointLights, false, v -> {
                 PrismaConfig.INSTANCE.maxPointLights = v.intValue();
                 PrismaConfig.INSTANCE.save();
             });
-            this.listWidget.add(new SettingsEntry(b4, bMaxLights));
+            this.listWidget.add(new SettingsEntry(bPointLights, bMaxLights));
 
+            // == FOG ==
             this.listWidget.add(new SettingsEntry(Component.literal("Volumetric Fog").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button bFog = createToggle("Ray Traced Fog", PrismaConfig.INSTANCE.rayMarchedFogEnabled, v -> PrismaConfig.INSTANCE.rayMarchedFogEnabled = v);
             ConfigSlider bFogSamples = new ConfigSlider("Fog Ray Steps", 4.0, 64.0, PrismaConfig.INSTANCE.rayMarchedFogSamples, false, v -> {
@@ -106,50 +112,35 @@ this.listWidget.setX(0);
             });
             this.listWidget.add(new SettingsEntry(bFogIntensity, null));
 
-            this.listWidget.add(new SettingsEntry(Component.literal("Shadows & Quality").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b5 = createToggle("Sun Shadows", PrismaConfig.INSTANCE.sunShadowsEnabled, v -> PrismaConfig.INSTANCE.sunShadowsEnabled = v);
-            Button b7 = createToggle("Player Shadows", PrismaConfig.INSTANCE.playerShadowEnabled, v -> PrismaConfig.INSTANCE.playerShadowEnabled = v);
-            this.listWidget.add(new SettingsEntry(b5, b7));
-            
-            ConfigSlider bRays = new ConfigSlider("Penumbra Ray Count", 0.0, 32.0, PrismaConfig.INSTANCE.shadowRayCount, false, v -> {
-                PrismaConfig.INSTANCE.shadowRayCount = v.intValue();
-                PrismaConfig.INSTANCE.save();
-            });
-            bRays.setWidth(310); // Make it take two slots if possible
-            this.listWidget.add(new SettingsEntry(bRays, null));
-            
+            // == REFLECTIONS ==
             this.listWidget.add(new SettingsEntry(Component.literal("Ray Traced Reflections").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b9 = createToggle("Reflections", PrismaConfig.INSTANCE.reflectionsEnabled, v -> PrismaConfig.INSTANCE.reflectionsEnabled = v);
-                        this.listWidget.add(new SettingsEntry(b9, null));
-
-                                    
+            this.listWidget.add(new SettingsEntry(b9, null));
             Button b13 = createToggle("Reflect VX RTAO", PrismaConfig.INSTANCE.doubleAoInReflections, v -> PrismaConfig.INSTANCE.doubleAoInReflections = v);
             Button b14 = createToggle("Reflect Clouds", PrismaConfig.INSTANCE.cloudsInReflections, v -> PrismaConfig.INSTANCE.cloudsInReflections = v);
             this.listWidget.add(new SettingsEntry(b13, b14));
-        }
-        else if (this.currentTab == Tab.WATER_CLOUDS) {
+
+            // == WATER & CLOUDS ==
             this.listWidget.add(new SettingsEntry(Component.literal("Water Settings").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             Button b1 = createToggle("Water Waves", PrismaConfig.INSTANCE.waterWavesEnabled, v -> PrismaConfig.INSTANCE.waterWavesEnabled = v);
             ConfigSlider b2 = new ConfigSlider("Wave Strength", 0.0, 2.0, PrismaConfig.INSTANCE.waterWaveStrength, true, v -> PrismaConfig.INSTANCE.waterWaveStrength = v.floatValue());
             this.listWidget.add(new SettingsEntry(b1, b2));
-
             ConfigSlider b3 = new ConfigSlider("Wave Speed", 0.0, 3.0, PrismaConfig.INSTANCE.waterWaveSpeed, true, v -> PrismaConfig.INSTANCE.waterWaveSpeed = v.floatValue());
             ConfigSlider b4 = new ConfigSlider("Water Absorption", 0.0, 5.0, PrismaConfig.INSTANCE.waterAbsorptionStrength, true, v -> PrismaConfig.INSTANCE.waterAbsorptionStrength = v.floatValue());
             this.listWidget.add(new SettingsEntry(b3, b4));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Cloud Settings").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b5 = createToggle("Volumetric Clouds", PrismaConfig.INSTANCE.volumetricCloudsEnabled, v -> PrismaConfig.INSTANCE.volumetricCloudsEnabled = v);
+            Button b5c = createToggle("Volumetric Clouds", PrismaConfig.INSTANCE.volumetricCloudsEnabled, v -> PrismaConfig.INSTANCE.volumetricCloudsEnabled = v);
             ConfigSlider b6 = new ConfigSlider("Cloud Quality", 10.0, 100.0, PrismaConfig.INSTANCE.cloudQualitySteps, false, v -> PrismaConfig.INSTANCE.cloudQualitySteps = v.intValue());
-            this.listWidget.add(new SettingsEntry(b5, b6));
-        }
-        else if (this.currentTab == Tab.PERFORMANCE) {
+            this.listWidget.add(new SettingsEntry(b5c, b6));
+
+            // == PERFORMANCE ==
             this.listWidget.add(new SettingsEntry(Component.literal("Performance").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
             ConfigSlider vrad = new ConfigSlider("Voxel Grid Radius", 2.0, 16.0, PrismaConfig.INSTANCE.voxelRadius, false, v -> PrismaConfig.INSTANCE.voxelRadius = v.intValue());
             this.listWidget.add(new SettingsEntry(vrad, null));
 
             this.listWidget.add(new SettingsEntry(Component.literal("Temporal Upscaling (MetalFX Temporal + EASU)").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            
-            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.25, 0.99, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
+            ConfigSlider bMfxQ = new ConfigSlider("Base Render Scale (MFX Input)", 0.35, 0.99, PrismaConfig.INSTANCE.metalFxResolutionScale, true, v -> {
                 PrismaConfig.INSTANCE.metalFxResolutionScale = v.floatValue();
                 PrismaConfig.INSTANCE.hasCustomMetalFxScale = true;
                 PrismaConfig.INSTANCE.save();
@@ -165,12 +156,10 @@ this.listWidget.setX(0);
             });
             this.listWidget.add(new SettingsEntry(bUnsharp, null));         
 
-        }
-        else if (this.currentTab == Tab.POST_PROCESSING) {
+            // == POST-PROCESSING ==
             this.listWidget.add(new SettingsEntry(Component.literal("Post-Processing").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            Button b1 = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
-            this.listWidget.add(new SettingsEntry(b1, null));
-            
+            Button bMb = createToggle("Motion Blur", PrismaConfig.INSTANCE.motionBlurEnabled, v -> PrismaConfig.INSTANCE.motionBlurEnabled = v);
+            this.listWidget.add(new SettingsEntry(bMb, null));
             ConfigSlider sBloom = new ConfigSlider("Bloom", 0.0, 3.0, PrismaConfig.INSTANCE.bloomStrength, true, v -> {
                 PrismaConfig.INSTANCE.bloomStrength = v.floatValue();
             });
@@ -178,7 +167,6 @@ this.listWidget.setX(0);
                 PrismaConfig.INSTANCE.lensFlareStrength = v.floatValue();
             });
             this.listWidget.add(new SettingsEntry(sLens, null));
-            
             ConfigSlider sVignette = new ConfigSlider("Vignette", 0.0, 2.0, PrismaConfig.INSTANCE.vignetteStrength, true, v -> {
                 PrismaConfig.INSTANCE.vignetteStrength = v.floatValue();
             });
@@ -186,11 +174,10 @@ this.listWidget.setX(0);
                 PrismaConfig.INSTANCE.chromaticAberrationStrength = v.floatValue();
             });
             this.listWidget.add(new SettingsEntry(sVignette, sChromatic));
-        }
-        else if (this.currentTab == Tab.PRESETS) {
+
+            // == PRESETS ==
             this.listWidget.add(new SettingsEntry(Component.literal("Global Presets").withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.BOLD)));
-            this.listWidget.add(new SettingsEntry(Component.literal("Recommended: Run Minecraft at 1152x720").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
-            
+            this.listWidget.add(new SettingsEntry(Component.literal("Recommended for M1 Air: Run Minecraft at 1152x720 (720p)").withStyle(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)));
             Button presetM1 = Button.builder(Component.literal("Preset: M1 Air Low (35-60 FPS)"), (b) -> {
                 PrismaConfig.INSTANCE.shadowRayCount = 3;
                 PrismaConfig.INSTANCE.sunShadowsEnabled = true;
@@ -206,12 +193,12 @@ this.listWidget.setX(0);
                 PrismaConfig.INSTANCE.easuResolutionScale = 0.65f;
                 PrismaConfig.INSTANCE.unsharpMaskStrength = 1.0f;
                 PrismaConfig.INSTANCE.hasCustomMetalFxScale = true;
-                
                 PrismaConfig.INSTANCE.save();
-                this.minecraft.setScreenAndShow(new PrismaOverlayScreen(this.parent, Tab.PRESETS));
+                this.minecraft.setScreenAndShow(new PrismaOverlayScreen(this.parent));
             }).bounds(0, 0, 310, 20).build();
             this.listWidget.add(new SettingsEntry(presetM1, null));
         }
+        
         this.addRenderableWidget(this.listWidget);
     }
 
@@ -255,18 +242,27 @@ this.listWidget.setX(0);
 
         @Override
         public void extractContent(GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean isMouseOver, float partialTick) {
+            int rowLeft = listWidget.getX() + 10;
+            int totalWidth = listWidget.getRowWidth() - 20;
+
             if (headerText != null) {
-                graphics.text(Minecraft.getInstance().font, headerText, 10, this.getY() + 10, -1);
+                graphics.text(Minecraft.getInstance().font, headerText, rowLeft, this.getY() + 10, -1);
                 return;
             }
             if (btn1 != null) {
-                btn1.setX(10);
+                btn1.setX(rowLeft);
                 btn1.setY(this.getY());
+                if (btn2 == null) {
+                    btn1.setWidth(totalWidth);
+                } else {
+                    btn1.setWidth(totalWidth / 2 - 5);
+                }
                 btn1.extractRenderState(graphics, mouseX, mouseY, partialTick);
             }
             if (btn2 != null) {
-                btn2.setX(165);
+                btn2.setX(rowLeft + totalWidth / 2 + 5);
                 btn2.setY(this.getY());
+                btn2.setWidth(totalWidth / 2 - 5);
                 btn2.extractRenderState(graphics, mouseX, mouseY, partialTick);
             }
         }
@@ -306,20 +302,20 @@ this.listWidget.setX(0);
         }
     }
 
-        class SettingsListWidget extends ContainerObjectSelectionList<SettingsEntry> {
+    class SettingsListWidget extends ContainerObjectSelectionList<SettingsEntry> {
         public SettingsListWidget(Minecraft minecraft, int width, int height, int y0, int itemHeight) {
-            super(minecraft, 330, height - 20, 40, itemHeight);
+            super(minecraft, width, height, y0, itemHeight);
         }
         public void add(SettingsEntry entry) {
             this.addEntry(entry);
         }
         @Override
         public int getRowWidth() {
-            return 340;
+            return this.width;
         }
         @Override
         protected int scrollBarX() {
-            return 310;
+            return this.getX() + this.width - 6;
         }
     }
 }

@@ -209,7 +209,7 @@ public final class PrismaConfig {
                 }
                 
                 if ((val = getJsonValue(content, "metalFxResolutionScale")) != null) {
-                    try { metalFxResolutionScale = Float.parseFloat(val); } catch (Throwable ignored) {}
+                    try { metalFxResolutionScale = Math.min(0.99f, Math.max(0.35f, Float.parseFloat(val))); } catch (Throwable ignored) {}
                 }
                 if ((val = getJsonValue(content, "easuResolutionScale")) != null) {
                     try { easuResolutionScale = Float.parseFloat(val); } catch (Throwable ignored) {}

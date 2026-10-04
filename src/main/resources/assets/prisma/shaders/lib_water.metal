@@ -4,12 +4,13 @@ using namespace metal;
 static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float strength, float speed) {
     if (strength <= 0.001f) return float3(0.0f, 1.0f, 0.0f);
 
+    // Fine, realistic ripple spectrum (small choppy wavelets instead of huge swells)
     const float4 waves[5] = {
-      float4( 1.00f,  0.20f, 0.45f, 0.28f),
-      float4( 0.85f, -0.52f, 0.80f, 0.18f),
-      float4( 0.40f,  0.92f, 1.30f, 0.09f),
-      float4(-0.70f,  0.72f, 1.90f, 0.04f),
-      float4( 0.10f,  1.00f, 2.60f, 0.02f),
+      float4( 1.00f,  0.30f, 1.10f, 0.050f),
+      float4( 0.80f, -0.60f, 1.90f, 0.035f),
+      float4( 0.30f,  0.95f, 3.20f, 0.022f),
+      float4(-0.75f,  0.65f, 5.40f, 0.014f),
+      float4( 0.15f, -1.00f, 8.50f, 0.008f),
     };
 
     float2 dX = float2(0.0f);
@@ -23,7 +24,7 @@ static inline float3 computeEclipseWaterWaves(float2 pWorldXZ, float time, float
       float  x     = dot(dir, pWorldXZ) * freq + phase;
       
       float  wave  = exp(sin(x) - 1.0f);
-      float  deriv = wave * cos(x) * freq * amp * 2.2f;
+      float  deriv = wave * cos(x) * freq * amp * 4.0f;
       dX += dir * deriv;
     }
 

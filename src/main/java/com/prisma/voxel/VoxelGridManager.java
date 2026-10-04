@@ -296,7 +296,7 @@ public final class VoxelGridManager {
         updateExecutor.submit(() -> {
             try {
                 rebuildGrid(level, camPos, camChunkX, camChunkZ, camSectionY);
-            } catch (Throwable ignored) {
+            } catch (Throwable t) { t.printStackTrace(); 
             } finally {
                 isUpdating.set(false);
             }
@@ -507,6 +507,8 @@ public final class VoxelGridManager {
                                             || state.getBlock() instanceof net.minecraft.world.level.block.WallTorchBlock
                                             || state.getBlock() instanceof net.minecraft.world.level.block.RedstoneTorchBlock) {
                                         shapeId = SHAPE_TORCH;
+                                    } else if (state.getBlock() instanceof net.minecraft.world.level.block.LanternBlock) {
+                                        shapeId = SHAPE_LANTERN;
                                     } else if (state.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
                                             || state.getBlock() instanceof net.minecraft.world.level.block.EnderChestBlock) {
                                         shapeId = SHAPE_CHEST;
@@ -587,7 +589,10 @@ public final class VoxelGridManager {
                                         boolean isPartialSnow = state.is(Blocks.SNOW) && state.hasProperty(net.minecraft.world.level.block.SnowLayerBlock.LAYERS) && state.getValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS) < 8;
                                         boolean isSign = state.getBlock() instanceof net.minecraft.world.level.block.SignBlock || state.getBlock() instanceof net.minecraft.world.level.block.WallSignBlock;
                                         boolean isPlateOrButton = state.getBlock() instanceof net.minecraft.world.level.block.BasePressurePlateBlock || state.getBlock() instanceof net.minecraft.world.level.block.ButtonBlock;
-                                        if (isSign || isPlateOrButton || isPartialSnow || state.is(Blocks.DIRT_PATH) || state.is(Blocks.FARMLAND) || state.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock || state.is(Blocks.MOSS_CARPET) || state.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("petal") || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("wildflower") || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("wild_flower") || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("leaf_litter") || state.getBlock() instanceof net.minecraft.world.level.block.VineBlock) {
+                                        
+                                        if (isPartialSnow || state.is(Blocks.MOSS_CARPET) || state.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
+                                            shapeId = SHAPE_CARPET;
+                                        } else if (isSign || isPlateOrButton || state.is(Blocks.DIRT_PATH) || state.is(Blocks.FARMLAND) || state.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("petal") || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("wildflower") || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("wild_flower") || BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("leaf_litter") || state.getBlock() instanceof net.minecraft.world.level.block.VineBlock) {
                                             shapeId = SHAPE_NO_SHADOW;
                                         } else if (maskCheck != -1L || state.is(Blocks.SPAWNER) || state.is(Blocks.POINTED_DRIPSTONE)) {
                                             boolean isFire = state.getBlock() instanceof net.minecraft.world.level.block.BaseFireBlock;
@@ -861,11 +866,10 @@ public final class VoxelGridManager {
             r = 0.70f; g = 0.20f; b = 0.95f;
         }
 
-        float radius = Math.max(emission * 0.90f, 6.0f);
-        float baseIntensity = Math.min((emission / 15.0f) * 1.35f, 1.40f);
-        float encodedIntensity = baseIntensity + (float) facingCode * 10.0f;
+        float radius = Math.max(emission * 1.35f, 14.0f);
+        float baseIntensity = Math.min((emission / 15.0f) * 5.4f, 5.4f);
 
-        return new PointLight(x, y, z, radius, r, g, b, encodedIntensity);
+        return new PointLight(x, y, z, radius, r, g, b, baseIntensity);
     }
 
     private volatile PointLight handheldLight = null;
@@ -1028,7 +1032,7 @@ public final class VoxelGridManager {
                             this.blockUvContents.set(JAVA_FLOAT, offset + 40L, spriteSide.getU1());
                             this.blockUvContents.set(JAVA_FLOAT, offset + 44L, spriteSide.getV1());
                         }
-                    } catch (Throwable ignored) {
+                    } catch (Throwable t) { t.printStackTrace(); 
                     }
                 }
             }
@@ -1078,7 +1082,7 @@ public final class VoxelGridManager {
                     return quads.get(0).materialInfo().sprite();
                 }
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) { t.printStackTrace(); }
         return null;
     }
 

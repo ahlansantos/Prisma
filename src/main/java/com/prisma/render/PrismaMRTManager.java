@@ -33,6 +33,7 @@ public final class PrismaMRTManager implements AutoCloseable {
     public org.joml.Matrix4f prevInvViewProj = new org.joml.Matrix4f();
     public org.joml.Vector3f prevCamPos = new org.joml.Vector3f();
     public long frameIndex = 0;
+    public static volatile long sFrameIndex = 0;
 
             private MemorySegment lastDepthTexture = MemorySegment.NULL;
     private long currentWidth = 0;
@@ -116,7 +117,7 @@ public final class PrismaMRTManager implements AutoCloseable {
         // Auto-detect Retina scale once (before first render, when window is ready)
         com.prisma.config.PrismaConfig.INSTANCE.autoDetectRetinaScale();
         if ("VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack)) {
-            float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+            float baseScale = Math.min(0.99f, Math.max(0.35f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale));
             float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
             if (true) {
                 upscaleFactor = 1.0f / (baseScale * easuScale); // Combined scale
@@ -131,15 +132,15 @@ public final class PrismaMRTManager implements AutoCloseable {
             if (!ObjC.isNil(this.normalTexture)) {
                 device.queueResourceRelease(this.normalTexture);
             if (!ObjC.isNil(this.giTexture)) {
-                ObjC.release(this.giTexture);
+                device.queueResourceRelease(this.giTexture);
             }
             this.giTexture = MemorySegment.NULL;
             if (!ObjC.isNil(this.volumetricsTexture)) {
-                ObjC.release(this.volumetricsTexture);
+                device.queueResourceRelease(this.volumetricsTexture);
             }
             this.volumetricsTexture = MemorySegment.NULL;
             if (!ObjC.isNil(this.denoisedGiTexture)) {
-                ObjC.release(this.denoisedGiTexture);
+                device.queueResourceRelease(this.denoisedGiTexture);
             }
             this.denoisedGiTexture = MemorySegment.NULL;
 
@@ -282,7 +283,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+                float baseScale = Math.min(0.99f, Math.max(0.35f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale));
                 float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
                 boolean cascaded = true;
                 
@@ -315,7 +316,7 @@ public final class PrismaMRTManager implements AutoCloseable {
                 desc.textureType(MTLTextureType.Type2D);
                 desc.pixelFormat(MTLPixelFormat.RGBA16Float);
                 
-                float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+                float baseScale = Math.min(0.99f, Math.max(0.35f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale));
                 float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
                 boolean cascaded = true;
                 
@@ -378,7 +379,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             return this.giTexture;
         }
         if (!ObjC.isNil(this.giTexture)) {
-            ObjC.release(this.giTexture);
+            device.queueResourceRelease(this.giTexture);
             this.giTexture = MemorySegment.NULL;
         }
         try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -392,6 +393,45 @@ public final class PrismaMRTManager implements AutoCloseable {
         }
         return this.giTexture;
     }
+    public static volatile MemorySegment sVxgiTexture = MemorySegment.NULL;
+    public static volatile MemorySegment sDenoisedVxgiTexture = MemorySegment.NULL;
+    public static volatile MemorySegment sVxgiHistoryTexture = MemorySegment.NULL;
+    /** Previous frame camera position (xyz), consumed by the temporal denoiser. */
+    public static final float[] sPrevCam = new float[4];
+
+    /** Ping-pong: last frame's denoised output becomes this frame's history. */
+    public void swapVxgiHistory() {
+        MemorySegment t = sDenoisedVxgiTexture;
+        sDenoisedVxgiTexture = sVxgiHistoryTexture;
+        sVxgiHistoryTexture = t;
+    }
+
+    public void ensureVxgiTextures(final long width, final long height) {
+        if (!ObjC.isNil(sVxgiTexture) && MTLTexture.width(sVxgiTexture) == width && MTLTexture.height(sVxgiTexture) == height) {
+            return;
+        }
+        if (!ObjC.isNil(sVxgiTexture)) device.queueResourceRelease(sVxgiTexture);
+        if (!ObjC.isNil(sDenoisedVxgiTexture)) device.queueResourceRelease(sDenoisedVxgiTexture);
+        if (!ObjC.isNil(sVxgiHistoryTexture)) device.queueResourceRelease(sVxgiHistoryTexture);
+        MemorySegment a;
+        MemorySegment b;
+        MemorySegment c;
+        try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
+            desc.textureType(MTLTextureType.Type2D);
+            desc.usage(MTLTextureUsage.ShaderRead.value | MTLTextureUsage.RenderTarget.value | MTLTextureUsage.ShaderWrite.value);
+            desc.pixelFormat(MTLPixelFormat.RGBA16Float.value);
+            desc.width(width);
+            desc.height(height);
+            desc.storageMode(MTLStorageMode.Private);
+            a = device.metalDevice().newTexture(desc);
+            b = device.metalDevice().newTexture(desc);
+            c = device.metalDevice().newTexture(desc);
+        }
+        sVxgiTexture = a;
+        sDenoisedVxgiTexture = b;
+        sVxgiHistoryTexture = c;
+    }
+
     public MemorySegment giTexture() {
         return this.giTexture;
     }
@@ -402,7 +442,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             return this.volumetricsTexture;
         }
         if (!ObjC.isNil(this.volumetricsTexture)) {
-            ObjC.release(this.volumetricsTexture);
+            device.queueResourceRelease(this.volumetricsTexture);
             this.volumetricsTexture = MemorySegment.NULL;
         }
         try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -424,7 +464,7 @@ public final class PrismaMRTManager implements AutoCloseable {
             return this.denoisedGiTexture;
         }
         if (!ObjC.isNil(this.denoisedGiTexture)) {
-            ObjC.release(this.denoisedGiTexture);
+            device.queueResourceRelease(this.denoisedGiTexture);
             this.denoisedGiTexture = MemorySegment.NULL;
         }
         try (MTLTextureDescriptor desc = MTLTextureDescriptor.create()) {
@@ -683,6 +723,9 @@ public final class PrismaMRTManager implements AutoCloseable {
         MemorySegment targetColor = colorTex.nativeHandle();
         MemorySegment currentDepth = currentDepthGpuTex instanceof MetalGpuTexture depthTex ? depthTex.nativeHandle() : MemorySegment.NULL;
         MemorySegment worldDepth = worldDepthTexture();
+        if (!this.hasWorldDepthSnapshot && !ObjC.isNil(currentDepth)) {
+            worldDepth = currentDepth;
+        }
         if (ObjC.isNil(worldDepth) && !ObjC.isNil(currentDepth)) {
             worldDepth = currentDepth;
         }
@@ -697,11 +740,23 @@ public final class PrismaMRTManager implements AutoCloseable {
         MemorySegment lightData = lightDataTexture();
         MemorySegment hdrTarget = hdrColorTexture();
 
-        ensureGiTexture(width, height);
-        ensureVolumetricsTexture(width, height);
-        ensureDenoisedGiTexture(width, height);
+        // GI/fog targets must match the lighting dispatch size (the HDR target), which is
+        // smaller than the output when MetalFX/EASU scaling is active.
+        long lightW = !ObjC.isNil(hdrTarget) ? MTLTexture.width(hdrTarget) : width;
+        long lightH = !ObjC.isNil(hdrTarget) ? MTLTexture.height(hdrTarget) : height;
+        ensureGiTexture(lightW, lightH);
+        ensureVolumetricsTexture(lightW, lightH);
+        ensureDenoisedGiTexture(lightW, lightH);
+        ensureVxgiTextures(lightW, lightH);
+        if (!waterOnlyPass) swapVxgiHistory();
+        if (this.prevCamPos != null) {
+            sPrevCam[0] = this.prevCamPos.x; sPrevCam[1] = this.prevCamPos.y; sPrevCam[2] = this.prevCamPos.z;
+        } else {
+            sPrevCam[0] = camPosX; sPrevCam[1] = camPosY; sPrevCam[2] = camPosZ;
+        }
 
         this.frameIndex++;
+        sFrameIndex = this.frameIndex;
 
             MTLBuiltinPipelines.encodeDeferredLightingPass(
                     encoder.commandBuffer(),
@@ -778,7 +833,7 @@ public final class PrismaMRTManager implements AutoCloseable {
         if (waterOnlyPass && "VXR Default".equals(com.prisma.config.PrismaConfig.INSTANCE.shaderPack) && !com.prisma.objc.ObjC.isNil(this.upscaledColorTexture)) {
             long finalWidth = colorTex.getWidth(0);
             long finalHeight = colorTex.getHeight(0);
-            float baseScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale);
+            float baseScale = Math.min(0.99f, Math.max(0.35f, com.prisma.config.PrismaConfig.INSTANCE.metalFxResolutionScale));
             float easuScale = Math.max(0.1f, com.prisma.config.PrismaConfig.INSTANCE.easuResolutionScale);
             
             long baseWidth = Math.max(1L, (long)(finalWidth * baseScale * easuScale));
@@ -859,15 +914,15 @@ public final class PrismaMRTManager implements AutoCloseable {
         if (!ObjC.isNil(this.normalTexture)) {
             ObjC.release(this.normalTexture);
             if (!ObjC.isNil(this.giTexture)) {
-                ObjC.release(this.giTexture);
+                device.queueResourceRelease(this.giTexture);
             }
             this.giTexture = MemorySegment.NULL;
             if (!ObjC.isNil(this.volumetricsTexture)) {
-                ObjC.release(this.volumetricsTexture);
+                device.queueResourceRelease(this.volumetricsTexture);
             }
             this.volumetricsTexture = MemorySegment.NULL;
             if (!ObjC.isNil(this.denoisedGiTexture)) {
-                ObjC.release(this.denoisedGiTexture);
+                device.queueResourceRelease(this.denoisedGiTexture);
             }
             this.denoisedGiTexture = MemorySegment.NULL;
 
@@ -880,15 +935,15 @@ public final class PrismaMRTManager implements AutoCloseable {
         if (!ObjC.isNil(this.fallbackDepthTexture)) {
             ObjC.release(this.fallbackDepthTexture);
             if (!ObjC.isNil(this.giTexture)) {
-                ObjC.release(this.giTexture);
+                device.queueResourceRelease(this.giTexture);
             }
             this.giTexture = MemorySegment.NULL;
             if (!ObjC.isNil(this.volumetricsTexture)) {
-                ObjC.release(this.volumetricsTexture);
+                device.queueResourceRelease(this.volumetricsTexture);
             }
             this.volumetricsTexture = MemorySegment.NULL;
             if (!ObjC.isNil(this.denoisedGiTexture)) {
-                ObjC.release(this.denoisedGiTexture);
+                device.queueResourceRelease(this.denoisedGiTexture);
             }
             this.denoisedGiTexture = MemorySegment.NULL;
 

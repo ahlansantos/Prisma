@@ -182,34 +182,57 @@ fragment float4 prisma_postprocess_fs(
       float3 bloom = bloomSum / bloomWeight;
       color += bloom * 1.50f;
       
-      // Procedural Ghosting Lens Flare (Anamorphic/Cinematic)
-      float2 ghostVec = -(in.uv * 2.0f - 1.0f) * 0.45f;
-      float3 ghostSum = float3(0.0f);
-      float3 flareColors[4] = { float3(1.0, 0.5, 0.2), float3(0.3, 0.6, 1.0), float3(0.1, 0.9, 0.3), float3(0.8, 0.2, 1.0) };
-      for (int k = 1; k <= 4; k++) {
-          float2 guv = saturate(in.uv + ghostVec * float(k));
-          float3 g = hdrTex.sample(smp, guv).rgb;
-          float gl = postLuma(g);
-          if (gl > 0.95f) {
-              float weight = (5.0f - float(k)) * 0.08f;
-              ghostSum += (g - 0.95f) * flareColors[k-1] * weight;
+      // Optical Lens Flare (Anamorphic horizontal streak + subtle optical starburst)
+      // Only triggered by true HDR highlights (sun / intense specular), without screen-inversion ghosting
+      float3 flareSum = float3(0.0f);
+      const float flareThresh = 2.0f;
+      
+      // Anamorphic horizontal streak (horizontal lens aperture dispersion)
+      const float streakOffsets[6] = { -0.08f, -0.035f, -0.012f, 0.012f, 0.035f, 0.08f };
+      const float streakWeights[6] = { 0.12f, 0.25f, 0.45f, 0.45f, 0.25f, 0.12f };
+      const float3 streakTint[6] = {
+          float3(0.4f, 0.7f, 1.2f),
+          float3(0.6f, 0.85f, 1.1f),
+          float3(1.0f, 1.0f, 1.0f),
+          float3(1.0f, 1.0f, 1.0f),
+          float3(0.6f, 0.85f, 1.1f),
+          float3(0.4f, 0.7f, 1.2f)
+      };
+      
+      for (int s = 0; s < 6; s++) {
+          float2 sUv = in.uv + float2(streakOffsets[s], 0.0f);
+          if (sUv.x >= 0.0f && sUv.x <= 1.0f) {
+              float3 sc = hdrTex.sample(smp, sUv).rgb;
+              float sl = postLuma(sc);
+              if (sl > flareThresh) {
+                  float3 excess = (sc - flareThresh);
+                  flareSum += excess * streakTint[s] * streakWeights[s];
+              }
           }
       }
-      // Halo
-      float2 haloVec = normalize(ghostVec) * 0.40f;
-      float2 huv = saturate(in.uv + haloVec);
-      float3 h = hdrTex.sample(smp, huv).rgb;
-      if (postLuma(h) > 0.95f) {
-          ghostSum += (h - 0.95f) * float3(0.2, 0.4, 1.0) * 0.15f;
+      
+      // Subtle 45-degree diagonal starburst glints around intense highlights
+      const float starOffsets[4] = { -0.015f, -0.007f, 0.007f, 0.015f };
+      for (int st = 0; st < 4; st++) {
+          float2 dUv1 = in.uv + float2(starOffsets[st], starOffsets[st]);
+          float2 dUv2 = in.uv + float2(starOffsets[st], -starOffsets[st]);
+          if (dUv1.x >= 0.0f && dUv1.x <= 1.0f && dUv1.y >= 0.0f && dUv1.y <= 1.0f) {
+              float3 c1 = hdrTex.sample(smp, dUv1).rgb;
+              if (postLuma(c1) > flareThresh) {
+                  flareSum += (c1 - flareThresh) * float3(1.0f, 0.9f, 0.7f) * 0.15f;
+              }
+          }
+          if (dUv2.x >= 0.0f && dUv2.x <= 1.0f && dUv2.y >= 0.0f && dUv2.y <= 1.0f) {
+              float3 c2 = hdrTex.sample(smp, dUv2).rgb;
+              if (postLuma(c2) > flareThresh) {
+                  flareSum += (c2 - flareThresh) * float3(1.0f, 0.9f, 0.7f) * 0.15f;
+              }
+          }
       }
-      color += ghostSum * u.lensFlareStrength;
+      
+      color += flareSum * (u.lensFlareStrength * 0.75f);
   }
 
-  
-  // Color Grading: Saturation and Contrast
-  float luma = postLuma(color);
-  color = mix(float3(luma), color, 1.25f);
-  // S-curve removed to prevent burnt clouds
   
   float2 vUv = in.uv * 2.0f - 1.0f;
   float dist = length(vUv);
@@ -217,17 +240,17 @@ fragment float4 prisma_postprocess_fs(
   
   // Subtle Chromatic Aberration on edges
   float2 caOffset = vUv * 0.003f * u.chromaticAberrationStrength;
-  float r_ca = hdrTex.sample(smp, in.uv - caOffset).r;
-  float b_ca = hdrTex.sample(smp, in.uv + caOffset).b;
-  // Apply tonemapping curve to CA samples to match
-  r_ca = r_ca * r_ca * (3.0f - 2.0f * r_ca);
-  b_ca = b_ca * b_ca * (3.0f - 2.0f * b_ca);
+  float r_ca = saturate(hdrTex.sample(smp, in.uv - caOffset).r);
+  float b_ca = saturate(hdrTex.sample(smp, in.uv + caOffset).b);
   
   color.r = mix(color.r, r_ca, smoothstep(0.5f, 1.5f, dist));
   color.b = mix(color.b, b_ca, smoothstep(0.5f, 1.5f, dist));
   
   color *= vignette;
-  color = saturate(color);
+  
+  // Prevent negative colors from sharpening, but DO NOT saturate()! 
+  // saturate() clamps to 1.0, which completely destroys EDR/HDR output!
+  color = max(color, float3(0.0f));
 
 
   

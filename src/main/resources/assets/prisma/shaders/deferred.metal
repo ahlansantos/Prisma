@@ -54,6 +54,7 @@ kernel void prisma_deferred_cs(
               texture2d<float, access::write> velocityTex [[texture(9)]],
               texture2d<float> giTexture [[texture(11)]],
               texture2d<float> volumetricsTexture [[texture(12)]],
+              texture2d<float> vxgiTexture [[texture(13)]],
               sampler smp [[sampler(0)]],
               constant CameraData& camera [[buffer(10)]],
               constant EnvironmentData& env [[buffer(11)]],
@@ -61,7 +62,8 @@ kernel void prisma_deferred_cs(
               device const uint2* voxelGrid [[buffer(1)]],
               constant VoxelUniforms& uVoxel [[buffer(2)]],
               constant float4* blockUvTable [[buffer(3)]],
-              constant ulong* bitmaskTable [[buffer(4)]]
+              constant ulong* bitmaskTable [[buffer(4)]],
+              constant float4& prevCam [[buffer(13)]]
             ) {
     if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) return;
     float2 uv = (float2(gid) + 0.5f) / float2(outTexture.get_width(), outTexture.get_height());
@@ -120,7 +122,14 @@ kernel void prisma_deferred_cs(
                 float3 rayDir = normalize(pFar - pNear);
 
                 float3 skyCol = evaluateSkyAndReflections(uVoxel.camPos.xyz, rayDir, camera.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, env.starBrightness, settings.cloudsEnabled, settings.cloudSteps, env.rainStrength, 1e6f);
-                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f)); float isRain = saturate((luma - 0.2f) * 10.0f) * env.rainStrength; outTexture.write(float4(mix(skyCol, albedo.rgb, isRain * 0.6f), 1.0f), gid); return;
+                float luma = dot(albedo.rgb, float3(0.299f, 0.587f, 0.114f));
+                float isRain = saturate((luma - 0.2f) * 10.0f) * env.rainStrength;
+                float3 finalSkyRgb = mix(skyCol, albedo.rgb, isRain * 0.6f);
+                if (isnan(finalSkyRgb.x) || isnan(finalSkyRgb.y) || isnan(finalSkyRgb.z) || isinf(finalSkyRgb.x) || isinf(finalSkyRgb.y) || isinf(finalSkyRgb.z)) {
+                    finalSkyRgb = float3(0.0f);
+                }
+                outTexture.write(float4(finalSkyRgb, 1.0f), gid);
+                return;
               }
 
 
@@ -332,28 +341,14 @@ kernel void prisma_deferred_cs(
               float packedAoStrength = uVoxel.camPos.w;
               bool vxgiEnabled = packedAoStrength >= 5.0f;
               float doubleAoStrength = fmod(packedAoStrength, 10.0f);
-              float doubleAo = (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f), doubleAoStrength) * gridWeight : 0.0f;
+              float doubleAo = (!isWater && !isGlass && gridWeight > 0.05f && doubleAoStrength > 0.01f) ? computeDoubleAO(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, isEntity ? surfNormal : nWorld, uVoxel.camPos.xyz, uVoxel.gridOrigin.w, (float2(gid) + 0.5f), doubleAoStrength, bitmaskTable) * gridWeight : 0.0f;
               float ssao = 0.0f; // 100% removed as requested
               
-              float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, nWorld);
+              float2 smoothVoxLight = sampleSmoothVoxelLight(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, pWorld, isEntity ? surfNormal : nWorld);
               float outsideSky = (surfNormal.y > -0.2f ? 1.0f : 0.5f);
               float outsideBlock = 0.0f;
               float rawSky = mix(outsideSky, smoothVoxLight.y, gridWeight);
               float rawBlock = mix(outsideBlock, smoothVoxLight.x, gridWeight);
-              if (isEntity) {
-
-                  int3 localPos = int3(floor(pWorld - float3(uVoxel.gridOrigin.xyz)));
-                  for (int yOffset = 0; yOffset <= 3; yOffset++) {
-                      uint2 entVox = readVoxelLocal(voxelGrid, uVoxel.gridSize.xyz, localPos - int3(0, yOffset, 0));
-                      float vSky = float((entVox.x >> 8) & 0x0F) / 15.0f;
-                      float vBlock = float((entVox.x >> 4) & 0x0F) / 15.0f;
-                      if (vSky > 0.0f || vBlock > 0.0f || (entVox.x & 1) != 0) {
-                          rawSky = vSky;
-                          rawBlock = vBlock;
-                          break;
-                      }
-                  }
-              }
               float skyLevel = get_vanilla_brightness(rawSky);
               float blockLevel = get_vanilla_brightness(rawBlock);
 
@@ -390,10 +385,10 @@ kernel void prisma_deferred_cs(
                   }
               }
 
-              float4 currentClip = uVoxel.viewProj * float4(motionWorld, 1.0f);
-              float4 prevClip = uVoxel.prevViewProj * float4(motionWorld, 1.0f);
-              float2 currentUv = float2(currentClip.x, -currentClip.y) / max(currentClip.w, 0.0001f) * 0.5f + 0.5f;
-              float2 prevUv = float2(prevClip.x, -prevClip.y) / max(prevClip.w, 0.0001f) * 0.5f + 0.5f;
+              float4 currentClip = uVoxel.viewProj * float4(motionWorld - uVoxel.camPos.xyz, 1.0f);
+              float4 prevClip = uVoxel.prevViewProj * float4(motionWorld - prevCam.xyz, 1.0f);
+              float2 currentUv = (currentClip.xy / max(currentClip.w, 0.0001f)) * 0.5f + 0.5f;
+              float2 prevUv = (prevClip.xy / max(prevClip.w, 0.0001f)) * 0.5f + 0.5f;
               // Motion vector from current to previous in pixel space
               float2 velocity = (prevUv - currentUv) * float2(float(velocityTex.get_width()), float(velocityTex.get_height()));
               velocityTex.write(float4(velocity, 0.0f, 0.0f), gid);
@@ -407,16 +402,23 @@ kernel void prisma_deferred_cs(
               bool isGlassSurface = ((insideVox.x & 1) != 0) && (((insideVox.x >> 12) & 0x0F) == 1u);
               
               // --- Analytical Point Lights (deterministic, no noise) ---
-              float4 giData = giTexture.read(gid);
+              // GI target may have a different resolution than the (MetalFX-scaled) output: map by UV.
+              uint2 giGid = min(uint2(uv * float2(giTexture.get_width(), giTexture.get_height())), uint2(giTexture.get_width() - 1, giTexture.get_height() - 1));
+              float4 giData = giTexture.read(giGid);
               float3 pointLights = giData.rgb;
+              if (any(isnan(pointLights)) || any(isinf(pointLights))) pointLights = float3(0.0f);
               // giData.a is giData.a but we don't strictly need to assign it back if maxDarkening isn't heavily used.
               // Wait, we DO use maxDarkening implicitly? Actually we just need pointLights.
                             float dayDampen = mix(1.0f, 0.22f, sunWeight * skyLevel);
               float3 scaledPtLight = pointLights * dayDampen;
               float3 smoothPointLights = scaledPtLight / (1.0f + scaledPtLight * 0.35f);
-              float3 totalBlockLight = smoothPointLights;
+              // Fallback block light for when point lights are OFF in settings, or beyond point light range
+              float3 warmTorchTint = mix(float3(1.0f, 0.58f, 0.22f), float3(1.0f, 0.88f, 0.72f), smoothstep(0.0f, 1.0f, rawBlock));
+              float3 fallbackBlockLight = warmTorchTint * (blockLevel * 1.30f);
+              float fallbackWeight = saturate(1.0f - length(smoothPointLights) * 1.5f);
+              float3 totalBlockLight = smoothPointLights + fallbackBlockLight * fallbackWeight;
 
-              float minAmbient = mix(0.045f, 0.055f, sunWeight);
+              float minAmbient = mix(0.022f, 0.030f, sunWeight);
               if (isNether) {
                 minAmbient = max(minAmbient, 0.12f);
               }
@@ -429,16 +431,17 @@ kernel void prisma_deferred_cs(
               float celestialNdotL = saturate(dot(surfNormal, celestialDir));
               // Direct sun: 0.88x at noon (prevents washed-out), boosted to 1.30x at golden hour for dramatic rim light
               float goldenRimBoost = 1.0f + sunsetFactor * 0.50f;
-              float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 0.78f * goldenRimBoost) : (currentMoonColor * 0.70f);
+              float3 celestialDirectCol = (sunWeight > 0.5f) ? (currentSunColor * 1.50f * goldenRimBoost) : (currentMoonColor * 0.90f);
 
-              float outsideShadow = 1.0f;
-              float computedShadow = (settings.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) ? 0.0f : 1.0f;
+               float outsideShadow = 1.0f;
+              float computedShadow = (settings.sunShadowsEnabled > 0.5f && gridWeight > 0.02f) ? 0.0f : 1.0f;
               float3 computedTint = float3(1.0f);
 
-              if (settings.sunShadowsEnabled > 0.5f && gridWeight > 0.02f && !isEntity) {
+              if (settings.sunShadowsEnabled > 0.5f && gridWeight > 0.02f) {
                 if (celestialNdotL > 0.01f && celestialDir.y > 0.001f && rawSky > 0.05f) {
                   float celestialSlopeBias = max(0.04f, 0.06f * (1.0f - celestialNdotL));
-                  float3 rayStart = pWorld + nWorld * celestialSlopeBias;
+                  float3 shadowNormal = isEntity ? surfNormal : nWorld;
+                  float3 rayStart = pWorld + shadowNormal * celestialSlopeBias;
 
                   float ign = fract(52.9829189f * fract(dot(float2(gid), float2(0.06711056f, 0.00583715f))));
                   float dAngle = ign * 6.2831853f;
@@ -446,13 +449,12 @@ kernel void prisma_deferred_cs(
                   
                   float radius = 0.8f;
                   
-                  bool canCastPlayerShadow = (uVoxel.shadowParams.w > 0.5f && length(rayStart.xz - uVoxel.playerPos.xz) < 12.0f);
-                  if (isFirstPerson) {
-                      canCastPlayerShadow = canCastPlayerShadow && (rayStart.y <= uVoxel.playerPos.y + 1.4f);
-                  }
+                  float playerDist = length(rayStart.xz - uVoxel.playerPos.xz);
+                  float playerShadowFactor = (uVoxel.shadowParams.w > 0.5f) ? (1.0f - smoothstep(12.0f, 20.0f, playerDist)) : 0.0f;
+                  bool canCastPlayerShadow = (playerShadowFactor > 0.001f);
                   
                   int rayCount = int(settings.shadowRayCount);
-                  int numSamples = max(1, min(rayCount, 32));
+                  int numSamples = max(1, min(rayCount, 8));
                   if (rayCount == 0) radius = 0.0f;
                   
                   float totalVis = 0.0f;
@@ -465,8 +467,8 @@ kernel void prisma_deferred_cs(
                       float3 offset = float3(disk.x, 0.0f, disk.y);
                       
                       float3 rDir = normalize(celestialDir * 40.0f + offset);
-                      if (dot(rDir, nWorld) < 0.02f) {
-                          rDir = normalize(rDir + nWorld * (0.02f - dot(rDir, nWorld)));
+                      if (dot(rDir, shadowNormal) < 0.02f) {
+                          rDir = normalize(rDir + shadowNormal * (0.02f - dot(rDir, shadowNormal)));
                       }
                       float3 t1 = rayStart + rDir * 40.0f;
                       ShadowRayResult cRes = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, rayStart, t1, blockAtlasTex, smp, blockUvTable, bitmaskTable);
@@ -474,7 +476,9 @@ kernel void prisma_deferred_cs(
                       if (canCastPlayerShadow) {
                           PlayerHit hit; hit.hitDist = 1e6f;
                           tracePlayerOBB(rayStart, rDir, uVoxel.playerPos.xyz, uVoxel.shadowParams.x, uVoxel.playerHead.x, uVoxel.playerHead.y, uVoxel.playerAnim.x, uVoxel.playerAnim.y, uVoxel.playerAnim.z, uVoxel.playerAnim.w, playerSkinTex, smp, hit);
-                          if (hit.hitDist > 0.0000f && hit.hitDist < 40.0f) cRes.vis = 0.0f;
+                          if (hit.hitDist > (isEntity ? 0.35f : 0.15f) && hit.hitDist < 40.0f) {
+                              cRes.vis = mix(cRes.vis, 0.0f, playerShadowFactor);
+                          }
                       }
                       totalVis += cRes.vis;
                       totalTint += cRes.tint;
@@ -504,53 +508,66 @@ kernel void prisma_deferred_cs(
 
               float3 skyLight = baseAmbient + directCelestial;
 
-              float daylightShadowSuppression = mix(1.0f, 0.30f, sunWeight * skyLevel);
-              float shadowOcclusion = saturate(giData.a * 0.55f * daylightShadowSuppression);
-
-              float3 shadowedSkyLight = skyLight * (1.0f - shadowOcclusion);
-
-              float3 baseLighting = shadowedSkyLight + totalBlockLight + float3(minAmbient);
-              if (isEntity) {
-                baseLighting = float3(1.0f) + totalBlockLight * 0.8f;
-              }
+              float3 baseLighting = skyLight + totalBlockLight + float3(minAmbient);
               
               // === True Voxel Global Illumination (VXGI) ===
               float3 giColor = float3(0.0f);
-              if (!isEntity && !isWater && !isGlass && gridWeight > 0.05f && vxgiEnabled) {
-                  int blurRays = int(clamp(doubleAoStrength, 1.0f, 4.0f));
-                  uint frameCount = uint(camera.gameTime * 60.0f) % 256u;
-                  float2 seedBase = pWorld.xz * 31.415f + pWorld.yy * 47.123f;
-                  
-                  float3 tX = cross(surfNormal, float3(0.0f, 1.0f, 0.0f));
-                  if (dot(tX, tX) < 0.01f) tX = cross(surfNormal, float3(1.0f, 0.0f, 0.0f));
-                  tX = normalize(tX);
-                  float3 tY = normalize(cross(surfNormal, tX));
-                  
-                  for (int b = 0; b < blurRays; b++) {
-                      float fOffset = float(frameCount) * 0.618f + float(b) * 13.37f;
-                      float rand1 = fract(sin(dot(seedBase + fOffset, float2(12.9898f, 78.233f))) * 43758.5453f);
-                      float rand2 = fract(sin(dot(seedBase - fOffset, float2(39.346f, 11.135f))) * 43758.5453f);
-                      
-                      float phi = 6.2831853f * rand1;
-                      float cosTheta = sqrt(rand2);
-                      float sinTheta = sqrt(1.0f - rand2);
-                      
-                      float3 giDir = normalize(tX * cos(phi) * sinTheta + tY * sin(phi) * sinTheta + surfNormal * cosTheta);
-                      
-                                            float3 jitterOrigin = pWorld + surfNormal * 0.15f;
-                      VoxelReflResult giRes = traceVoxelReflections(voxelGrid, uVoxel.gridOrigin, uVoxel.gridSize, jitterOrigin, giDir, activeSkyLight, currentSunColor, currentMoonColor, celestialDir, sunWeight, blockAtlasTex, playerSkinTex, smp, blockUvTable, bitmaskTable, uVoxel.gridSize.w, uVoxel.lights, 6, settings.maxPointLights, 0.0f, 0.0f, 0.0f, 0.0f, env.rainStrength, camera.gameTime, uVoxel, 0.0f);
-                      
-                      if (giRes.alpha > 0.01f && giRes.hitDist < 5.0f) {
-                          float distFalloff = pow(saturate(1.0f - giRes.hitDist / 5.0f), 2.0f);
-                          giColor += giRes.color * distFalloff;
+              if (!isWater && !isGlass && gridWeight > 0.05f && vxgiEnabled) {
+                  // Bilinear hardware filtering: eliminates distant moiré stripes and banding
+                  giColor = vxgiTexture.sample(smp, uv).rgb;
+                  if (any(isnan(giColor)) || any(isinf(giColor))) giColor = float3(0.0f);
+              }
+
+              // Entities (player/mobs) are not part of the voxel grid, so gather colored bounce light
+              // directly from the nearest solid voxels around them (floor, walls, ceiling).
+              if (isEntity && !isWater && !isGlass && gridWeight > 0.05f && vxgiEnabled) {
+                  int3 gSize = uVoxel.gridSize.xyz;
+                  int3 eBase = int3(floor(pWorld + surfNormal * 0.30f)) - uVoxel.gridOrigin.xyz;
+                  const int3 eDirs[6] = { int3(0,-1,0), int3(0,1,0), int3(1,0,0), int3(-1,0,0), int3(0,0,1), int3(0,0,-1) };
+                  float3 eBounce = float3(0.0f);
+                  float eWsum = 0.0f;
+                  for (int d = 0; d < 6; d++) {
+                      float3 nDir = float3(eDirs[d]);
+                      float hemi = saturate(dot(nDir, surfNormal) * 0.65f + 0.35f);
+                      float wDir = (d == 0 ? 1.4f : 1.0f) * hemi;
+                      eWsum += wDir;
+                      for (int k = 1; k <= 4; k++) {
+                          int3 c = eBase + eDirs[d] * k;
+                          if (c.x < 0 || c.y < 0 || c.z < 0 || c.x >= gSize.x || c.y >= gSize.y || c.z >= gSize.z) break;
+                          uint2 hv = readVoxelLocal(voxelGrid, gSize, c);
+                          if ((hv.x & 1) != 0 && (hv.x & 4) == 0) {
+                              int3 ac = c - eDirs[d];
+                              uint2 av = readVoxelLocal(voxelGrid, gSize, ac);
+                              float2 al = unpackVoxelLight(av);
+                              float aSky = get_vanilla_brightness(al.y);
+                              float aBlk = get_vanilla_brightness(al.x);
+                              float3 hc = unpackVoxelColor(hv);
+                              float hLum = dot(hc, float3(0.299f, 0.587f, 0.114f));
+                              hc = max(mix(float3(hLum), hc, 1.65f), float3(0.0f));
+                              float kd = float(k);
+                              float att = 1.0f / (1.0f + kd * 0.45f + kd * kd * 0.12f);
+                              float sunUp = (d == 0) ? 1.0f : 0.0f; // floor is lit by the sun from above
+                              float3 inc = activeSkyLight * (aSky * 0.55f)
+                                         + currentSunColor * (sunUp * aSky * sunWeight * 0.55f)
+                                         + float3(1.0f, 0.62f, 0.28f) * (aBlk * 1.2f);
+                              eBounce += hc * inc * (att * wDir);
+                              break;
+                          }
                       }
                   }
-                  giColor /= float(blurRays);
+                  giColor = max(giColor, eBounce / max(eWsum, 0.001f) * 1.05f);
               }
               
-              baseLighting += giColor * 1.8f;
-
-              baseLighting *= volumetricAo;
+              if (!isGlass) {
+                  // GI softens crevice darkness gently without completely erasing ambient occlusion
+                  float giBrightness = length(giColor);
+                  float aoSuppression = saturate(giBrightness * 0.40f);
+                  float effectiveAo = mix(volumetricAo, 1.0f, aoSuppression);
+                  baseLighting = (skyLight + float3(minAmbient)) * effectiveAo + totalBlockLight + giColor * 1.6f;
+              } else {
+                  // Glass transmits light from behind it. Never crush glass with front-face darkness or AO.
+                  baseLighting = max(baseLighting + giColor * 1.6f, float3(1.0f));
+              }
               
               // Phase 2: Prevent Pitch Black (Total Darkness)
               float3 baseAmbientFloor = mix(float3(0.004f, 0.005f, 0.008f), float3(0.008f, 0.010f, 0.015f), sunWeight);
@@ -618,7 +635,7 @@ kernel void prisma_deferred_cs(
                 float3 specPoints = float3(0.0f);
 
                 for (int b = 0; b < maxBounces; b++) {
-                    int steps = (b == 0) ? 40 : 18;
+                    int steps = (b == 0) ? 32 : 14;
                     float cloudsRefl = (b == 0) ? (settings.cloudsInReflections * 0.5f) : 0.0f;
                     float3 skyReflection = evaluateSkyAndReflections(currentRayOrigin, currentRayDir, camera.gameTime, actualSky, sunriseTint, clampedSunrise, currentSunColor, currentMoonColor, sunWeight, sunDir, moonDir, env.starBrightness, cloudsRefl, settings.cloudSteps, env.rainStrength, 1e6f) * skyLevel;
                     
@@ -627,16 +644,16 @@ kernel void prisma_deferred_cs(
                     float reflDist = vxr.hitDist;
                     float rawReflFog = saturate(1.0f - exp(-pow(reflDist * 0.003f, 3.5f)));
                     float3 reflFogColor = actualSky * (sunWeight * 0.85f + 0.15f);
-                    
-                    float reflY = currentRayOrigin.y + currentRayDir.y * reflDist;
-                    float reflSkyLvl = saturate((reflY - 24.0f) / 64.0f);
-                    float3 attenuatedReflFog = mix(reflFogColor * 0.05f, reflFogColor, reflSkyLvl);
+                    // Do not leak bright sky fog into underground reflections / caves
+                    float3 attenuatedReflFog = reflFogColor * saturate(skyLevel * 1.5f);
                     vxr.color = mix(vxr.color, attenuatedReflFog, rawReflFog * vxr.alpha);
                     
-                    float3 bounceColor = mix(skyReflection, vxr.color, vxr.alpha);
+                    float3 fallbackRefl = mix(float3(0.0f), skyReflection, saturate(skyLevel * 2.0f));
+                    float3 bounceColor = mix(fallbackRefl, vxr.color, vxr.alpha);
                     
                     if (b == 0) {
-                        int lightCount = uVoxel.gridSize.w;
+                        int lightCount = min(uVoxel.gridSize.w, 32);
+                        float3 specRayStart = pWorld + surfNormal * 0.05f;
                         for (int i = 0; i < lightCount; i++) {
                             float3 toLight = uVoxel.lights[i].posAndRadius.xyz - pWorld;
                             float dist = length(toLight);
@@ -647,9 +664,14 @@ kernel void prisma_deferred_cs(
                                 float NdotH = saturate(dot(surfNormal, H));
                                 float NdotL = saturate(dot(surfNormal, L));
                                 float spec = pow(NdotH, 24.0f) * NdotL;
-                                float atten = saturate(1.0f - dist / lRad);
-                                float smoothAtten = atten * atten;
-                                specPoints += uVoxel.lights[i].colorAndIntensity.xyz * (uVoxel.lights[i].colorAndIntensity.w * spec * smoothAtten * 0.3f);
+                                if (spec > 0.001f) {
+                                    ShadowRayResult sr = traceDdaShadowRay(voxelGrid, uVoxel.gridOrigin.xyz, uVoxel.gridSize.xyz, specRayStart, uVoxel.lights[i].posAndRadius.xyz, blockAtlasTex, smp, blockUvTable, bitmaskTable);
+                                    if (sr.vis > 0.01f) {
+                                        float atten = saturate(1.0f - dist / lRad);
+                                        float smoothAtten = atten * atten;
+                                        specPoints += (uVoxel.lights[i].colorAndIntensity.xyz * sr.tint) * (uVoxel.lights[i].colorAndIntensity.w * spec * smoothAtten * 0.3f * sr.vis);
+                                    }
+                                }
                             }
                         }
                     }
@@ -700,9 +722,9 @@ kernel void prisma_deferred_cs(
                     float3 transmitted = exp(-waterExtinction * realDepth);
 
                     // Shallow water: crystal clear turquoise
-                    float3 crystalShallow = float3(0.18f, 0.76f, 0.85f);
+                    float3 crystalShallow = float3(0.07f, 0.26f, 0.27f);
                     // Deep ocean: rich oceanic midnight navy
-                    float3 crystalDeep   = float3(0.01f, 0.06f, 0.22f);
+                    float3 crystalDeep   = float3(0.008f, 0.050f, 0.085f);
 
                     // Use BLURRED depth factor so colour gradient is soft across column boundaries
                     float3 waterBodyColor = mix(crystalShallow, crystalDeep, depthFactor);
@@ -713,16 +735,16 @@ kernel void prisma_deferred_cs(
                     // Seabed tinted by Beer-Lambert absorption + a faint cyan overlay in shallow areas
                     // so the bottom looks teal/cyan rather than raw seabed colour.
                     float3 seabedFiltered = albedo.rgb * transmitted;
-                    float3 cyanOverlay = float3(0.12f, 0.72f, 0.82f);
-                    seabedFiltered = mix(seabedFiltered, cyanOverlay * seabedFiltered, 0.40f * (1.0f - depthFactor));
+                    float3 cyanOverlay = float3(0.45f, 0.85f, 0.80f);
+                    seabedFiltered = mix(seabedFiltered, cyanOverlay * seabedFiltered, 0.30f * (1.0f - depthFactor));
                     albedo.rgb = mix(seabedFiltered, waterBodyColor, waterOpacity);
 
                     // === Visible Gerstner Waves on Water Surface ===
                     // (Diffuse wave shading is automatically handled by baseLighting via surfNormal)
                     // We only add the intense specular sun/moon glint to the reflections!
                     float3 halfVec = normalize(celestialDir - viewDir);
-                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 90.0f);
-                    float3 waveGlint = celestialDirectCol * (waveSpec * 1.5f) * celestialShadow * skyLevel;
+                    float waveSpec = pow(saturate(dot(surfNormal, halfVec)), 260.0f);
+                    float3 waveGlint = celestialDirectCol * (waveSpec * 2.2f) * celestialShadow * skyLevel;
                     
                     accumulatedScene += waveGlint;
 
@@ -743,16 +765,20 @@ kernel void prisma_deferred_cs(
                 }
                 
                 reflectionCol = accumulatedScene + specPoints * (isMetal ? 0.3f : 0.8f);
+                if (any(isnan(reflectionCol)) || any(isinf(reflectionCol))) {
+                    reflectionCol = actualSky * (sunWeight * 0.85f + 0.15f) * saturate(skyLevel * 2.0f);
+                }
                 reflectFactor = isWater ? saturate(fresnel * 0.85f + 0.08f) : (isPolished ? saturate(fresnel * 0.25f) : (isPuddle ? saturate(fresnel * 0.90f + 0.05f) : saturate(fresnel)));
               }
 
               bool isEmissiveBlock = (insideVox.x & 8) != 0;
               if (isEmissiveBlock) {
-                float emStr = isMetal ? 1.15f : 1.6f;
-                baseLighting = max(baseLighting, float3(emStr));
+                float emStr = isMetal ? 1.15f : 1.25f; // Slight tuning down so colors don't bloom to white
+                // Replace baseLighting entirely so the block isn't blown out by its own internal point light
+                baseLighting = float3(emStr);
               }
 
-              float3 baseLit = albedo.rgb * baseLighting;
+              float3 baseLit = albedo.rgb * (isGlass ? max(baseLighting, float3(1.0f)) : baseLighting);
               float3 litRgb = baseLit;
               if ((isWater || isMetal || isGlass || isPolished || isPuddle) && settings.reflectionsEnabled > 0.5f) {
                 litRgb = mix(baseLit, reflectionCol, reflectFactor);
@@ -821,8 +847,9 @@ kernel void prisma_deferred_cs(
               
               // --- Ray Traced Volumetric Fog Scattering ---
                   // Volumetrics are rendered at half resolution
-                  uint2 halfGid = uint2(gid.x / 2, gid.y / 2);
-                  float3 volumetricFog = volumetricsTexture.read(halfGid).rgb;
+                  float3 volumetricFog = volumetricsTexture.sample(smp, uv).rgb;
+                   if (any(isnan(volumetricFog)) || any(isinf(volumetricFog))) volumetricFog = float3(0.0f);
+                   volumetricFog = min(volumetricFog, float3(8.0f));
 
                   litRgb += volumetricFog;
 
@@ -831,13 +858,22 @@ kernel void prisma_deferred_cs(
               // Preserves Minecraft's vibrant colors (lush green grass, deep blue sky, rich sunset)
               // with zero grey veil and no harsh black crushing in shadows.
               {
-                  float exposure = mix(1.18f, 1.00f, sunsetFactor * sunWeight);
-                  float saturationBoost = mix(1.28f, 1.40f, sunsetFactor * sunWeight);
+                  float exposure = mix(0.95f, 0.90f, sunsetFactor * sunWeight);
+                  float saturationBoost = mix(1.08f, 1.15f, sunsetFactor * sunWeight);
                   
                   if (isnan(litRgb.x) || isnan(litRgb.y) || isnan(litRgb.z) || isinf(litRgb.x) || isinf(litRgb.y) || isinf(litRgb.z)) {
-                      litRgb = float3(0.0f);
+                      litRgb = (any(isnan(baseLit)) || any(isinf(baseLit))) ? albedo.rgb * 0.45f : baseLit;
                   }
-                  litRgb = settings.hdrEnabled > 0.5f ? (litRgb * exposure) : lumaPreservingFilmic(litRgb, exposure, saturationBoost);
+                  if (settings.hdrEnabled > 0.5f) {
+                      // True HDR displays want extended linear or gently compressed highlights, not hard clipping at 2.2
+                      float maxVal = max(litRgb.r, max(litRgb.g, litRgb.b));
+                      if (maxVal > 8.0f) {
+                          litRgb *= (8.0f + (maxVal - 8.0f) * 0.15f) / maxVal;
+                      }
+                      litRgb *= exposure;
+                  } else {
+                      litRgb = lumaPreservingFilmic(litRgb, exposure, saturationBoost);
+                  }
 
 
                   // Subtle golden hour warm grade on midtones
